@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-labelledby="title desc">
+  <title id="title">Dark road scene</title>
+  <desc id="desc">A person walking on a dim road with a small streetlight.</desc>
+  <rect width="320" height="180" fill="#eef5f3"/>
+  <path d="M0 134 C72 116 130 112 320 126 L320 180 L0 180 Z" fill="#5f6f6b"/>
+  <path d="M104 180 L146 112 L188 180 Z" fill="#3f4b49"/>
+  <path d="M146 112 L155 112 L206 180 L188 180 Z" fill="#65706f" opacity=".55"/>
+  <rect x="230" y="42" width="7" height="88" rx="3.5" fill="#356f66"/>
+  <path d="M234 44 C220 51 211 62 207 78" fill="none" stroke="#356f66" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="207" cy="80" r="15" fill="#f4cf6a"/>
+  <circle cx="207" cy="80" r="34" fill="#f4cf6a" opacity=".22"/>
+  <circle cx="95" cy="92" r="13" fill="#22252a"/>
+  <path d="M95 106 L92 140" stroke="#22252a" stroke-width="8" stroke-linecap="round"/>
+  <path d="M92 119 L72 134" stroke="#22252a" stroke-width="7" stroke-linecap="round"/>
+  <path d="M94 140 L78 166" stroke="#22252a" stroke-width="7" stroke-linecap="round"/>
+  <path d="M97 140 L113 164" stroke="#22252a" stroke-width="7" stroke-linecap="round"/>
+</svg>

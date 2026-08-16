@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-labelledby="title desc">
+  <title id="title">Dry plant scene</title>
+  <desc id="desc">A wilted plant in a dry pot beside a small water drop.</desc>
+  <rect width="320" height="180" fill="#fbfbf8"/>
+  <ellipse cx="160" cy="158" rx="78" ry="12" fill="#dfe3df"/>
+  <path d="M116 84 H204 L192 154 H128 Z" fill="#c98d62"/>
+  <path d="M126 99 H194" stroke="#9b6748" stroke-width="8" stroke-linecap="round"/>
+  <path d="M158 92 C148 74 134 66 113 70" fill="none" stroke="#356f66" stroke-width="7" stroke-linecap="round"/>
+  <path d="M164 92 C179 74 196 66 213 72" fill="none" stroke="#356f66" stroke-width="7" stroke-linecap="round"/>
+  <path d="M160 92 L160 132" stroke="#356f66" stroke-width="7" stroke-linecap="round"/>
+  <path d="M111 70 C96 83 98 101 118 105 C132 93 130 77 111 70 Z" fill="#85a887"/>
+  <path d="M213 72 C230 84 229 101 209 107 C195 96 197 79 213 72 Z" fill="#85a887"/>
+  <path d="M160 132 C147 123 137 124 128 135" fill="none" stroke="#7d8388" stroke-width="5" stroke-linecap="round"/>
+  <path d="M160 132 C173 122 184 124 193 136" fill="none" stroke="#7d8388" stroke-width="5" stroke-linecap="round"/>
+  <path d="M242 54 C257 76 257 90 242 99 C227 90 227 76 242 54 Z" fill="#7fb6d6"/>
+</svg>

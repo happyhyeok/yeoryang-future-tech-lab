@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-labelledby="title desc">
+  <title id="title">Too hot or cold scene</title>
+  <desc id="desc">A room split between warm and cold conditions with a thermometer.</desc>
+  <rect width="320" height="180" fill="#fbfbf8"/>
+  <path d="M0 0 H160 V180 H0 Z" fill="#f6e4d8"/>
+  <path d="M160 0 H320 V180 H160 Z" fill="#e1eef5"/>
+  <circle cx="72" cy="58" r="24" fill="#e9865f"/>
+  <path d="M72 20 V6 M72 110 V96 M34 58 H20 M124 58 H110 M45 31 L34 20 M110 96 L99 85 M110 20 L99 31 M45 85 L34 96" stroke="#e9865f" stroke-width="7" stroke-linecap="round"/>
+  <path d="M238 32 V90" stroke="#7fb6d6" stroke-width="7" stroke-linecap="round"/>
+  <path d="M213 47 L263 75 M263 47 L213 75 M213 61 H263" stroke="#7fb6d6" stroke-width="6" stroke-linecap="round"/>
+  <rect x="143" y="48" width="34" height="82" rx="17" fill="#ffffff" stroke="#4f5c59" stroke-width="5"/>
+  <rect x="154" y="62" width="12" height="49" rx="6" fill="#e9865f"/>
+  <circle cx="160" cy="121" r="15" fill="#e9865f"/>
+  <path d="M160 52 V34" stroke="#4f5c59" stroke-width="5" stroke-linecap="round"/>
+  <path d="M160 146 V162" stroke="#4f5c59" stroke-width="5" stroke-linecap="round"/>
+</svg>

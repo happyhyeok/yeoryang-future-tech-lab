@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-labelledby="title desc">
+  <title id="title">Lost things scene</title>
+  <desc id="desc">A desk with scattered school items and keys.</desc>
+  <rect width="320" height="180" fill="#eef5f3"/>
+  <rect x="52" y="68" width="216" height="76" rx="10" fill="#d6b28a"/>
+  <rect x="70" y="84" width="64" height="42" rx="5" fill="#ffffff"/>
+  <path d="M80 96 H124 M80 108 H118" stroke="#7d8388" stroke-width="4" stroke-linecap="round"/>
+  <rect x="152" y="80" width="44" height="56" rx="8" fill="#356f66"/>
+  <circle cx="174" cy="98" r="10" fill="#eef5f3"/>
+  <path d="M222 104 C231 94 249 97 252 111 C254 123 242 132 231 126" fill="none" stroke="#4f5c59" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="222" cy="104" r="9" fill="none" stroke="#4f5c59" stroke-width="6"/>
+  <path d="M250 112 H278 M265 112 V124 M275 112 V120" stroke="#4f5c59" stroke-width="6" stroke-linecap="round"/>
+  <path d="M91 146 L76 166 M232 146 L248 166" stroke="#8c664b" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="48" cy="44" r="12" fill="#f4cf6a"/>
+  <circle cx="270" cy="42" r="9" fill="#f4cf6a"/>
+</svg>

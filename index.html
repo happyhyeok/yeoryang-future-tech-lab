@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>연구소 지도 | 내일을 바꾸는 미래기술 연구소</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="research-days.js" defer></script>
+    <script src="runtime-config.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="app-header" aria-label="프로젝트 정보">
+        <div>
+          <p class="project-name">내일을 바꾸는 미래기술 연구소</p>
+          <p class="header-current" data-header-current></p>
+        </div>
+        <div class="app-header__meta">
+          <div class="student-control">
+            <span class="student-name" data-student-name></span>
+            <button class="change-student-button" type="button" data-change-student>연구원 바꾸기</button>
+          </div>
+          <p class="save-state" data-save-state></p>
+        </div>
+      </header>
+
+      <main>
+        <section class="identity-gate" data-identity-gate hidden></section>
+
+        <div data-lab-shell>
+          <section class="page-heading" aria-labelledby="page-title">
+            <h1 id="page-title">연구소 지도</h1>
+            <p class="current-location" data-current-location></p>
+          </section>
+
+          <section class="project-intro" data-project-intro hidden></section>
+          <section class="phase-notice" data-phase-notice hidden></section>
+          <section class="special-notice" data-special-notice hidden></section>
+
+          <section class="research-map" aria-label="전체 연구일">
+            <div data-research-days></div>
+          </section>
+
+          <div class="standard-day" data-standard-day hidden></div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

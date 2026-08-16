@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-labelledby="title desc">
+  <title id="title">Pet waiting scene</title>
+  <desc id="desc">A pet waiting in a quiet room near a door.</desc>
+  <rect width="320" height="180" fill="#eef5f3"/>
+  <rect x="210" y="34" width="62" height="116" rx="5" fill="#b18b6b"/>
+  <circle cx="257" cy="92" r="5" fill="#f4cf6a"/>
+  <ellipse cx="140" cy="142" rx="70" ry="12" fill="#dfe3df"/>
+  <ellipse cx="140" cy="111" rx="41" ry="30" fill="#8f785f"/>
+  <circle cx="106" cy="91" r="24" fill="#8f785f"/>
+  <path d="M91 76 L78 57 L101 69 Z" fill="#8f785f"/>
+  <path d="M119 76 L132 57 L113 70 Z" fill="#8f785f"/>
+  <circle cx="98" cy="91" r="4" fill="#22252a"/>
+  <circle cx="115" cy="91" r="4" fill="#22252a"/>
+  <path d="M105 102 C111 108 118 107 123 101" fill="none" stroke="#22252a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M178 111 C213 94 218 133 184 129" fill="none" stroke="#8f785f" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="74" cy="54" r="9" fill="#f4cf6a"/>
+  <circle cx="88" cy="38" r="5" fill="#f4cf6a"/>
+</svg>
