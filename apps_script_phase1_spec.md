@@ -351,6 +351,8 @@ mimeType = video/webm 또는 video/mp4
 
 MediaRecorder 녹화 MIME은 `video/webm;codecs=vp9`처럼 codec parameter를 포함할 수 있다. Apps Script `uploadVideo`, Drive Blob 생성, Asset 저장 단계에서는 `video/webm` 또는 `video/mp4` base MIME으로 정규화한다.
 
+Day01 Drive 영상 저장 Apps Script manifest에는 `spreadsheets`, `drive`, `userinfo.email` OAuth scope가 필요하다. 운영 전 `verifyVideoStorage()`로 root folder 접근, 쓰기, 링크 공유, probe 파일 휴지통 처리를 확인한다.
+
 Day01 MakeCode URL은 다음만 허용한다.
 
 ```text

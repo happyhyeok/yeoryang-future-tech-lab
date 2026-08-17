@@ -421,6 +421,8 @@ too_large       // 6MB 초과로 업로드 차단
 
 학생 영상은 기존 Apps Script `/exec` Web App의 `uploadVideo` action으로 업로드합니다. 새 Apps Script 프로젝트나 별도 업로드 endpoint를 만들지 않습니다.
 
+Day01 Drive 영상 저장에는 Apps Script manifest의 `spreadsheets`, `drive`, `userinfo.email` OAuth scope가 필요합니다. 운영 반영 전에는 `verifyVideoStorage()`로 root folder 접근, 폴더명, probe 파일 쓰기, `ANYONE_WITH_LINK` 공유 설정, probe 파일 휴지통 처리를 확인합니다.
+
 업로드 payload:
 - `studentId`, `workId`, `dayId`
 - `assetId`: `asset_{studentId}_day01_video`

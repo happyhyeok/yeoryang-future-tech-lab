@@ -263,12 +263,15 @@ function verifyVideoStorage() {
     actualFolderName: "",
     nameMatches: false,
     canWrite: false,
+    canShareWithLink: false,
     probeFileTrashed: false,
     effectiveUser:
       typeof Session !== "undefined" && Session.getEffectiveUser
         ? Session.getEffectiveUser().getEmail()
         : "",
+    error: "",
   };
+  let probe = null;
 
   try {
     const root = DriveApp.getFolderById(FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_ID);
@@ -281,15 +284,46 @@ function verifyVideoStorage() {
     );
 
     const probeName = "verify_" + FUTURELAB_CONFIG.PROJECT_ID + "_video_storage.txt";
-    const probe = root.createFile(
+    probe = root.createFile(
       Utilities.newBlob("video storage permission check", "text/plain", probeName)
     );
     report.canWrite = true;
-    probe.setTrashed(true);
-    report.probeFileTrashed = true;
-    report.ok = true;
+
+    probe.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const sharingAccessMatches =
+      typeof probe.getSharingAccess !== "function" ||
+      probe.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK;
+    const sharingPermissionMatches =
+      typeof probe.getSharingPermission !== "function" ||
+      probe.getSharingPermission() === DriveApp.Permission.VIEW;
+    report.canShareWithLink = Boolean(sharingAccessMatches && sharingPermissionMatches);
+    assertApi_(
+      report.canShareWithLink,
+      "VIDEO_STORAGE_SHARING_FAILED",
+      "영상 probe 파일의 링크 공유 설정을 확인할 수 없습니다."
+    );
   } catch (error) {
     report.error = error && error.message ? error.message : String(error);
+  } finally {
+    if (probe) {
+      try {
+        probe.setTrashed(true);
+        report.probeFileTrashed = true;
+      } catch (cleanupError) {
+        const cleanupMessage =
+          cleanupError && cleanupError.message ? cleanupError.message : String(cleanupError);
+        report.error = report.error
+          ? report.error + " / probe cleanup failed: " + cleanupMessage
+          : "probe cleanup failed: " + cleanupMessage;
+      }
+    }
+
+    report.ok = Boolean(
+      report.nameMatches &&
+        report.canWrite &&
+        report.canShareWithLink &&
+        report.probeFileTrashed
+    );
   }
 
   console.log(JSON.stringify(report, null, 2));
