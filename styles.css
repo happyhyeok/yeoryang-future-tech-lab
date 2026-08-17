@@ -140,6 +140,41 @@ select:focus-visible,
   font-size: 14px;
 }
 
+.save-state[data-save-tone="failed"] {
+  color: #8a3c2f;
+}
+
+.save-state--floating {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 30;
+  max-width: min(282px, calc(100vw - 36px));
+  min-height: 38px;
+  margin: 0;
+  border: 1px solid rgba(53, 111, 102, 0.18);
+  border-radius: 8px;
+  padding: 7px 11px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 22px rgba(34, 37, 42, 0.1);
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.save-state--floating[data-save-tone="saved"] {
+  opacity: 0.78;
+  transform: scale(0.98);
+  transform-origin: right bottom;
+}
+
+.save-state--floating[data-save-tone="failed"] {
+  border-color: rgba(138, 60, 47, 0.36);
+  background: #fff8f6;
+  opacity: 1;
+}
+
 .retry-save-button {
   border: 0;
   padding: 0;
@@ -2326,6 +2361,13 @@ select:focus-visible,
 
   .student-name {
     white-space: normal;
+  }
+
+  .save-state--floating {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
+    max-width: min(258px, calc(100vw - 28px));
+    font-size: 13px;
   }
 
   .identity-gate__heading h1 {

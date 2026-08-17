@@ -42,9 +42,9 @@
   const DAY01_SERVER_TIMEOUT_MS = 8000;
   const DAY01_SERVER_SAVE_DEBOUNCE_MS = 1200;
   const SAVE_STATUS = {
-    saving: "저장 중...",
+    saving: "⟳ 저장 중...",
     saved: "✓ 저장됨",
-    failed: "저장하지 못했어요",
+    failed: "⚠ 저장하지 못했어요",
     localSaved: "기기에 저장됨",
     localFailed: "기기에 저장하지 못했어요",
   };
@@ -82,6 +82,7 @@
     changeStudent: document.querySelector("[data-change-student]"),
     headerCurrent: document.querySelector("[data-header-current]"),
     saveState: document.querySelector("[data-save-state]"),
+    saveStates: Array.from(document.querySelectorAll("[data-save-state]")),
     location: document.querySelector("[data-current-location]"),
     intro: document.querySelector("[data-project-intro]"),
     phaseNotice: document.querySelector("[data-phase-notice]"),
@@ -2038,36 +2039,66 @@
     renderSaveState();
   }
 
+  function getSaveStateTone(status, options = {}) {
+    if (
+      options.retry ||
+      options.retryVideo ||
+      status.includes("못했") ||
+      status.includes("실패")
+    ) {
+      return "failed";
+    }
+
+    if (status.includes("저장 중") || status.includes("기록 저장 중")) {
+      return "saving";
+    }
+
+    if (status.includes("저장됨") || status.includes("저장 완료")) {
+      return "saved";
+    }
+
+    return "notice";
+  }
+
   function renderSaveState(status = "", options = {}) {
-    if (!elements.saveState) {
+    const saveStateViews = elements.saveStates.length
+      ? elements.saveStates
+      : [elements.saveState].filter(Boolean);
+
+    if (!saveStateViews.length) {
       return;
     }
 
-    elements.saveState.replaceChildren();
+    saveStateViews.forEach((saveState) => {
+      saveState.replaceChildren();
 
-    if (!status) {
-      elements.saveState.hidden = true;
-      return;
-    }
-
-    const statusText = document.createElement("span");
-    statusText.textContent = status;
-    elements.saveState.appendChild(statusText);
-
-    if ((options.retry || options.retryVideo) && isDay01Active() && isDay01ServerSyncEnabled()) {
-      const retryButton = document.createElement("button");
-      retryButton.className = "retry-save-button";
-      retryButton.type = "button";
-      if (options.retryVideo) {
-        retryButton.dataset.retryVideoUpload = "true";
-      } else {
-        retryButton.dataset.retryServerSave = "true";
+      if (!status) {
+        saveState.hidden = true;
+        delete saveState.dataset.saveTone;
+        return;
       }
-      retryButton.textContent = "다시 저장";
-      elements.saveState.appendChild(retryButton);
-    }
 
-    elements.saveState.hidden = false;
+      saveState.dataset.saveTone = getSaveStateTone(status, options);
+
+      const statusText = document.createElement("span");
+      statusText.textContent = status;
+      saveState.appendChild(statusText);
+
+      if ((options.retry || options.retryVideo) && isDay01Active() && isDay01ServerSyncEnabled()) {
+        const retryButton = document.createElement("button");
+        retryButton.className = "retry-save-button";
+        retryButton.type = "button";
+        if (options.retryVideo) {
+          retryButton.dataset.retryVideoUpload = "true";
+        } else {
+          retryButton.dataset.retryServerSave = "true";
+        }
+        retryButton.textContent = "다시 저장";
+        saveState.appendChild(retryButton);
+      }
+
+      saveState.hidden = false;
+    });
   }
 
   function renderServerSaveFailed() {
@@ -7642,7 +7673,9 @@
 
     elements.identityGate.addEventListener("click", handleIdentityGateClick);
     elements.changeStudent.addEventListener("click", handleChangeStudent);
-    elements.saveState.addEventListener("click", handleSaveStateClick);
+    elements.saveStates.forEach((saveState) => {
+      saveState.addEventListener("click", handleSaveStateClick);
+    });
     elements.researchDays.addEventListener("click", (event) => {
       if (!event.target.closest("[data-start-research]")) {
         return;
