@@ -349,6 +349,8 @@ storageUrl = https://drive.google.com/file/d/{storageFileId}/preview
 mimeType = video/webm 또는 video/mp4
 ```
 
+MediaRecorder 녹화 MIME은 `video/webm;codecs=vp9`처럼 codec parameter를 포함할 수 있다. Apps Script `uploadVideo`, Drive Blob 생성, Asset 저장 단계에서는 `video/webm` 또는 `video/mp4` base MIME으로 정규화한다.
+
 Day01 MakeCode URL은 다음만 허용한다.
 
 ```text

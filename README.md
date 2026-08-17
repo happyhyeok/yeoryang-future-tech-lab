@@ -430,6 +430,8 @@ too_large       // 6MB 초과로 업로드 차단
 - `base64Data`
 - `uploadVideoEvidence(blob, metadata)`
 
+MediaRecorder는 `video/webm;codecs=vp9`처럼 codec parameter가 포함된 MIME으로 녹화할 수 있습니다. 업로드 payload, Apps Script 검증, Drive Blob, Asset `mimeType`은 이를 `video/webm` 또는 `video/mp4` base MIME으로 정규화해 저장합니다.
+
 업로드 metadata에는 `requestId`, `studentId`, `workId`, `dayId`가 포함됩니다. `requestId`는 `crypto.randomUUID()`를 우선 사용하고, 미지원 시 fallback을 사용합니다.
 
 업로드 중복 방지:
@@ -456,6 +458,8 @@ too_large       // 6MB 초과로 업로드 차단
 - 업로드 성공 후 DayRecord 저장 중: `영상 기록 저장 중...`
 - Drive 업로드 + Asset 저장 + DayRecord 저장 성공 후: `✓ 저장됨`
 - 실패: `저장하지 못했어요`
+
+상단 save-state는 영상 상태를 일반 DayRecord 자동저장 성공보다 우선합니다. 우선순위는 업로드 중, 업로드 실패, 크기 초과, 촬영만 완료하고 미저장, 영구저장 완료 순서입니다.
 
 증거함 영상 카드는 현재 브라우저 세션의 로컬 녹화 URL 또는 `videoPersisted=true`인 Drive preview URL이 있으면 완료 스타일을 적용합니다.
 

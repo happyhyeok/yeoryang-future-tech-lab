@@ -1626,14 +1626,62 @@
     waiters.forEach((resolve) => resolve(ok));
   }
 
-  function shouldHoldSavedLabelForPendingVideo(request) {
-    return Boolean(
-      isServerSaveRequestCurrent(request) &&
-        day01RecordedBlob &&
-        activeDayState &&
-        activeDayState.captureStatus === "recorded" &&
-        !hasPersistentVideoReference(activeDayState)
-    );
+  function getPendingVideoSaveNotice(request) {
+    if (request && !isServerSaveRequestCurrent(request)) {
+      return null;
+    }
+
+    if (
+      !isDay01Active() ||
+      !activeDayState ||
+      activeDayState.captureStatus !== "recorded" ||
+      hasPersistentVideoReference(activeDayState)
+    ) {
+      return null;
+    }
+
+    const storageStatus = activeDayState.storageStatus;
+
+    if (day01UploadInFlight || storageStatus === "pending_upload") {
+      return {
+        status: "영상 저장 중...",
+        options: {},
+      };
+    }
+
+    if (storageStatus === "failed") {
+      return {
+        status: SAVE_STATUS.failed,
+        options: { retryVideo: Boolean(day01RecordedBlob) },
+      };
+    }
+
+    if (storageStatus === "too_large") {
+      return {
+        status: "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요.",
+        options: {},
+      };
+    }
+
+    if (!day01RecordedBlob) {
+      return null;
+    }
+
+    return {
+      status: "영상이 아직 저장되지 않았습니다.",
+      options: {},
+    };
+  }
+
+  function renderSaveStateWithVideoPriority(status, options = {}, request) {
+    const videoNotice = getPendingVideoSaveNotice(request);
+
+    if (videoNotice) {
+      renderSaveState(videoNotice.status, videoNotice.options);
+      return;
+    }
+
+    renderSaveState(status, options);
   }
 
   function getStorageKeyForStudent(studentId, dayId) {
@@ -1764,11 +1812,7 @@
       slot.lastFlushOk = true;
 
       if (updatedAt && applyServerSaveSuccess(request, updatedAt)) {
-        renderSaveState(
-          shouldHoldSavedLabelForPendingVideo(request)
-            ? "영상이 아직 저장되지 않았습니다."
-            : SAVE_STATUS.saved
-        );
+        renderSaveStateWithVideoPriority(SAVE_STATUS.saved, {}, request);
       } else if (isServerSaveRequestCurrent(request) && activeDayState.serverSyncPending) {
         renderServerSaveFailed();
       }
@@ -1832,7 +1876,9 @@
       }
 
       window.localStorage.setItem(storageKey, JSON.stringify(activeDayState));
-      renderSaveState(isDay01ServerSyncEnabled() ? status : SAVE_STATUS.localSaved);
+      renderSaveStateWithVideoPriority(
+        isDay01ServerSyncEnabled() ? status : SAVE_STATUS.localSaved
+      );
       return queueDay01ServerSave(activeDay, activeDayState, {
         immediate: options.server === "immediate",
         waitForFlush: options.waitForServer === true,
@@ -1867,7 +1913,7 @@
     syncDay01UiFromState();
   }
 
-  function updateDay01RuntimeState(mutator, status) {
+  function updateDay01RuntimeState(mutator, status, options = {}) {
     if (!isDay01Active()) {
       return;
     }
@@ -1877,7 +1923,7 @@
     writeDayStateToLocalStorage(activeDay, activeDayState);
 
     if (status !== undefined) {
-      renderSaveState(status);
+      renderSaveState(status, options);
     }
 
     syncDay01UiFromState();
@@ -2008,11 +2054,15 @@
     statusText.textContent = status;
     elements.saveState.appendChild(statusText);
 
-    if (options.retry && isDay01Active() && isDay01ServerSyncEnabled()) {
+    if ((options.retry || options.retryVideo) && isDay01Active() && isDay01ServerSyncEnabled()) {
       const retryButton = document.createElement("button");
       retryButton.className = "retry-save-button";
       retryButton.type = "button";
-      retryButton.dataset.retryServerSave = "true";
+      if (options.retryVideo) {
+        retryButton.dataset.retryVideoUpload = "true";
+      } else {
+        retryButton.dataset.retryServerSave = "true";
+      }
       retryButton.textContent = "다시 저장";
       elements.saveState.appendChild(retryButton);
     }
@@ -2021,7 +2071,7 @@
   }
 
   function renderServerSaveFailed() {
-    renderSaveState(SAVE_STATUS.failed, { retry: true });
+    renderSaveStateWithVideoPriority(SAVE_STATUS.failed, { retry: true });
   }
 
   function retryDay01ServerSave() {
@@ -2034,6 +2084,11 @@
   }
 
   function handleSaveStateClick(event) {
+    if (event.target.closest("[data-retry-video-upload]")) {
+      useDay01Recording();
+      return;
+    }
+
     if (event.target.closest("[data-retry-server-save]")) {
       retryDay01ServerSave();
     }
@@ -4091,6 +4146,16 @@
     } catch (error) {
       return "";
     }
+  }
+
+  function getBaseVideoMimeType(value) {
+    const mimeType = String(value || "")
+      .trim()
+      .toLowerCase()
+      .split(";")[0]
+      .trim();
+
+    return mimeType === "video/mp4" || mimeType === "video/webm" ? mimeType : "";
   }
 
   function isVideoEvidenceComplete(state = activeDayState) {
@@ -6242,17 +6307,22 @@
       recordedVideo.hidden = false;
     }
 
-    updateDay01RuntimeState((state) => {
-      setVideoState(state, {
-        captureStatus: "recorded",
-        storageStatus: blob.size > DAY01_MAX_VIDEO_BYTES ? "too_large" : "not_configured",
-        ingestMethod: "",
-      });
-      state.videoUploadError =
-        blob.size > DAY01_MAX_VIDEO_BYTES
-          ? "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요."
-          : "";
-    }, "영상 촬영 완료");
+    updateDay01RuntimeState(
+      (state) => {
+        setVideoState(state, {
+          captureStatus: "recorded",
+          storageStatus: blob.size > DAY01_MAX_VIDEO_BYTES ? "too_large" : "not_configured",
+          ingestMethod: "",
+        });
+        state.videoUploadError =
+          blob.size > DAY01_MAX_VIDEO_BYTES
+            ? "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요."
+            : "";
+      },
+      blob.size > DAY01_MAX_VIDEO_BYTES
+        ? "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요."
+        : "영상이 아직 저장되지 않았습니다."
+    );
     day01Recorder = null;
     day01RecorderContext = null;
   }
@@ -6311,6 +6381,8 @@
       throw error;
     }
 
+    const normalizedMimeType =
+      getBaseVideoMimeType(metadata.mimeType || blob.type) || "video/webm";
     const base64Data = await blobToBase64(blob);
     const data = await callAppsScriptApi("uploadVideo", {
       timeoutMs: DAY01_UPLOAD_TIMEOUT_MS,
@@ -6321,7 +6393,7 @@
         dayId: metadata.dayId,
         assetId: metadata.assetId,
         blockId: metadata.blockId || "block03",
-        mimeType: blob.type || metadata.mimeType || "video/webm",
+        mimeType: normalizedMimeType,
         capturedAt: metadata.capturedAt,
         base64Data,
       },
@@ -6336,11 +6408,24 @@
       playbackUrl,
       storageUrl: getSafePlaybackUrl(data.storageUrl || data.playbackUrl),
       fileName: data.fileName || "",
-      mimeType: data.mimeType || blob.type || metadata.mimeType || "video/webm",
+      mimeType: data.mimeType || normalizedMimeType,
       capturedAt: data.capturedAt || metadata.capturedAt || "",
       storageStatus: playbackUrl ? "playback_ready" : "stored",
       ingestMethod: "auto_drive",
     };
+  }
+
+  function logVideoUploadFailure(error, metadata) {
+    console.warn("video upload failed", {
+      action: "uploadVideo",
+      studentId: metadata.studentId,
+      dayId: metadata.dayId,
+      blobSize: metadata.blobSize,
+      blobType: metadata.blobType,
+      normalizedMimeType: metadata.normalizedMimeType,
+      errorCode: error && error.code ? error.code : "",
+      errorMessage: error && error.message ? error.message : "",
+    });
   }
 
   async function useDay01Recording() {
@@ -6373,13 +6458,14 @@
           storageStatus: "too_large",
           ingestMethod: "",
         });
-      }, SAVE_STATUS.failed);
+      }, "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요.");
       setVideoStatus("영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요.");
       return;
     }
 
     const uploadBlob = day01RecordedBlob;
-    const uploadMimeType = uploadBlob.type || selectRecorderMimeType() || "video/webm";
+    const originalUploadMimeType = uploadBlob.type || selectRecorderMimeType() || "video/webm";
+    const uploadMimeType = getBaseVideoMimeType(originalUploadMimeType) || "video/webm";
     const capturedAt = new Date().toISOString();
 
     day01UploadInFlight = true;
@@ -6390,7 +6476,7 @@
         storageStatus: "pending_upload",
         ingestMethod: "auto_drive",
       });
-    }, "영상 저장 시도");
+    }, "영상 저장 중...");
 
     try {
       const requestId = createRequestId();
@@ -6444,20 +6530,32 @@
         setVideoStatus("영상은 Drive에 저장됐지만 연구 기록 저장을 다시 시도해야 합니다.");
       }
     } catch (error) {
-      console.warn("video upload failed", error);
-      updateDay01RuntimeState((state) => {
-        state.videoUploadError =
-          error && error.code === "VIDEO_TOO_LARGE"
+      const isTooLargeError = error && error.code === "VIDEO_TOO_LARGE";
+      logVideoUploadFailure(error, {
+        studentId: uploadContext.studentId,
+        dayId: uploadContext.dayId,
+        blobSize: uploadBlob.size,
+        blobType: originalUploadMimeType,
+        normalizedMimeType: uploadMimeType,
+      });
+      updateDay01RuntimeState(
+        (state) => {
+          state.videoUploadError = isTooLargeError
             ? "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요."
             : "영상 저장하지 못했어요. 새로고침하기 전에 다시 저장해 주세요.";
-        setVideoState(state, {
-          captureStatus: "recorded",
-          storageStatus: error && error.code === "VIDEO_TOO_LARGE" ? "too_large" : "failed",
-          ingestMethod: "auto_drive",
-        });
-      }, SAVE_STATUS.failed);
+          setVideoState(state, {
+            captureStatus: "recorded",
+            storageStatus: isTooLargeError ? "too_large" : "failed",
+            ingestMethod: "auto_drive",
+          });
+        },
+        isTooLargeError
+          ? "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요."
+          : SAVE_STATUS.failed,
+        { retryVideo: !isTooLargeError }
+      );
       setVideoStatus(
-        error && error.code === "VIDEO_TOO_LARGE"
+        isTooLargeError
           ? "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요."
           : "영상 저장하지 못했어요. 새로고침하기 전에 다시 저장해 주세요."
       );

@@ -68,12 +68,7 @@ function normalizeVideoUploadPayload_(payload) {
   const workId = assertId_(body.workId, "WORK_NOT_FOUND", "workId");
   const dayId = assertId_(body.dayId, "DAY_NOT_FOUND", "dayId");
   const assetId = assertId_(body.assetId, "ASSET_VALIDATION_ERROR", "assetId");
-  const mimeType = ensureAllowedValue_(
-    String(body.mimeType || "").trim(),
-    FUTURELAB_CONFIG.VIDEO_STORAGE.ALLOWED_MIME_TYPES,
-    "INVALID_VIDEO_MIME_TYPE",
-    "mimeType"
-  );
+  const mimeType = normalizeVideoMimeType_(body.mimeType);
   const expectedAssetId = "asset_" + studentId + "_" + dayId + "_video";
 
   validateStudent_(studentId);
@@ -99,13 +94,28 @@ function normalizeVideoUploadPayload_(payload) {
   };
 }
 
+function normalizeVideoMimeType_(value) {
+  const mimeType = String(value || "")
+    .trim()
+    .toLowerCase()
+    .split(";")[0]
+    .trim();
+
+  return ensureAllowedValue_(
+    mimeType,
+    FUTURELAB_CONFIG.VIDEO_STORAGE.ALLOWED_MIME_TYPES,
+    "INVALID_VIDEO_MIME_TYPE",
+    "mimeType"
+  );
+}
+
 function normalizeVideoBase64_(base64Data, mimeType) {
   let text = String(base64Data || "").trim();
-  const dataUrlMatch = text.match(/^data:([^;]+);base64,(.*)$/);
+  const dataUrlMatch = text.match(/^data:([^,]+);base64,(.*)$/);
 
   if (dataUrlMatch) {
     assertApi_(
-      dataUrlMatch[1] === mimeType,
+      normalizeVideoMimeType_(dataUrlMatch[1]) === mimeType,
       "INVALID_VIDEO_MIME_TYPE",
       "base64 데이터의 MIME type이 요청과 일치하지 않습니다."
     );
@@ -158,7 +168,12 @@ function estimateBase64ByteLength_(base64Data) {
 }
 
 function isAllowedVideoMimeType_(mimeType) {
-  return FUTURELAB_CONFIG.VIDEO_STORAGE.ALLOWED_MIME_TYPES.indexOf(mimeType) !== -1;
+  try {
+    normalizeVideoMimeType_(mimeType);
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 function assertValidDriveFileId_(fileId, label) {

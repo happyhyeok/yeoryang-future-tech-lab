@@ -57,6 +57,10 @@ function normalizeAssetPayload_(payload) {
     capturedAt: cleanFreeText_(body.capturedAt, FUTURELAB_CONFIG.LIMITS.TITLE, "capturedAt"),
   };
 
+  if (asset.assetType === "video") {
+    asset.mimeType = normalizeVideoMimeType_(asset.mimeType);
+  }
+
   validateStudent_(asset.ownerId);
   validateResearchDay_(asset.dayId);
   validateDay01MakeCodeAssetId_(
