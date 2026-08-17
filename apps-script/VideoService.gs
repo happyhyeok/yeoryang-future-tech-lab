@@ -256,6 +256,8 @@ function trashVideoFile_(fileId) {
 }
 
 function verifyVideoStorage() {
+  ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
+
   const report = {
     ok: false,
     rootFolderId: FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_ID,
