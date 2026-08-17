@@ -27,7 +27,7 @@
 
 이번 Day01 구조 동결 작업의 주요 수정 파일은 `research-days.js`, `app.js`, `styles.css`, `runtime-config.js`, `README.md`와 `apps-script/`입니다.
 
-로그인, 비밀번호, PIN, 인증코드, 회원가입, 학생번호 직접 입력은 구현하지 않았습니다. 현재 상태는 Day01 Apps Script Web App 배포·프론트 학생조회 연결 완료 / A/B Google Sheets E2E 검증 전입니다. Script Properties의 `SPREADSHEET_ID` 설정, `setupProject()` 실행, Apps Script Web App 배포, `ping`, `getStudents` 실제 학생 5명 조회는 완료되었습니다. Day01 저장·복원 A/B Google Sheets E2E, 실제 학생환경 시험, 영상 바이너리 Drive 업로드는 아직 연결 전입니다.
+로그인, 비밀번호, PIN, 인증코드, 회원가입, 학생번호 직접 입력은 구현하지 않았습니다. 현재 상태는 Day01 Apps Script Web App 배포·프론트 학생조회 연결 완료 / 실제 학생환경 시험 전입니다. Script Properties의 `SPREADSHEET_ID` 설정, `setupProject()` 실행, Apps Script Web App 배포, `ping`, `getStudents` 실제 학생 5명 조회는 완료되었습니다. Day01 영상은 Google Drive 업로드 코드와 Asset/DayRecord 복원 연결이 구현되어 있으며, 운영 배포 후 실제 학생환경 E2E 확인이 필요합니다.
 
 ## 연구원 확인/학생 식별
 
@@ -374,16 +374,21 @@ MakeCode 공유 링크 남기기
 ```text
 videoAssetId
 videoFileId
+videoStorageFileId
 videoPlaybackUrl
 videoStorageUrl   // 기존 데이터 호환용
+videoFileName
+videoMimeType
+videoCapturedAt
+videoPersisted
 ```
 
-연구 증거함의 `<video>`는 `videoPlaybackUrl`을 우선 사용합니다. 일반적인 Drive `/file/d/.../view` 주소는 Drive 웹페이지 주소이므로 `<video src>`로 사용하지 않습니다.
+연구 증거함은 같은 브라우저 세션의 로컬 Blob만 `<video>`로 재생합니다. Google Drive 영구 영상은 `https://drive.google.com/file/d/{fileId}/preview`를 iframe으로 렌더링합니다. 일반적인 Drive `/file/d/.../view` 주소는 Drive 웹페이지 주소이므로 저장/재생 URL로 사용하지 않습니다.
 
 같은 브라우저 세션에서는 서버 저장 전에도 다음 우선순위로 증거함에서 replay할 수 있습니다.
 
 ```text
-videoPlaybackUrl || day01RecordedUrl
+day01RecordedUrl || Drive preview URL
 ```
 
 서버 저장 전 로컬 영상은 같은 브라우저 세션에서만 재생 가능합니다. 새로고침하면 object URL은 사라지는 것이 정상입니다.
@@ -404,21 +409,26 @@ videoPlaybackUrl || day01RecordedUrl
 영상 저장 상태는 저장 여부와 재생 준비 여부를 분리합니다.
 
 ```text
-stored          // 파일 저장 완료, playback URL 없음
-playback_ready  // playback URL 있음
+stored          // 파일 저장 완료, preview URL 없음
+playback_ready  // Drive preview URL 있음
+failed          // 현재 세션 Blob은 있으나 업로드 실패
+too_large       // 6MB 초과로 업로드 차단
 ```
 
-기존 localStorage의 `uploaded` 값은 복원 시 `videoPlaybackUrl`이 있으면 `playback_ready`, 없으면 `stored`로 정규화합니다.
+기존 localStorage의 `uploaded` 값은 복원 시 `videoPlaybackUrl`이 있으면 `playback_ready`, 없으면 `stored`로 정규화합니다. 단, 새 영구 증거 참조는 `videoPersisted=true`와 Drive fileId/preview URL이 함께 있을 때만 인정합니다.
 
-## 8. 영상 업로드 adapter
+## 8. 영상 Drive 업로드
 
-아직 실제 Apps Script 영상 업로드 endpoint는 없습니다. 가짜 업로드 성공도 표시하지 않습니다.
+학생 영상은 기존 Apps Script `/exec` Web App의 `uploadVideo` action으로 업로드합니다. 새 Apps Script 프로젝트나 별도 업로드 endpoint를 만들지 않습니다.
 
-준비된 경계:
-- `CONFIG.videoUploadEndpoint`
-- `CONFIG.videoPlaybackResolveEndpoint`
+업로드 payload:
+- `studentId`, `workId`, `dayId`
+- `assetId`: `asset_{studentId}_day01_video`
+- `blockId`: `block03`
+- `mimeType`: `video/webm` 또는 `video/mp4`
+- `capturedAt`
+- `base64Data`
 - `uploadVideoEvidence(blob, metadata)`
-- `resolveVideoPlaybackUrl(fileId)`
 
 업로드 metadata에는 `requestId`, `studentId`, `workId`, `dayId`가 포함됩니다. `requestId`는 `crypto.randomUUID()`를 우선 사용하고, 미지원 시 fallback을 사용합니다.
 
@@ -428,33 +438,37 @@ playback_ready  // playback URL 있음
 - 화면 상태: `영상 저장 중...`
 
 업로드 timeout:
-- 기본 12초
+- 기본 45초
 - `AbortController` 지원 시 요청 중단
-- 실패 또는 timeout 시 `pending_teacher_upload` / `teacher_manual`
-- 학생 메시지: `자동 저장을 완료하지 못했습니다. 수업은 계속 진행하세요. 영상은 강사가 확인합니다.`
+- 실패 또는 timeout 시 현재 브라우저 세션 Blob은 유지
+- 학생 메시지: `영상 저장하지 못했어요. 새로고침하기 전에 다시 저장해 주세요.`
 
 영상 상태 메시지:
-- `playback_ready`: `영상 저장 완료 ✓`
+- `playback_ready`: `저장된 연구 영상이 있습니다.`
 - `stored`: `영상은 저장되었습니다. 재생 연결을 준비하고 있습니다.`
-- `pending_teacher_upload`: `자동 저장을 완료하지 못했습니다. 수업은 계속 진행하세요. 영상은 강사가 확인합니다.`
-- 로컬 촬영만 완료: `영상 촬영 완료. 이 영상을 사용하거나 다시 찍을 수 있습니다.`
+- `pending_upload`: `영상 저장 중...`
+- `failed`: `영상 저장하지 못했어요. 새로고침하기 전에 다시 저장해 주세요.`
+- `too_large`: `영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요.`
+- 로컬 촬영만 완료: `영상 촬영 완료. 이 영상을 저장하거나 다시 찍을 수 있습니다.`
 
 상단 save-state 메시지:
-- `playback_ready`: `영상 저장 완료`
-- `stored`: `영상 저장됨 · 재생 연결 준비 중`
-- `pending_teacher_upload` / 실패: `강사 보완 필요`
+- 업로드 중: `영상 저장 중...`
+- 업로드 성공 후 DayRecord 저장 중: `영상 기록 저장 중...`
+- Drive 업로드 + Asset 저장 + DayRecord 저장 성공 후: `✓ 저장됨`
+- 실패: `저장하지 못했어요`
 
-증거함 영상 카드는 촬영 완료, `stored`, `playback_ready`, `videoPlaybackUrl`, 현재 브라우저 세션의 로컬 녹화 URL 중 하나가 있으면 완료 스타일을 적용합니다.
+증거함 영상 카드는 현재 브라우저 세션의 로컬 녹화 URL 또는 `videoPersisted=true`인 Drive preview URL이 있으면 완료 스타일을 적용합니다.
 
 ## 9. 재촬영 처리
 
 `다시 찍기`는 현재 대표 영상 증거를 새 촬영으로 교체하려는 행동입니다.
 
 재촬영 시:
-- `videoAssetId`, `videoFileId`, `videoPlaybackUrl`, `videoStorageUrl` 초기화
+- 기존 Drive 영상 참조는 새 업로드 성공 전까지 유지
+- 새 촬영을 허용하기 위해 `videoRetakeInProgress`만 켬
 - 이전 대표 영상 참조는 `supersededVideoEvidence`에 보관
 - 클라이언트가 Drive 파일을 임의로 삭제하지 않음
-- 이전 대표 영상은 연구 증거함에서 더 이상 현재 영상으로 표시하지 않음
+- 새 영상 업로드와 Asset 메타데이터 교체가 성공한 뒤 서버가 이전 `storageFileId` 파일을 휴지통 처리
 - 로컬 Blob과 object URL을 제거하고, 카메라가 살아 있으면 `camera_ready`로 돌아감
 - 촬영 중에는 `촬영 시작`, `이 영상 사용`, `다시 찍기`를 실행하지 않음
 
@@ -468,7 +482,7 @@ playback_ready  // playback URL 있음
 
 강사용 기능에 별도의 접근 제한이 필요해지는 경우에는 학생 식별 기능과 분리된 운영 기능으로 별도 설계합니다.
 
-강사용 보완 입력은 일반 Drive view URL을 video src로 쓰지 않습니다. 현재 구조는 `Drive fileId → Apps Script playback URL 해결 → videoPlaybackUrl 저장`을 위한 adapter 경계만 제공합니다.
+강사용 보완 입력은 일반 Drive view URL을 video src로 쓰지 않습니다. fileId와 Drive preview URL이 있을 때만 `videoPersisted=true`로 저장하고, 학생 화면은 Drive preview iframe을 사용합니다.
 
 ## 11. 카드와 정렬 상호작용
 

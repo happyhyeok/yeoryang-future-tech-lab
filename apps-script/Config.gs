@@ -6,6 +6,9 @@ const FUTURELAB_CONFIG = {
   DEFAULT_DAY01_DATE: "2026-08-21",
   LIMITS: {
     REQUEST_BODY: 120000,
+    VIDEO_REQUEST_BODY: 8600000,
+    VIDEO_BYTES: 6 * 1024 * 1024,
+    VIDEO_BASE64_CHARS: 8400000,
     TEXT: 2000,
     URL: 2000,
     TITLE: 200,
@@ -75,6 +78,7 @@ const FUTURELAB_CONFIG = {
       "blockId",
       "title",
       "description",
+      "storageFileId",
       "storageUrl",
       "thumbnailUrl",
       "fileName",
@@ -83,6 +87,11 @@ const FUTURELAB_CONFIG = {
       "createdAt",
       "updatedAt",
     ],
+  },
+  VIDEO_STORAGE: {
+    ROOT_FOLDER_ID: "1Cg0tGtOnVDwlDvVFhhWHd9LEAG5fxd0U",
+    ROOT_FOLDER_NAME: "여량초_미래기술연구소_영상증거",
+    ALLOWED_MIME_TYPES: ["video/webm", "video/mp4"],
   },
 };
 

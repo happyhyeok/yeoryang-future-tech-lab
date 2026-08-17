@@ -36,7 +36,9 @@
   };
   const DAY01_RECORDING_SECONDS = 10;
   const DAY01_MAX_RECORDING_SECONDS = 15;
-  const DAY01_UPLOAD_TIMEOUT_MS = 12000;
+  const DAY01_UPLOAD_TIMEOUT_MS = 45000;
+  const DAY01_MAX_VIDEO_BYTES = 6 * 1024 * 1024;
+  const DAY01_RECORDER_BITS_PER_SECOND = 900000;
   const DAY01_SERVER_TIMEOUT_MS = 8000;
   const DAY01_SERVER_SAVE_DEBOUNCE_MS = 1200;
   const SAVE_STATUS = {
@@ -60,6 +62,7 @@
   let day01RecordedChunks = [];
   let day01RecordedBlob = null;
   let day01RecordedUrl = "";
+  let day01RecordedContext = null;
   let day01RecordingTimer = null;
   let day01RecordingStartedAt = 0;
   let day01UploadInFlight = false;
@@ -696,8 +699,15 @@
       },
       videoAssetId: "",
       videoFileId: "",
+      videoStorageFileId: "",
       videoPlaybackUrl: "",
       videoStorageUrl: "",
+      videoFileName: "",
+      videoMimeType: "",
+      videoCapturedAt: "",
+      videoPersisted: false,
+      videoUploadError: "",
+      videoRetakeInProgress: false,
       supersededVideoEvidence: [],
       videoLocalState: {
         captureStatus: "not_started",
@@ -779,8 +789,20 @@
     state.quizAnswers = state.quizAnswers || {};
     state.lessonProgress = state.lessonProgress || {};
     state.videoFileId = state.videoFileId || "";
+    state.videoStorageFileId = state.videoStorageFileId || state.storageFileId || state.videoFileId || "";
     state.videoPlaybackUrl = getSafePlaybackUrl(state.videoPlaybackUrl);
-    state.videoStorageUrl = state.videoStorageUrl || "";
+    state.videoStorageUrl = getSafePlaybackUrl(state.videoStorageUrl);
+    state.videoFileName = state.videoFileName || "";
+    state.videoMimeType = state.videoMimeType || "";
+    state.videoCapturedAt = state.videoCapturedAt || "";
+    state.videoPersisted = Boolean(
+      state.videoPersisted &&
+        state.videoAssetId &&
+        (state.videoStorageFileId || state.videoFileId) &&
+        (state.videoPlaybackUrl || state.videoStorageUrl)
+    );
+    state.videoUploadError = state.videoUploadError || "";
+    state.videoRetakeInProgress = Boolean(state.videoRetakeInProgress && state.videoPersisted);
     state.captureStatus = state.videoLocalState.captureStatus || state.captureStatus;
     state.storageStatus = state.videoLocalState.storageStatus || state.storageStatus;
     state.ingestMethod = state.videoLocalState.ingestMethod || state.ingestMethod;
@@ -791,6 +813,14 @@
 
     if (state.videoLocalState.storageStatus === "uploaded") {
       state.videoLocalState.storageStatus = state.videoPlaybackUrl ? "playback_ready" : "stored";
+    }
+
+    if (state.videoPersisted) {
+      state.videoFileId = state.videoFileId || state.videoStorageFileId;
+      state.videoStorageFileId = state.videoStorageFileId || state.videoFileId;
+      state.captureStatus = state.videoRetakeInProgress ? state.captureStatus : "recorded";
+      state.storageStatus = state.videoPlaybackUrl || state.videoStorageUrl ? "playback_ready" : "stored";
+      state.ingestMethod = state.ingestMethod || "auto_drive";
     }
 
     state.videoLocalState.captureStatus = state.captureStatus;
@@ -845,6 +875,70 @@
     return typeof rawState === "object" ? rawState : null;
   }
 
+  function getExpectedVideoAssetId(studentId, dayId) {
+    return `asset_${studentId}_${dayId}_video`;
+  }
+
+  function findRestorableVideoAsset(assets, dayRecord, student, currentDay) {
+    if (!Array.isArray(assets) || !student || !currentDay) {
+      return null;
+    }
+
+    const refs = Array.isArray(dayRecord && dayRecord.personalEvidenceRefs)
+      ? dayRecord.personalEvidenceRefs
+      : [];
+    const expectedAssetId = getExpectedVideoAssetId(student.studentId, currentDay.dayId);
+
+    if (!refs.includes(expectedAssetId)) {
+      return null;
+    }
+
+    return (
+      assets.find(
+        (asset) =>
+          asset &&
+          asset.assetId === expectedAssetId &&
+          asset.assetType === "video" &&
+          asset.ownerType === "student" &&
+          asset.ownerId === student.studentId &&
+          asset.dayId === currentDay.dayId &&
+          asset.storageFileId &&
+          getSafePlaybackUrl(asset.storageUrl)
+      ) || null
+    );
+  }
+
+  function applyRestoredVideoAsset(dayState, asset) {
+    if (!asset) {
+      return dayState;
+    }
+
+    const restored = Object.assign({}, dayState || {});
+    const playbackUrl = getSafePlaybackUrl(asset.storageUrl);
+
+    restored.videoAssetId = asset.assetId || "";
+    restored.videoFileId = asset.storageFileId || "";
+    restored.videoStorageFileId = asset.storageFileId || "";
+    restored.videoPlaybackUrl = playbackUrl;
+    restored.videoStorageUrl = playbackUrl;
+    restored.videoFileName = asset.fileName || "";
+    restored.videoMimeType = asset.mimeType || "";
+    restored.videoCapturedAt = asset.capturedAt || "";
+    restored.videoPersisted = Boolean(restored.videoAssetId && restored.videoStorageFileId && playbackUrl);
+    restored.videoUploadError = "";
+    restored.videoRetakeInProgress = false;
+
+    if (restored.videoPersisted) {
+      setVideoState(restored, {
+        captureStatus: "recorded",
+        storageStatus: "playback_ready",
+        ingestMethod: restored.ingestMethod || "auto_drive",
+      });
+    }
+
+    return restored;
+  }
+
   async function loadServerDayState(currentDay) {
     if (!isDay01ServerSyncEnabled() || !isStudentSelected() || currentDay.dayId !== "day01") {
       return {
@@ -891,7 +985,16 @@
         };
       }
 
-      const serverState = extractDayStateFromDayRecord(data.dayRecord);
+      const serverVideoAsset = findRestorableVideoAsset(
+        data.assets,
+        data.dayRecord,
+        requestStudent,
+        currentDay
+      );
+      const serverState = applyRestoredVideoAsset(
+        extractDayStateFromDayRecord(data.dayRecord),
+        serverVideoAsset
+      );
 
       if (
         serverState &&
@@ -916,6 +1019,7 @@
       return {
         state: serverState,
         dayRecord: data.dayRecord || null,
+        assets: Array.isArray(data.assets) ? data.assets : [],
         status: serverState ? "서버 기록 복원" : "",
       };
     } catch (error) {
@@ -1036,12 +1140,10 @@
     }
 
     return Boolean(
-      state.videoAssetId ||
-        state.videoFileId ||
-        state.videoStorageUrl ||
-        state.videoPlaybackUrl ||
-        state.storageStatus === "stored" ||
-        state.storageStatus === "playback_ready"
+      state.videoPersisted === true &&
+        state.videoAssetId &&
+        (state.videoStorageFileId || state.videoFileId) &&
+        (state.videoStorageUrl || state.videoPlaybackUrl)
     );
   }
 
@@ -1053,6 +1155,8 @@
     return {
       generation: mediaRuntimeGeneration,
       studentId: getStudentId(),
+      workId: getWorkId(),
+      dayId: activeDay ? activeDay.dayId : "",
     };
   }
 
@@ -1061,7 +1165,11 @@
       context &&
         context.generation === mediaRuntimeGeneration &&
         context.studentId &&
-        context.studentId === getStudentId()
+        context.studentId === getStudentId() &&
+        context.workId === getWorkId() &&
+        context.dayId &&
+        activeDay &&
+        context.dayId === activeDay.dayId
     );
   }
 
@@ -1318,7 +1426,7 @@
   }
 
   function getVideoAssetId(studentId, dayId, state) {
-    return state.videoAssetId || `asset_${studentId}_${dayId}_video`;
+    return state.videoAssetId || getExpectedVideoAssetId(studentId, dayId);
   }
 
   function getDay01PersonalEvidenceRefs(student, currentDay, state) {
@@ -1328,7 +1436,7 @@
       refs.push(getMakeCodeAssetId(student.studentId, currentDay.dayId));
     }
 
-    if (state.videoAssetId || state.videoFileId || state.videoPlaybackUrl || state.videoStorageUrl) {
+    if (hasPersistentVideoReference(state)) {
       refs.push(getVideoAssetId(student.studentId, currentDay.dayId, state));
     }
 
@@ -1433,7 +1541,7 @@
       });
     }
 
-    if (state.videoAssetId || state.videoFileId || state.videoPlaybackUrl || state.videoStorageUrl) {
+    if (hasPersistentVideoReference(state)) {
       assets.push({
         assetId: getVideoAssetId(student.studentId, currentDay.dayId, state),
         assetType: "video",
@@ -1443,11 +1551,12 @@
         blockId: "block03",
         title: "Day01 연구 모습 영상",
         description: "첫 연구장치 시험 모습",
+        storageFileId: state.videoStorageFileId || state.videoFileId || "",
         storageUrl: state.videoStorageUrl || state.videoPlaybackUrl || "",
         thumbnailUrl: "",
-        fileName: state.videoFileId ? `${currentDay.dayId}-${student.studentId}-evidence` : "",
-        mimeType: "",
-        capturedAt: "",
+        fileName: state.videoFileName || "",
+        mimeType: state.videoMimeType || "video/webm",
+        capturedAt: state.videoCapturedAt || "",
       });
     }
 
@@ -1515,6 +1624,16 @@
     const waiters = slot.waiters || [];
     slot.waiters = [];
     waiters.forEach((resolve) => resolve(ok));
+  }
+
+  function shouldHoldSavedLabelForPendingVideo(request) {
+    return Boolean(
+      isServerSaveRequestCurrent(request) &&
+        day01RecordedBlob &&
+        activeDayState &&
+        activeDayState.captureStatus === "recorded" &&
+        !hasPersistentVideoReference(activeDayState)
+    );
   }
 
   function getStorageKeyForStudent(studentId, dayId) {
@@ -1645,7 +1764,11 @@
       slot.lastFlushOk = true;
 
       if (updatedAt && applyServerSaveSuccess(request, updatedAt)) {
-        renderSaveState(SAVE_STATUS.saved);
+        renderSaveState(
+          shouldHoldSavedLabelForPendingVideo(request)
+            ? "영상이 아직 저장되지 않았습니다."
+            : SAVE_STATUS.saved
+        );
       } else if (isServerSaveRequestCurrent(request) && activeDayState.serverSyncPending) {
         renderServerSaveFailed();
       }
@@ -1741,6 +1864,22 @@
     saveDayState(status, {
       server: completedBlockNow || completedDayNow ? "immediate" : "",
     });
+    syncDay01UiFromState();
+  }
+
+  function updateDay01RuntimeState(mutator, status) {
+    if (!isDay01Active()) {
+      return;
+    }
+
+    mutator(activeDayState);
+    updateDay01Progress(activeDayState);
+    writeDayStateToLocalStorage(activeDay, activeDayState);
+
+    if (status !== undefined) {
+      renderSaveState(status);
+    }
+
     syncDay01UiFromState();
   }
 
@@ -2073,15 +2212,7 @@
   }
 
   function hasSavedVideoReference(state) {
-    return Boolean(
-      state.videoAssetId ||
-        state.videoFileId ||
-        state.videoPlaybackUrl ||
-        state.videoStorageUrl ||
-        state.storageStatus === "stored" ||
-        state.storageStatus === "playback_ready" ||
-        state.storageStatus === "pending_teacher_upload"
-    );
+    return hasPersistentVideoReference(state);
   }
 
   function prepareActiveStateForStudentChange() {
@@ -2112,6 +2243,7 @@
     pendingCameraContext = null;
     day01RecordedChunks = [];
     day01RecordedBlob = null;
+    day01RecordedContext = null;
     day01RecordingStartedAt = 0;
     draggedResearchOrderCard = null;
     selectedResearchOrderCard = "";
@@ -3906,12 +4038,31 @@
     `;
   }
 
-  function getVideoPlaybackSource(state = activeDayState) {
+  function getPersistentVideoPlaybackSource(state = activeDayState) {
     if (!state) {
-      return day01RecordedUrl || "";
+      return "";
     }
 
-    return state.videoPlaybackUrl || day01RecordedUrl || "";
+    if (state.videoRetakeInProgress) {
+      return "";
+    }
+
+    return hasPersistentVideoReference(state)
+      ? getSafePlaybackUrl(state.videoPlaybackUrl || state.videoStorageUrl)
+      : "";
+  }
+
+  function isDrivePreviewUrl(value) {
+    try {
+      const parsed = new URL(value);
+
+      return (
+        parsed.hostname === "drive.google.com" &&
+        /^\/file\/d\/[^/]+\/preview\/?$/.test(parsed.pathname)
+      );
+    } catch (error) {
+      return false;
+    }
   }
 
   function isDriveViewUrl(value) {
@@ -3920,6 +4071,7 @@
 
       return (
         parsed.hostname === "drive.google.com" &&
+        !isDrivePreviewUrl(value) &&
         (parsed.pathname.includes("/file/d/") || parsed.pathname.includes("/view"))
       );
     } catch (error) {
@@ -3956,13 +4108,13 @@
 
     return Boolean(
       hasRuntimeVideoReference() ||
-        hasPersistentVideoReference(state)
+        (hasPersistentVideoReference(state) && !state.videoRetakeInProgress)
     );
   }
 
   function getVideoStatusText(videoState = {}) {
     if (videoState.storageStatus === "playback_ready") {
-      return "영상 저장 완료 ✓";
+      return "저장된 연구 영상이 있습니다.";
     }
 
     if (videoState.storageStatus === "stored") {
@@ -3974,15 +4126,23 @@
     }
 
     if (videoState.storageStatus === "pending_teacher_upload") {
-      return "자동 저장을 완료하지 못했습니다. 수업은 계속 진행하세요. 영상은 강사가 확인합니다.";
+      return "영상이 아직 저장되지 않았습니다. 새로고침하기 전에 다시 저장해 주세요.";
     }
 
     if (videoState.storageStatus === "failed") {
-      return "자동 저장을 완료하지 못했습니다. 수업은 계속 진행하세요. 영상은 강사가 확인합니다.";
+      return "영상 저장하지 못했어요. 새로고침하기 전에 다시 저장해 주세요.";
+    }
+
+    if (videoState.storageStatus === "too_large") {
+      return "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요.";
+    }
+
+    if (videoState.storageStatus === "retake_ready") {
+      return "다시 촬영할 준비가 되었습니다.";
     }
 
     if (videoState.captureStatus === "recorded") {
-      return "영상 촬영 완료. 이 영상을 사용하거나 다시 찍을 수 있습니다.";
+      return "영상 촬영 완료. 이 영상을 저장하거나 다시 찍을 수 있습니다.";
     }
 
     if (videoState.captureStatus === "recording") {
@@ -4057,7 +4217,8 @@
 
   function renderWebcamEvidenceActivity(activity) {
     const videoState = activeDayState ? activeDayState.videoLocalState : {};
-    const playbackSource = getVideoPlaybackSource(activeDayState);
+    const localPlaybackSource = day01RecordedUrl || "";
+    const drivePreviewSource = getPersistentVideoPlaybackSource(activeDayState);
 
     return `
       <div class="plain-group block-activity day01-activity webcam-panel" id="video-evidence" data-day01-activity="webcam-evidence">
@@ -4070,9 +4231,17 @@
               data-recorded-video
               controls
               playsinline
-              src="${escapeHtml(playbackSource)}"
-              ${playbackSource ? "" : "hidden"}
+              src="${escapeHtml(localPlaybackSource)}"
+              ${localPlaybackSource ? "" : "hidden"}
             ></video>
+            <iframe
+              data-drive-video-preview
+              src="${escapeHtml(drivePreviewSource)}"
+              title="저장된 연구 영상"
+              allow="autoplay; fullscreen"
+              allowfullscreen
+              ${drivePreviewSource ? "" : "hidden"}
+            ></iframe>
           </div>
           <div class="webcam-controls">
             <p class="webcam-status" data-webcam-status aria-live="polite">${escapeHtml(
@@ -4531,8 +4700,8 @@
       ...(state.usedFeatures || []),
     ]);
     const videoState = state.videoLocalState || {};
-    const videoPlaybackSource = getVideoPlaybackSource(state);
-    const hasVideoPlayerSource = Boolean(videoPlaybackSource);
+    const videoDrivePreviewSource = getPersistentVideoPlaybackSource(state);
+    const videoLocalPlaybackSource = day01RecordedUrl || "";
 
     return `
       <section class="lesson-section research-evidence" id="research-evidence" data-section="researchEvidence">
@@ -4592,11 +4761,19 @@
             >
               다시 보기
             </a>
+            <iframe
+              src="${escapeHtml(videoDrivePreviewSource)}"
+              title="저장된 연구 영상"
+              allow="autoplay; fullscreen"
+              allowfullscreen
+              ${videoDrivePreviewSource ? "" : "hidden"}
+              data-evidence-video-frame
+            ></iframe>
             <video
               controls
               playsinline
-              src="${escapeHtml(videoPlaybackSource)}"
-              ${hasVideoPlayerSource ? "" : "hidden"}
+              src="${escapeHtml(videoLocalPlaybackSource)}"
+              ${videoLocalPlaybackSource ? "" : "hidden"}
               data-evidence-video-player
             ></video>
           </article>
@@ -5769,6 +5946,8 @@
     const preview = elements.standardDay.querySelector("[data-camera-preview]");
     const recordedVideo = elements.standardDay.querySelector("[data-recorded-video]");
     const evidenceVideo = elements.standardDay.querySelector("[data-evidence-video-player]");
+    const drivePreview = elements.standardDay.querySelector("[data-drive-video-preview]");
+    const evidenceFrame = elements.standardDay.querySelector("[data-evidence-video-frame]");
 
     if (preview) {
       preview.srcObject = null;
@@ -5781,6 +5960,15 @@
 
       video.removeAttribute("src");
       video.hidden = true;
+    });
+
+    [drivePreview, evidenceFrame].forEach((frame) => {
+      if (!frame) {
+        return;
+      }
+
+      frame.removeAttribute("src");
+      frame.hidden = true;
     });
   }
 
@@ -5797,6 +5985,9 @@
 
     stopCameraStream();
     revokeRecordedUrl();
+    day01RecordedBlob = null;
+    day01RecordedChunks = [];
+    day01RecordedContext = null;
     clearDay01VideoElements();
   }
 
@@ -5858,7 +6049,11 @@
       pendingCameraContext = requestContext;
       stopCameraStream();
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 15, max: 24 },
+        },
         audio: false,
       });
 
@@ -5946,9 +6141,13 @@
       revokeRecordedUrl();
       day01RecordedBlob = null;
       day01RecordedChunks = [];
+      day01RecordedContext = null;
 
       const mimeType = selectRecorderMimeType();
-      const options = mimeType ? { mimeType } : {};
+      const options = Object.assign(
+        { videoBitsPerSecond: DAY01_RECORDER_BITS_PER_SECOND },
+        mimeType ? { mimeType } : {}
+      );
       const recorder = new MediaRecorder(day01CameraStream, options);
       recordingContext.recorder = recorder;
       day01Recorder = recorder;
@@ -6034,6 +6233,7 @@
 
     day01RecordedBlob = blob;
     day01RecordedUrl = URL.createObjectURL(blob);
+    day01RecordedContext = Object.assign({}, recordingContext);
 
     const recordedVideo = elements.standardDay.querySelector("[data-recorded-video]");
 
@@ -6042,12 +6242,16 @@
       recordedVideo.hidden = false;
     }
 
-    updateDay01State((state) => {
+    updateDay01RuntimeState((state) => {
       setVideoState(state, {
         captureStatus: "recorded",
-        storageStatus: "not_configured",
+        storageStatus: blob.size > DAY01_MAX_VIDEO_BYTES ? "too_large" : "not_configured",
         ingestMethod: "",
       });
+      state.videoUploadError =
+        blob.size > DAY01_MAX_VIDEO_BYTES
+          ? "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요."
+          : "";
     }, "영상 촬영 완료");
     day01Recorder = null;
     day01RecorderContext = null;
@@ -6080,46 +6284,60 @@
     };
   }
 
-  async function uploadVideoEvidence(blob, metadata) {
-    if (!CONFIG.videoUploadEndpoint) {
-      return {
-        ok: false,
-        skipped: true,
-        storageStatus: "pending_teacher_upload",
-        ingestMethod: "teacher_manual",
-      };
-    }
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
 
-    const formData = new FormData();
-    formData.append("video", blob, `${metadata.dayId}-${metadata.studentId}-evidence.webm`);
-    formData.append("metadata", JSON.stringify(metadata));
-    const timeout = createTimeoutSignal(DAY01_UPLOAD_TIMEOUT_MS);
-
-    let response;
-
-    try {
-      response = await fetch(CONFIG.videoUploadEndpoint, {
-        method: "POST",
-        body: formData,
-        signal: timeout.signal,
+      reader.addEventListener("load", () => {
+        const result = String(reader.result || "");
+        const commaIndex = result.indexOf(",");
+        resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
       });
-    } finally {
-      timeout.clear();
+      reader.addEventListener("error", () => reject(reader.error || new Error("blob read failed")));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function uploadVideoEvidence(blob, metadata) {
+    if (!getAppsScriptApiUrl()) {
+      const error = new Error("video upload endpoint unavailable");
+      error.code = "VIDEO_UPLOAD_UNAVAILABLE";
+      throw error;
     }
 
-    if (!response.ok) {
-      throw new Error(`upload failed: ${response.status}`);
+    if (blob.size > DAY01_MAX_VIDEO_BYTES) {
+      const error = new Error("video too large");
+      error.code = "VIDEO_TOO_LARGE";
+      throw error;
     }
 
-    const payload = await response.json();
-    const playbackUrl = getSafePlaybackUrl(payload.playbackUrl);
+    const base64Data = await blobToBase64(blob);
+    const data = await callAppsScriptApi("uploadVideo", {
+      timeoutMs: DAY01_UPLOAD_TIMEOUT_MS,
+      payload: {
+        requestId: metadata.requestId,
+        studentId: metadata.studentId,
+        workId: metadata.workId,
+        dayId: metadata.dayId,
+        assetId: metadata.assetId,
+        blockId: metadata.blockId || "block03",
+        mimeType: blob.type || metadata.mimeType || "video/webm",
+        capturedAt: metadata.capturedAt,
+        base64Data,
+      },
+    });
+    const playbackUrl = getSafePlaybackUrl(data.playbackUrl || data.storageUrl);
 
     return {
       ok: true,
-      assetId: payload.assetId || "",
-      fileId: payload.fileId || "",
+      assetId: data.assetId || "",
+      fileId: data.storageFileId || data.fileId || "",
+      storageFileId: data.storageFileId || data.fileId || "",
       playbackUrl,
-      storageUrl: payload.storageUrl || payload.url || "",
+      storageUrl: getSafePlaybackUrl(data.storageUrl || data.playbackUrl),
+      fileName: data.fileName || "",
+      mimeType: data.mimeType || blob.type || metadata.mimeType || "video/webm",
+      capturedAt: data.capturedAt || metadata.capturedAt || "",
       storageStatus: playbackUrl ? "playback_ready" : "stored",
       ingestMethod: "auto_drive",
     };
@@ -6140,8 +6358,33 @@
       return;
     }
 
+    const uploadContext = day01RecordedContext || createMediaContext();
+
+    if (!isCurrentMediaContext(uploadContext)) {
+      setVideoStatus("연구원 정보가 바뀌어 이 영상은 저장하지 않습니다. 다시 촬영해 주세요.");
+      return;
+    }
+
+    if (day01RecordedBlob.size > DAY01_MAX_VIDEO_BYTES) {
+      updateDay01RuntimeState((state) => {
+        state.videoUploadError = "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요.";
+        setVideoState(state, {
+          captureStatus: "recorded",
+          storageStatus: "too_large",
+          ingestMethod: "",
+        });
+      }, SAVE_STATUS.failed);
+      setVideoStatus("영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요.");
+      return;
+    }
+
+    const uploadBlob = day01RecordedBlob;
+    const uploadMimeType = uploadBlob.type || selectRecorderMimeType() || "video/webm";
+    const capturedAt = new Date().toISOString();
+
     day01UploadInFlight = true;
-    updateDay01State((state) => {
+    updateDay01RuntimeState((state) => {
+      state.videoUploadError = "";
       setVideoState(state, {
         captureStatus: "recorded",
         storageStatus: "pending_upload",
@@ -6151,35 +6394,73 @@
 
     try {
       const requestId = createRequestId();
-      const result = await uploadVideoEvidence(day01RecordedBlob, {
+      const result = await uploadVideoEvidence(uploadBlob, {
         requestId,
-        studentId: getStudentId(),
-        workId: getWorkId(),
-        dayId: activeDay.dayId,
-        captureStatus: "recorded",
-        createdAt: new Date().toISOString(),
+        studentId: uploadContext.studentId,
+        workId: uploadContext.workId,
+        dayId: uploadContext.dayId,
+        assetId: getExpectedVideoAssetId(uploadContext.studentId, uploadContext.dayId),
+        blockId: "block03",
+        mimeType: uploadMimeType,
+        capturedAt,
       });
 
-      updateDay01State((state) => {
+      if (!isCurrentMediaContext(uploadContext)) {
+        return;
+      }
+
+      updateDay01RuntimeState((state) => {
         state.videoAssetId = result.assetId || "";
-        state.videoFileId = result.fileId || "";
+        state.videoFileId = result.storageFileId || result.fileId || "";
+        state.videoStorageFileId = result.storageFileId || result.fileId || "";
         state.videoPlaybackUrl = result.playbackUrl || "";
         state.videoStorageUrl = result.storageUrl || "";
+        state.videoFileName = result.fileName || "";
+        state.videoMimeType = result.mimeType || uploadMimeType;
+        state.videoCapturedAt = result.capturedAt || capturedAt;
+        state.videoPersisted = Boolean(
+          state.videoAssetId && state.videoStorageFileId && state.videoPlaybackUrl
+        );
+        state.videoUploadError = "";
+        state.videoRetakeInProgress = false;
         setVideoState(state, {
           captureStatus: "recorded",
           storageStatus: result.storageStatus,
           ingestMethod: result.ingestMethod,
         });
-      }, getVideoSaveStateLabel(result));
+      }, "영상 기록 저장 중...");
+
+      revokeRecordedUrl();
+      day01RecordedBlob = null;
+      day01RecordedChunks = [];
+      day01RecordedContext = null;
+
+      const recordSaved = await saveDayState("영상 기록 저장 중...", {
+        server: "immediate",
+        waitForServer: true,
+      });
+
+      if (!recordSaved) {
+        setVideoStatus("영상은 Drive에 저장됐지만 연구 기록 저장을 다시 시도해야 합니다.");
+      }
     } catch (error) {
       console.warn("video upload failed", error);
-      updateDay01State((state) => {
+      updateDay01RuntimeState((state) => {
+        state.videoUploadError =
+          error && error.code === "VIDEO_TOO_LARGE"
+            ? "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요."
+            : "영상 저장하지 못했어요. 새로고침하기 전에 다시 저장해 주세요.";
         setVideoState(state, {
           captureStatus: "recorded",
-          storageStatus: "pending_teacher_upload",
-          ingestMethod: "teacher_manual",
+          storageStatus: error && error.code === "VIDEO_TOO_LARGE" ? "too_large" : "failed",
+          ingestMethod: "auto_drive",
         });
-      }, "강사 보완 필요");
+      }, SAVE_STATUS.failed);
+      setVideoStatus(
+        error && error.code === "VIDEO_TOO_LARGE"
+          ? "영상이 너무 커서 저장하지 못했습니다. 짧게 다시 촬영해 주세요."
+          : "영상 저장하지 못했어요. 새로고침하기 전에 다시 저장해 주세요."
+      );
     } finally {
       day01UploadInFlight = false;
       syncDay01UiFromState();
@@ -6201,6 +6482,7 @@
       {
         assetId: state.videoAssetId || "",
         fileId: state.videoFileId || "",
+        storageFileId: state.videoStorageFileId || state.videoFileId || "",
         playbackUrl: state.videoPlaybackUrl || "",
         storageUrl: state.videoStorageUrl || "",
         supersededAt: new Date().toISOString(),
@@ -6228,9 +6510,12 @@
       return;
     }
 
+    const hadPersistentVideo = hasPersistentVideoReference(activeDayState);
+
     revokeRecordedUrl();
     day01RecordedBlob = null;
     day01RecordedChunks = [];
+    day01RecordedContext = null;
 
     const recordedVideo = elements.standardDay.querySelector("[data-recorded-video]");
 
@@ -6239,16 +6524,25 @@
       recordedVideo.hidden = true;
     }
 
-    updateDay01State((state) => {
+    updateDay01RuntimeState((state) => {
       markVideoEvidenceSuperseded(state);
-      state.videoAssetId = "";
-      state.videoFileId = "";
-      state.videoPlaybackUrl = "";
-      state.videoStorageUrl = "";
+      if (!hadPersistentVideo) {
+        state.videoAssetId = "";
+        state.videoFileId = "";
+        state.videoStorageFileId = "";
+        state.videoPlaybackUrl = "";
+        state.videoStorageUrl = "";
+        state.videoFileName = "";
+        state.videoMimeType = "";
+        state.videoCapturedAt = "";
+        state.videoPersisted = false;
+      }
+      state.videoUploadError = "";
+      state.videoRetakeInProgress = hadPersistentVideo;
       setVideoState(state, {
         captureStatus: day01CameraStream ? "camera_ready" : "not_started",
-        storageStatus: "not_configured",
-        ingestMethod: "",
+        storageStatus: hadPersistentVideo ? "retake_ready" : "not_configured",
+        ingestMethod: hadPersistentVideo ? state.ingestMethod : "",
       });
     }, "다시 촬영할 준비가 되었습니다.");
 
@@ -6301,9 +6595,12 @@
     try {
       const playbackUrl = playbackValue || (await resolveVideoPlaybackUrl(fileIdValue));
       const safePlaybackUrl = getSafePlaybackUrl(playbackUrl);
+      const resolvedAssetValue =
+        assetValue ||
+        (fileIdValue && safePlaybackUrl ? getExpectedVideoAssetId(getStudentId(), activeDay.dayId) : "");
       const storageStatus = safePlaybackUrl
         ? "playback_ready"
-        : fileIdValue || assetValue
+        : fileIdValue || resolvedAssetValue
         ? "stored"
         : "pending_teacher_upload";
 
@@ -6313,8 +6610,16 @@
 
       updateDay01State((state) => {
         state.videoFileId = fileIdValue;
+        state.videoStorageFileId = fileIdValue;
         state.videoPlaybackUrl = safePlaybackUrl;
-        state.videoAssetId = assetValue;
+        state.videoStorageUrl = safePlaybackUrl;
+        state.videoAssetId = resolvedAssetValue;
+        state.videoFileName = fileIdValue ? `${state.dayId}-${state.studentId}-manual-video.webm` : "";
+        state.videoMimeType = "video/webm";
+        state.videoCapturedAt = new Date().toISOString();
+        state.videoPersisted = Boolean(resolvedAssetValue && fileIdValue && safePlaybackUrl);
+        state.videoUploadError = "";
+        state.videoRetakeInProgress = false;
         setVideoState(state, {
           captureStatus: "recorded",
           storageStatus,
@@ -6356,8 +6661,10 @@
     const evidenceCodeLink = elements.standardDay.querySelector("[data-evidence-code-link]");
     const evidenceVideo = elements.standardDay.querySelector("[data-evidence-video] p");
     const evidenceVideoPlayer = elements.standardDay.querySelector("[data-evidence-video-player]");
+    const evidenceVideoFrame = elements.standardDay.querySelector("[data-evidence-video-frame]");
     const evidenceVideoReview = elements.standardDay.querySelector("[data-evidence-video-review]");
-    const videoPlaybackSource = getVideoPlaybackSource(activeDayState);
+    const videoLocalPlaybackSource = day01RecordedUrl || "";
+    const videoDrivePreviewSource = getPersistentVideoPlaybackSource(activeDayState);
 
     if (evidenceProblem) {
       evidenceProblem.textContent = problemSummary ? `${problemSummary} ✓` : "아직 미완료";
@@ -6395,8 +6702,13 @@
     }
 
     if (evidenceVideoPlayer) {
-      evidenceVideoPlayer.src = videoPlaybackSource;
-      evidenceVideoPlayer.hidden = !videoPlaybackSource;
+      evidenceVideoPlayer.src = videoLocalPlaybackSource;
+      evidenceVideoPlayer.hidden = !videoLocalPlaybackSource;
+    }
+
+    if (evidenceVideoFrame) {
+      evidenceVideoFrame.src = videoDrivePreviewSource;
+      evidenceVideoFrame.hidden = !videoDrivePreviewSource;
     }
 
     if (evidenceVideoReview) {
@@ -6572,11 +6884,17 @@
     }
 
     const recordedVideo = elements.standardDay.querySelector("[data-recorded-video]");
+    const drivePreview = elements.standardDay.querySelector("[data-drive-video-preview]");
 
     if (recordedVideo) {
-      const replayUrl = getVideoPlaybackSource(activeDayState);
-      recordedVideo.src = replayUrl;
-      recordedVideo.hidden = !replayUrl;
+      recordedVideo.src = day01RecordedUrl || "";
+      recordedVideo.hidden = !day01RecordedUrl;
+    }
+
+    if (drivePreview) {
+      const drivePreviewUrl = getPersistentVideoPlaybackSource(activeDayState);
+      drivePreview.src = drivePreviewUrl;
+      drivePreview.hidden = !drivePreviewUrl;
     }
 
     const webcamStatus = elements.standardDay.querySelector("[data-webcam-status]");
@@ -6607,7 +6925,13 @@
     }
 
     if (useRecording) {
-      useRecording.disabled = isRecording || !day01RecordedBlob || day01UploadInFlight;
+      useRecording.textContent =
+        activeDayState.storageStatus === "failed" ? "다시 저장" : "이 영상 사용";
+      useRecording.disabled =
+        isRecording ||
+        !day01RecordedBlob ||
+        day01UploadInFlight ||
+        activeDayState.storageStatus === "too_large";
     }
 
     if (retake) {

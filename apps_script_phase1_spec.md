@@ -79,7 +79,7 @@ saveQuizResult
 upsertAsset
 ```
 
-Day02~Day15 Apps Script 연동, 영상 바이너리 Drive 업로드, 프로젝트 북 연결은 1차 범위가 아니다.
+Day02~Day15 Apps Script 연동과 프로젝트 북 연결은 1차 범위가 아니다. Day01 영상은 `uploadVideo` action으로 Google Drive 파일, `09_자료파일` video Asset, `05_학생연구기록.personalEvidenceRefs`를 연결한다.
 
 ## 4-1. `getStudents` 계약
 
@@ -249,8 +249,14 @@ quizAnswers
 recordValues
 videoAssetId
 videoFileId
+videoStorageFileId
 videoPlaybackUrl
 videoStorageUrl
+videoFileName
+videoMimeType
+videoCapturedAt
+videoPersisted
+videoRetakeInProgress
 supersededVideoEvidence
 serverSyncPending
 localRevision
@@ -321,12 +327,26 @@ stu02:day01
 
 ## 12. Asset 계약
 
-`09_자료파일`은 MakeCode 링크와 자료 메타데이터를 저장한다.
+`09_자료파일`은 MakeCode 링크와 영상 파일 메타데이터를 저장한다.
 
 Day01 MakeCode Asset ID 기준:
 
 ```text
 asset_{studentId}_{dayId}_makecode
+```
+
+Day01 video Asset ID 기준:
+
+```text
+asset_{studentId}_day01_video
+```
+
+Day01 video Asset은 `storageFileId`와 Drive preview URL을 함께 가져야 한다.
+
+```text
+storageFileId = 실제 Google Drive file ID
+storageUrl = https://drive.google.com/file/d/{storageFileId}/preview
+mimeType = video/webm 또는 video/mp4
 ```
 
 Day01 MakeCode URL은 다음만 허용한다.
@@ -346,7 +366,7 @@ existing.dayId === incoming.dayId
 existing.assetType === incoming.assetType
 ```
 
-불일치하면 갱신하지 않고 오류를 반환한다. 모든 Asset ID를 MakeCode 형식으로 강제하지는 않는다. 향후 영상 업로드 시스템이 별도 Asset ID를 반환할 수 있기 때문이다.
+불일치하면 갱신하지 않고 오류를 반환한다. MakeCode와 video는 각각의 Day01 Asset ID 규칙을 서버에서 검증한다.
 
 ## 13. QuizResult 계약
 
@@ -456,7 +476,6 @@ Day01 Apps Script Web App 배포·프론트 학생조회 연결 완료
 
 이번 1차 기준에서 아직 하지 않는 작업:
 
-- 영상 바이너리 Drive 업로드
 - Day02~Day15 Apps Script 연동
-- Day01 DayRecord/Quiz/Asset의 A/B end-to-end 저장·복원 검증
+- 실제 학생환경 Day01 영상 Drive 업로드 E2E 검증
 - 새 인증 시스템 구현

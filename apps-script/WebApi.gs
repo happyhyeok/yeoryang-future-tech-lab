@@ -30,7 +30,7 @@ function parseRequest_(method, e) {
   assertApi_(contents, "INVALID_REQUEST", "POST body가 비어 있습니다.");
   assertMaxLength_(
     contents,
-    FUTURELAB_CONFIG.LIMITS.REQUEST_BODY,
+    FUTURELAB_CONFIG.LIMITS.VIDEO_REQUEST_BODY,
     "POST body",
     "PAYLOAD_TOO_LARGE"
   );
@@ -45,8 +45,19 @@ function parseRequest_(method, e) {
 
   assertApi_(isPlainObject_(body), "INVALID_REQUEST", "POST body는 객체여야 합니다.");
 
+  const action = String(body.action || params.action || "").trim();
+
+  if (action !== "uploadVideo") {
+    assertMaxLength_(
+      contents,
+      FUTURELAB_CONFIG.LIMITS.REQUEST_BODY,
+      "POST body",
+      "PAYLOAD_TOO_LARGE"
+    );
+  }
+
   return {
-    action: String(body.action || params.action || "").trim(),
+    action: action,
     params: params,
     payload: body.payload || {},
   };
@@ -66,6 +77,8 @@ function dispatchAction_(action, payload, params) {
       return saveQuizResult_(payload || {});
     case "upsertAsset":
       return upsertAsset_(payload || {});
+    case "uploadVideo":
+      return uploadVideo_(payload || {});
     default:
       throw createApiError_("INVALID_ACTION", "알 수 없는 action입니다: " + action);
   }

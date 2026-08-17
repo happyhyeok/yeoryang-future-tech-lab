@@ -2181,12 +2181,20 @@ select:focus-visible,
 }
 
 .webcam-preview video,
-.evidence-card video {
+.webcam-preview iframe,
+.evidence-card video,
+.evidence-card iframe {
+  display: block;
   width: 100%;
   min-height: 220px;
   border: 1px solid var(--color-line);
   border-radius: 8px;
   background: #111817;
+}
+
+.webcam-preview iframe,
+.evidence-card iframe {
+  aspect-ratio: 16 / 9;
 }
 
 .webcam-status,
@@ -2379,7 +2387,9 @@ select:focus-visible,
   }
 
   .webcam-preview video,
-  .evidence-card video {
+  .webcam-preview iframe,
+  .evidence-card video,
+  .evidence-card iframe {
     min-height: 190px;
   }
 

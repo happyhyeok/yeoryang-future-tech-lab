@@ -12,8 +12,11 @@ function getDayRecord_(params) {
     dayRecordId
   );
 
+  const dayRecord = found.rowObject ? formatDayRecordForResponse_(found.rowObject) : null;
+
   return {
-    dayRecord: found.rowObject ? formatDayRecordForResponse_(found.rowObject) : null,
+    dayRecord: dayRecord,
+    assets: dayRecord ? getDayRecordAssets_(dayRecord, studentId, dayId) : [],
   };
 }
 
@@ -67,6 +70,7 @@ function saveDayRecord_(payload) {
   lock.waitLock(10000);
 
   try {
+    validatePersonalEvidenceRefs_(personalEvidenceRefs, studentId, dayId);
     const existing = findRowByColumn_(
       FUTURELAB_CONFIG.SHEETS.DAY_RECORDS,
       "dayRecordId",
@@ -155,4 +159,56 @@ function formatDayRecordForResponse_(rowObject) {
   formatted.dayStateJson = parseJsonCell_(rowObject.dayStateJson, {});
   formatted.minimumCompleted = rowObject.minimumCompleted === true || String(rowObject.minimumCompleted).toUpperCase() === "TRUE";
   return formatted;
+}
+
+function getDayRecordAssets_(dayRecord, studentId, dayId) {
+  const refs = Array.isArray(dayRecord.personalEvidenceRefs) ? dayRecord.personalEvidenceRefs : [];
+  const seen = {};
+  const assets = [];
+
+  refs.forEach((assetIdValue) => {
+    const assetId = String(assetIdValue || "").trim();
+
+    if (!assetId || seen[assetId]) {
+      return;
+    }
+
+    seen[assetId] = true;
+
+    const found = findAssetById_(assetId);
+
+    if (!found.rowObject) {
+      return;
+    }
+
+    if (!isAssetOwnedByDay_(found.rowObject, studentId, dayId)) {
+      return;
+    }
+
+    assets.push(formatAssetForResponse_(found.rowObject));
+  });
+
+  return assets;
+}
+
+function validatePersonalEvidenceRefs_(refs, studentId, dayId) {
+  refs.forEach((assetIdValue) => {
+    const assetId = assertId_(assetIdValue, "INVALID_REQUEST", "personalEvidenceRefs");
+    const found = findAssetById_(assetId);
+
+    assertApi_(
+      found.rowObject && isAssetOwnedByDay_(found.rowObject, studentId, dayId),
+      "INVALID_EVIDENCE_REF",
+      "학생 연구기록의 증거 Asset을 찾을 수 없습니다."
+    );
+  });
+}
+
+function isAssetOwnedByDay_(asset, studentId, dayId) {
+  return Boolean(
+    asset &&
+      String(asset.ownerType || "").trim() === "student" &&
+      String(asset.ownerId || "").trim() === studentId &&
+      String(asset.dayId || "").trim() === dayId
+  );
 }
