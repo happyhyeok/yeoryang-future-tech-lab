@@ -1021,7 +1021,7 @@
         state: serverState,
         dayRecord: data.dayRecord || null,
         assets: Array.isArray(data.assets) ? data.assets : [],
-        status: serverState ? "서버 기록 복원" : "",
+        status: serverState ? SAVE_STATUS.saved : "",
       };
     } catch (error) {
       console.warn("server day01 state load failed", error);
@@ -1096,7 +1096,7 @@
         writeDayStateToLocalStorage(currentDay, normalizedServerState);
         return {
           state: normalizedServerState,
-          status: "서버 기록 복원",
+          status: SAVE_STATUS.saved,
           retryServerSync: false,
         };
       }
