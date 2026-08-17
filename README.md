@@ -171,7 +171,7 @@ window.FUTURE_LAB_CONFIG = {
 
 `dayDates` 같은 기본 수업값은 `app.js`의 기본 CONFIG를 사용하며, 운영 URL만 바꾸기 위해 불필요한 설정을 중복하지 않습니다.
 
-학생 선택 후 복원은 서버 `getDayRecord`와 브라우저 임시저장을 함께 확인합니다. 평상시에는 서버 `dayStateJson`을 우선하지만, localStorage의 현재 학생·작품·연구일 기록에 `serverSyncPending=true`가 남아 있으면 해당 local 기록을 우선 복원하고 서버 재동기화를 1회 즉시 시도합니다. 서버 저장 실패 시 화면 입력은 localStorage에 유지되고 저장 상태는 `기기에 임시 저장됨`으로 표시됩니다.
+학생 선택 후 복원은 서버 `getDayRecord`와 브라우저 임시저장을 함께 확인합니다. 평상시에는 서버 `dayStateJson`을 우선하지만, localStorage의 현재 학생·작품·연구일 기록에 `serverSyncPending=true`가 남아 있으면 해당 local 기록을 우선 복원하고 서버 재동기화를 1회 즉시 시도합니다. 서버 저장 실패 시 화면 입력은 localStorage에 유지되고 저장 상태는 `저장하지 못했어요`와 실패 복구용 `다시 저장`으로 표시됩니다.
 
 Day01 Apps Script 코드에서 완료된 것:
 - Day01 Apps Script adapter

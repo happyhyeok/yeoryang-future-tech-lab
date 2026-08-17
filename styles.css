@@ -131,9 +131,29 @@ select:focus-visible,
 }
 
 .save-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   margin-top: 2px;
   color: var(--color-muted);
   font-size: 14px;
+}
+
+.retry-save-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.retry-save-button:hover,
+.retry-save-button:focus-visible {
+  color: var(--color-accent-dark);
+  text-decoration: underline;
 }
 
 .identity-gate {

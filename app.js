@@ -39,6 +39,13 @@
   const DAY01_UPLOAD_TIMEOUT_MS = 12000;
   const DAY01_SERVER_TIMEOUT_MS = 8000;
   const DAY01_SERVER_SAVE_DEBOUNCE_MS = 1200;
+  const SAVE_STATUS = {
+    saving: "저장 중...",
+    saved: "✓ 저장됨",
+    failed: "저장하지 못했어요",
+    localSaved: "기기에 저장됨",
+    localFailed: "기기에 저장하지 못했어요",
+  };
 
   let activeDay = null;
   let activeDayState = null;
@@ -1496,10 +1503,18 @@
         timer: null,
         inFlight: false,
         queued: false,
+        waiters: [],
+        lastFlushOk: true,
       });
     }
 
     return day01ServerSaveSlots.get(saveKey);
+  }
+
+  function resolveDay01ServerSaveWaiters(slot, ok) {
+    const waiters = slot.waiters || [];
+    slot.waiters = [];
+    waiters.forEach((resolve) => resolve(ok));
   }
 
   function getStorageKeyForStudent(studentId, dayId) {
@@ -1572,11 +1587,16 @@
     const request = createDay01ServerSaveRequest(currentDay, state);
 
     if (!request) {
-      return;
+      return Promise.resolve(false);
     }
 
     const slot = getDay01ServerSaveSlot(request.saveKey);
     slot.pendingRequest = request;
+    const waitForFlush = options.waitForFlush
+      ? new Promise((resolve) => {
+          slot.waiters.push(resolve);
+        })
+      : null;
 
     if (options.immediate) {
       if (slot.timer) {
@@ -1585,7 +1605,7 @@
       }
 
       flushDay01ServerSave(request.saveKey);
-      return;
+      return waitForFlush || Promise.resolve(true);
     }
 
     if (slot.timer) {
@@ -1596,12 +1616,17 @@
       slot.timer = null;
       flushDay01ServerSave(request.saveKey);
     }, DAY01_SERVER_SAVE_DEBOUNCE_MS);
+
+    return waitForFlush || Promise.resolve(true);
   }
 
   async function flushDay01ServerSave(saveKey) {
     const slot = day01ServerSaveSlots.get(saveKey);
 
     if (!slot || !slot.pendingRequest) {
+      if (slot && !slot.inFlight) {
+        resolveDay01ServerSaveWaiters(slot, slot.lastFlushOk !== false);
+      }
       return;
     }
 
@@ -1617,17 +1642,19 @@
     try {
       const result = await submitDay01ServerSave(request);
       const updatedAt = result.dayRecord && result.dayRecord.updatedAt;
+      slot.lastFlushOk = true;
 
       if (updatedAt && applyServerSaveSuccess(request, updatedAt)) {
-        renderSaveState("서버 저장 완료");
+        renderSaveState(SAVE_STATUS.saved);
       } else if (isServerSaveRequestCurrent(request) && activeDayState.serverSyncPending) {
-        renderSaveState("기기에 임시 저장됨");
+        renderServerSaveFailed();
       }
     } catch (error) {
       console.warn("day01 server save failed", error);
+      slot.lastFlushOk = false;
 
       if (isServerSaveRequestCurrent(request)) {
-        renderSaveState("기기에 임시 저장됨");
+        renderServerSaveFailed();
       }
     } finally {
       slot.inFlight = false;
@@ -1636,6 +1663,7 @@
         slot.queued = false;
         flushDay01ServerSave(saveKey);
       } else if (!slot.timer) {
+        resolveDay01ServerSaveWaiters(slot, slot.lastFlushOk !== false);
         day01ServerSaveSlots.delete(saveKey);
       }
     }
@@ -1663,9 +1691,9 @@
     };
   }
 
-  function saveDayState(status = "브라우저 임시저장", options = {}) {
+  function saveDayState(status = SAVE_STATUS.saving, options = {}) {
     if (!isStudentSelected() || !isDay01Active()) {
-      return;
+      return Promise.resolve(false);
     }
 
     updateDay01Progress(activeDayState);
@@ -1677,17 +1705,19 @@
 
       if (!storageKey) {
         renderSaveState("연구원 정보를 확인하지 못했습니다.");
-        return;
+        return Promise.resolve(false);
       }
 
       window.localStorage.setItem(storageKey, JSON.stringify(activeDayState));
-      renderSaveState(status);
-      queueDay01ServerSave(activeDay, activeDayState, {
+      renderSaveState(isDay01ServerSyncEnabled() ? status : SAVE_STATUS.localSaved);
+      return queueDay01ServerSave(activeDay, activeDayState, {
         immediate: options.server === "immediate",
+        waitForFlush: options.waitForServer === true,
       });
     } catch (error) {
       console.warn("day01 state save failed", error);
-      renderSaveState("브라우저 임시저장 실패");
+      renderSaveState(SAVE_STATUS.localFailed);
+      return Promise.resolve(false);
     }
   }
 
@@ -1696,8 +1726,21 @@
       return;
     }
 
+    const beforeProgress = getDay01BlockProgress(activeDayState);
+    const wasDayCompleted = Boolean(activeDayState.dayCompleted);
+
     mutator(activeDayState);
-    saveDayState(status);
+    updateDay01Progress(activeDayState);
+    const afterProgress = getDay01BlockProgress(activeDayState);
+    const completedBlockNow = Object.keys(afterProgress).some(
+      (blockId) =>
+        afterProgress[blockId] === "completed" && beforeProgress[blockId] !== "completed"
+    );
+    const completedDayNow = Boolean(activeDayState.dayCompleted) && !wasDayCompleted;
+
+    saveDayState(status, {
+      server: completedBlockNow || completedDayNow ? "immediate" : "",
+    });
     syncDay01UiFromState();
   }
 
@@ -1810,9 +1853,51 @@
     renderSaveState();
   }
 
-  function renderSaveState(status = "") {
-    elements.saveState.textContent = status;
-    elements.saveState.hidden = !status;
+  function renderSaveState(status = "", options = {}) {
+    if (!elements.saveState) {
+      return;
+    }
+
+    elements.saveState.replaceChildren();
+
+    if (!status) {
+      elements.saveState.hidden = true;
+      return;
+    }
+
+    const statusText = document.createElement("span");
+    statusText.textContent = status;
+    elements.saveState.appendChild(statusText);
+
+    if (options.retry && isDay01Active() && isDay01ServerSyncEnabled()) {
+      const retryButton = document.createElement("button");
+      retryButton.className = "retry-save-button";
+      retryButton.type = "button";
+      retryButton.dataset.retryServerSave = "true";
+      retryButton.textContent = "다시 저장";
+      elements.saveState.appendChild(retryButton);
+    }
+
+    elements.saveState.hidden = false;
+  }
+
+  function renderServerSaveFailed() {
+    renderSaveState(SAVE_STATUS.failed, { retry: true });
+  }
+
+  function retryDay01ServerSave() {
+    if (!isDay01Active()) {
+      return;
+    }
+
+    renderSaveState(SAVE_STATUS.saving);
+    queueDay01ServerSave(activeDay, activeDayState, { immediate: true });
+  }
+
+  function handleSaveStateClick(event) {
+    if (event.target.closest("[data-retry-server-save]")) {
+      retryDay01ServerSave();
+    }
   }
 
   function setLabShellVisible(isVisible) {
@@ -1950,6 +2035,10 @@
   }
 
   async function enterSelectedStudent() {
+    if (elements.identityGate.hidden) {
+      return;
+    }
+
     const selectedStudent = getPendingStudent();
 
     if (!selectedStudent) {
@@ -1966,6 +2055,10 @@
   }
 
   function handleIdentityGateClick(event) {
+    if (elements.identityGate.hidden) {
+      return;
+    }
+
     const studentOption = event.target.closest("[data-student-option]");
 
     if (studentOption) {
@@ -2028,7 +2121,11 @@
     clearRenderedLabSurfaces();
   }
 
-  function handleChangeStudent() {
+  async function handleChangeStudent() {
+    if (elements.changeStudent.disabled) {
+      return;
+    }
+
     if (!isStudentSelected()) {
       clearCurrentStudent();
       pendingStudentId = "";
@@ -2041,16 +2138,25 @@
       return;
     }
 
-    prepareActiveStateForStudentChange();
+    elements.changeStudent.disabled = true;
 
-    if (isDay01Active()) {
-      saveDayState("연구원 변경 전 저장", { server: "immediate" });
+    try {
+      prepareActiveStateForStudentChange();
+
+      if (isDay01Active()) {
+        await saveDayState(SAVE_STATUS.saving, {
+          server: "immediate",
+          waitForServer: true,
+        });
+      }
+
+      resetRuntimeForStudentChange();
+      clearCurrentStudent();
+      pendingStudentId = "";
+      renderIdentityGate();
+    } finally {
+      elements.changeStudent.disabled = false;
     }
-
-    resetRuntimeForStudentChange();
-    clearCurrentStudent();
-    pendingStudentId = "";
-    renderIdentityGate();
   }
 
   function renderProjectIntro(currentDay) {
@@ -7114,6 +7220,7 @@
 
     elements.identityGate.addEventListener("click", handleIdentityGateClick);
     elements.changeStudent.addEventListener("click", handleChangeStudent);
+    elements.saveState.addEventListener("click", handleSaveStateClick);
     elements.researchDays.addEventListener("click", (event) => {
       if (!event.target.closest("[data-start-research]")) {
         return;
