@@ -47,10 +47,11 @@ function validateResearchDay_(dayId) {
 }
 
 function validateResearchDate_(payloadDate, dayRow) {
-  const actualDate = normalizeSheetDate_(payloadDate);
   const expectedDate =
     normalizeSheetDate_(dayRow.date || dayRow.dayDate || dayRow.researchDate) ||
     (String(dayRow.dayId || "") === "day01" ? FUTURELAB_CONFIG.DEFAULT_DAY01_DATE : "");
+  const fallbackDate = Utilities.formatDate(new Date(), FUTURELAB_CONFIG.TIMEZONE, "yyyy-MM-dd");
+  const actualDate = normalizeSheetDate_(payloadDate) || expectedDate || fallbackDate;
 
   assertApi_(actualDate, "INVALID_REQUEST", "date 값이 필요합니다.");
 

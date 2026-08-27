@@ -2335,6 +2335,26 @@ select:focus-visible,
   text-align: right;
 }
 
+.completion-requirements em {
+  color: var(--color-muted);
+  font-size: 15px;
+  font-style: normal;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.day02-record-summary li {
+  grid-template-columns: 24px minmax(96px, 0.75fr) minmax(0, 1.25fr);
+}
+
+.day02-threshold-field {
+  max-width: 360px;
+}
+
+.day02-video-nav {
+  margin-top: 18px;
+}
+
 @media (max-width: 720px) {
   body {
     font-size: 16px;
@@ -2502,6 +2522,11 @@ select:focus-visible,
   }
 
   .completion-requirements a {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .completion-requirements em {
     grid-column: 2;
     text-align: left;
   }

@@ -34,8 +34,12 @@
     studentName: "currentStudentName",
     workId: "currentWorkId",
   };
+  const E2E_TEST_STUDENT_ID = "test01";
+  const PERSISTED_LESSON_DAY_IDS = new Set(["day01", "day02"]);
   const DAY01_RECORDING_SECONDS = 10;
+  const DAY02_RECORDING_SECONDS = 30;
   const DAY01_MAX_RECORDING_SECONDS = 15;
+  const DAY02_MAX_RECORDING_SECONDS = 30;
   const DAY01_UPLOAD_TIMEOUT_MS = 45000;
   const DAY01_MAX_VIDEO_BYTES = 6 * 1024 * 1024;
   const DAY01_RECORDER_BITS_PER_SECOND = 900000;
@@ -182,6 +186,33 @@
     return registeredStudents.find((student) => student.studentId === studentId) || null;
   }
 
+  function isE2eTestStudent(studentOrId) {
+    const studentId =
+      typeof studentOrId === "string"
+        ? studentOrId
+        : String((studentOrId && studentOrId.studentId) || "");
+
+    return studentId === E2E_TEST_STUDENT_ID;
+  }
+
+  function isTestStudentMode() {
+    const params = new URLSearchParams(window.location.search);
+
+    return params.get("test") === "1";
+  }
+
+  function isStudentVisibleInCurrentMode(student) {
+    return Boolean(student && (!isE2eTestStudent(student) || isTestStudentMode()));
+  }
+
+  function getVisibleRegisteredStudents() {
+    return registeredStudents.filter((student) => isStudentVisibleInCurrentMode(student));
+  }
+
+  function findVisibleStudentById(studentId) {
+    return getVisibleRegisteredStudents().find((student) => student.studentId === studentId) || null;
+  }
+
   function getConfiguredStudentSource() {
     return CONFIGURED_STUDENT_SOURCE;
   }
@@ -280,7 +311,7 @@
     const registeredStudent = findStudentById(studentId);
 
     if (registeredStudent) {
-      return registeredStudent;
+      return isStudentVisibleInCurrentMode(registeredStudent) ? registeredStudent : null;
     }
 
     if (isAuthoritativeStudentSource()) {
@@ -309,7 +340,7 @@
     const registeredStudent = findStudentById(studentId);
 
     if (registeredStudent) {
-      return registeredStudent;
+      return isStudentVisibleInCurrentMode(registeredStudent) ? registeredStudent : null;
     }
 
     if (isAuthoritativeStudentSource() || isConfiguredStudentId(studentId)) {
@@ -412,6 +443,14 @@
 
   function isDay01ServerSyncEnabled() {
     return Boolean(getAppsScriptApiUrl());
+  }
+
+  function isPersistedLessonDay(currentDay) {
+    return Boolean(currentDay && PERSISTED_LESSON_DAY_IDS.has(currentDay.dayId));
+  }
+
+  function isPersistedLessonActive() {
+    return Boolean(activeDay && activeDayState && isPersistedLessonDay(activeDay));
   }
 
   function getConfiguredDayDate(currentDay) {
@@ -698,6 +737,10 @@
         favoriteTool: "",
         nextSensor: "",
       },
+      thresholdValue: "",
+      conditionTestPassed: false,
+      changeMade: "",
+      changeMadeOther: "",
       videoAssetId: "",
       videoFileId: "",
       videoStorageFileId: "",
@@ -722,6 +765,7 @@
       lessonProgress: {},
       minimumCompleted: false,
       basicCompleted: false,
+      advancedCompleted: false,
       dayCompleted: false,
       completionLevel: "in_progress",
       serverSyncPending: false,
@@ -764,6 +808,19 @@
       defaultState.recordValues,
       savedState && savedState.recordValues ? savedState.recordValues : {}
     );
+    if (currentDay.dayId === "day02") {
+      state.thresholdValue = normalizeDay02ThresholdValue(state.thresholdValue);
+      state.conditionTestPassed = Boolean(
+        state.conditionTestPassed ||
+          (savedState &&
+            !Object.prototype.hasOwnProperty.call(savedState, "conditionTestPassed") &&
+            savedState.sensorDeviceConfirmed === true)
+      );
+      delete state.sensorDeviceConfirmed;
+      state.changeMade = normalizeDay02ChangeMade(currentDay, state.changeMade);
+      state.changeMadeOther =
+        state.changeMade === "기타" ? String(state.changeMadeOther || "").trim().slice(0, 80) : "";
+    }
     state.supersededVideoEvidence = Array.isArray(state.supersededVideoEvidence)
       ? state.supersededVideoEvidence
       : [];
@@ -842,6 +899,7 @@
 
     state.minimumCompleted = Boolean(state.minimumCompleted);
     state.basicCompleted = Boolean(state.basicCompleted);
+    state.advancedCompleted = Boolean(state.advancedCompleted);
     state.dayCompleted = Boolean(state.dayCompleted);
     state.serverSyncPending = state.serverSyncPending === true;
     state.localRevision = Number.isFinite(Number(state.localRevision))
@@ -941,7 +999,7 @@
   }
 
   async function loadServerDayState(currentDay) {
-    if (!isDay01ServerSyncEnabled() || !isStudentSelected() || currentDay.dayId !== "day01") {
+    if (!isDay01ServerSyncEnabled() || !isStudentSelected() || !isPersistedLessonDay(currentDay)) {
       return {
         state: null,
         status: "",
@@ -1024,11 +1082,55 @@
         status: serverState ? SAVE_STATUS.saved : "",
       };
     } catch (error) {
-      console.warn("server day01 state load failed", error);
+      console.warn("server day state load failed", error);
       return {
         state: null,
         status: "서버 연결 실패, 브라우저 임시기록 사용",
       };
+    }
+  }
+
+  function getBridgePreviousDayId(currentDay) {
+    const lesson = getLessonForDay(currentDay);
+
+    return lesson && lesson.bridge && lesson.bridge.carry
+      ? lesson.bridge.carry.previousDayId || ""
+      : "";
+  }
+
+  async function loadBridgePreviousRecord(currentDay) {
+    const previousDayId = getBridgePreviousDayId(currentDay);
+    const student = getCurrentStudent();
+
+    if (
+      !previousDayId ||
+      !student ||
+      !getAppsScriptApiUrl() ||
+      (currentStudentRecords && currentStudentRecords[previousDayId])
+    ) {
+      return;
+    }
+
+    try {
+      const data = await callAppsScriptApi("getDayRecord", {
+        method: "GET",
+        params: {
+          studentId: student.studentId,
+          dayId: previousDayId,
+        },
+      });
+
+      if (
+        data.dayRecord &&
+        data.dayRecord.studentId === student.studentId &&
+        getStudentId() === student.studentId
+      ) {
+        currentStudentRecords = Object.assign({}, currentStudentRecords, {
+          [previousDayId]: data.dayRecord,
+        });
+      }
+    } catch (error) {
+      console.warn("bridge previous record load failed", error);
     }
   }
 
@@ -1069,7 +1171,7 @@
       };
     }
 
-    if (currentDay.dayId !== "day01") {
+    if (!isPersistedLessonDay(currentDay)) {
       return {
         state: null,
         status: "",
@@ -1107,7 +1209,7 @@
         retryServerSync: false,
       };
     } catch (error) {
-      console.warn("day01 state load failed", error);
+      console.warn("day state load failed", error);
       return {
         state: createDefaultDayState(currentDay),
         status: "",
@@ -1118,6 +1220,10 @@
 
   function isDay01Active() {
     return activeDay && activeDay.dayId === "day01" && activeDayState;
+  }
+
+  function isDay02Active() {
+    return activeDay && activeDay.dayId === "day02" && activeDayState;
   }
 
   function addUnlockedTools(state, tools) {
@@ -1302,6 +1408,164 @@
       block02: getProgressValue(Boolean(progress.block02Completed), block02Started),
       block03: getProgressValue(Boolean(progress.block03Completed), block03Started),
     };
+  }
+
+  function getDayForState(state) {
+    return (
+      (activeDay && state && activeDay.dayId === state.dayId ? activeDay : null) ||
+      window.RESEARCH_DAYS.find((day) => day.dayId === (state ? state.dayId : "")) ||
+      null
+    );
+  }
+
+  function normalizeDay02ThresholdValue(value) {
+    const trimmed = String(value || "").trim();
+
+    if (!trimmed) {
+      return "";
+    }
+
+    const numeric = Number(trimmed);
+
+    return Number.isFinite(numeric) ? String(Math.round(numeric)) : "";
+  }
+
+  function getDay02ChangeOptions(currentDay) {
+    const day = currentDay || getDayForState(activeDayState) || activeDay;
+    const lesson = day ? getLessonForDay(day) : null;
+
+    return lesson && lesson.freeChange && Array.isArray(lesson.freeChange.options)
+      ? lesson.freeChange.options
+      : [];
+  }
+
+  function normalizeDay02ChangeMade(currentDay, value) {
+    const text = String(value || "").trim();
+    const options = getDay02ChangeOptions(currentDay);
+
+    return options.includes(text) ? text : "";
+  }
+
+  function getDay02ChangeMadeText(state = activeDayState) {
+    if (!state || !state.changeMade) {
+      return "";
+    }
+
+    if (state.changeMade === "기타") {
+      const other = String(state.changeMadeOther || "").trim();
+      return other ? `기타: ${other}` : "기타";
+    }
+
+    return state.changeMade;
+  }
+
+  function isDay02ThresholdSaved(state = activeDayState) {
+    return Boolean(state && String(state.thresholdValue || "").trim());
+  }
+
+  function getDay02TodayDecision(state) {
+    const threshold = String(state.thresholdValue || "").trim();
+
+    return threshold
+      ? `광센서 값을 기준값 ${threshold}와 비교해 밝을 때와 어두울 때 LED가 다르게 나타나도록 만들었습니다.`
+      : "광센서 값을 내가 정한 기준값과 비교해 밝을 때와 어두울 때 LED가 다르게 나타나도록 만들었습니다.";
+  }
+
+  function getDay02Activities(state) {
+    const activities = [];
+
+    if (
+      isDay02ThresholdSaved(state) ||
+      state.conditionTestPassed ||
+      getDay02ChangeMadeText(state) ||
+      hasVideoEvidence(state)
+    ) {
+      activities.push("광센서값 관찰");
+    }
+
+    if (isDay02ThresholdSaved(state)) {
+      activities.push("내 기준값 정하기");
+    }
+
+    if (state.conditionTestPassed) {
+      activities.push("센서 조건 알림 장치 시험");
+    }
+
+    if (getDay02ChangeMadeText(state)) {
+      activities.push("마음대로 바꾸기");
+    }
+
+    if (hasVideoEvidence(state)) {
+      activities.push("작동 영상 기록");
+    }
+
+    return activities;
+  }
+
+  function getDay02BlockProgress(state) {
+    const progress = state.lessonProgress || {};
+    const hasThreshold = isDay02ThresholdSaved(state);
+    const hasMinimum = Boolean(state.conditionTestPassed);
+    const hasChange = Boolean(getDay02ChangeMadeText(state));
+    const hasVideo = hasVideoEvidence(state);
+    const hasQuiz = hasAnyQuizAnswer(state);
+    const block04Started = hasThreshold || hasMinimum || hasChange || hasVideo || hasQuiz;
+    const block05Started = hasThreshold || hasMinimum || hasChange || hasVideo;
+    const block06Started = hasMinimum || hasChange || hasVideo;
+
+    return {
+      block04: getProgressValue(Boolean(progress.block04Completed), block04Started),
+      block05: getProgressValue(Boolean(progress.block05Completed), block05Started),
+      block06: getProgressValue(Boolean(progress.block06Completed), block06Started),
+    };
+  }
+
+  function updateDay02Progress(state) {
+    const currentDay = getDayForState(state) || activeDay;
+    const lesson = currentDay ? getLessonForDay(currentDay) : null;
+    const hasThreshold = isDay02ThresholdSaved(state);
+    const hasMinimum = Boolean(state.conditionTestPassed);
+    const hasSavedVideo = hasPersistentVideoReference(state);
+    const hasChange = Boolean(getDay02ChangeMadeText(state));
+
+    state.lessonProgress = {
+      block04Completed: hasThreshold || hasMinimum || hasChange || hasSavedVideo,
+      block05Completed: hasThreshold,
+      block06Completed: hasMinimum,
+      videoSaved: hasSavedVideo,
+      quizCompleted: isDay01QuizCompleted(state, lesson),
+      recordCompleted: true,
+    };
+    state.minimumCompleted = hasMinimum;
+    state.basicCompleted = Boolean(hasMinimum && hasThreshold && hasSavedVideo);
+    state.advancedCompleted = Boolean(state.basicCompleted && hasChange);
+    state.dayCompleted = state.basicCompleted;
+    state.completionLevel = state.advancedCompleted
+      ? "advanced"
+      : state.basicCompleted
+      ? "basic"
+      : state.minimumCompleted
+      ? "minimum"
+      : "in_progress";
+  }
+
+  function updateDayProgress(state, currentDay = activeDay) {
+    if (!state) {
+      return;
+    }
+
+    if ((currentDay || getDayForState(state) || {}).dayId === "day02") {
+      updateDay02Progress(state);
+      return;
+    }
+
+    updateDay01Progress(state);
+  }
+
+  function getBlockProgress(currentDay, state) {
+    return currentDay && currentDay.dayId === "day02"
+      ? getDay02BlockProgress(state)
+      : getDay01BlockProgress(state);
   }
 
   function joinKoreanList(items) {
@@ -1500,6 +1764,68 @@
     };
   }
 
+  function getDay02CompletionLevel(state) {
+    if (state.advancedCompleted) {
+      return "advanced";
+    }
+
+    if (state.basicCompleted) {
+      return "basic";
+    }
+
+    return state.minimumCompleted ? "minimum" : "";
+  }
+
+  function getDay02RecordStatus(state) {
+    return state.minimumCompleted ? "completed" : "in_progress";
+  }
+
+  function getDay02PersonalEvidenceRefs(student, currentDay, state) {
+    const refs = [];
+
+    if (hasPersistentVideoReference(state)) {
+      refs.push(getVideoAssetId(student.studentId, currentDay.dayId, state));
+    }
+
+    return refs;
+  }
+
+  function createDay02RecordPayload(student, currentDay, state) {
+    return {
+      studentId: student.studentId,
+      workId: student.workId,
+      dayId: currentDay.dayId,
+      date: getConfiguredDayDate(currentDay),
+      blockProgress: getDay02BlockProgress(state),
+      role: "",
+      activities: getDay02Activities(state),
+      todayDecision: state.minimumCompleted || isDay02ThresholdSaved(state)
+        ? getDay02TodayDecision(state)
+        : "",
+      discovery: "빛 → 센서 → 값 → 기준값과 비교 → 조건 판단 → LED 출력",
+      difficulty: "",
+      changeMade: getDay02ChangeMadeText(state),
+      changeReason: "",
+      nextAction:
+        "다음 연구에서는 장치를 움직이거나 다른 장치와 정보를 주고받는 방법을 알아봅니다.",
+      personalEvidenceRefs: getDay02PersonalEvidenceRefs(student, currentDay, state),
+      commonEvidenceRefs: [],
+      minimumCompleted: Boolean(state.minimumCompleted),
+      completionLevel: getDay02CompletionLevel(state),
+      status: getDay02RecordStatus(state),
+      studentReflection: "",
+      dayState: cloneJsonValue(state, {}),
+    };
+  }
+
+  function createDayRecordPayload(student, currentDay, state) {
+    if (currentDay.dayId === "day02") {
+      return createDay02RecordPayload(student, currentDay, state);
+    }
+
+    return createDay01RecordPayload(student, currentDay, state);
+  }
+
   function createDay01QuizPayload(student, currentDay, state, lesson) {
     if (!lesson || !lesson.quiz || !lesson.quiz.questions || !hasAnyQuizAnswer(state)) {
       return null;
@@ -1513,6 +1839,31 @@
       dayId: currentDay.dayId,
       quizType: "concept",
       quizVersion: "day01-v1",
+      answers: cloneJsonValue(state.quizAnswers || {}, {}),
+      score: getDay01QuizScore(state, lesson),
+      totalQuestions,
+      attemptCount: completed ? 1 : 0,
+      completed,
+    };
+  }
+
+  function createQuizPayload(student, currentDay, state, lesson) {
+    if (currentDay.dayId === "day01") {
+      return createDay01QuizPayload(student, currentDay, state, lesson);
+    }
+
+    if (!lesson || !lesson.quiz || !lesson.quiz.questions || !hasAnyQuizAnswer(state)) {
+      return null;
+    }
+
+    const totalQuestions = lesson.quiz.questions.length;
+    const completed = isDay01QuizCompleted(state, lesson);
+
+    return {
+      studentId: student.studentId,
+      dayId: currentDay.dayId,
+      quizType: "concept",
+      quizVersion: `${currentDay.dayId}-v1`,
       answers: cloneJsonValue(state.quizAnswers || {}, {}),
       score: getDay01QuizScore(state, lesson),
       totalQuestions,
@@ -1564,8 +1915,49 @@
     return assets;
   }
 
+  function getVideoBlockId(currentDay) {
+    const lesson = getLessonForDay(currentDay);
+
+    return lesson && lesson.videoEvidence && lesson.videoEvidence.blockId
+      ? lesson.videoEvidence.blockId
+      : currentDay.dayId === "day02"
+      ? "block06"
+      : "block03";
+  }
+
+  function createDay02AssetPayloads(student, currentDay, state) {
+    if (!hasPersistentVideoReference(state)) {
+      return [];
+    }
+
+    return [
+      {
+        assetId: getVideoAssetId(student.studentId, currentDay.dayId, state),
+        assetType: "video",
+        ownerType: "student",
+        ownerId: student.studentId,
+        dayId: currentDay.dayId,
+        blockId: getVideoBlockId(currentDay),
+        title: "Day02 연구 모습 영상",
+        description: "센서 조건 알림 장치 시험 모습",
+        storageFileId: state.videoStorageFileId || state.videoFileId || "",
+        storageUrl: state.videoStorageUrl || state.videoPlaybackUrl || "",
+        thumbnailUrl: "",
+        fileName: state.videoFileName || "",
+        mimeType: state.videoMimeType || "video/webm",
+        capturedAt: state.videoCapturedAt || "",
+      },
+    ];
+  }
+
+  function createAssetPayloads(student, currentDay, state) {
+    return currentDay.dayId === "day02"
+      ? createDay02AssetPayloads(student, currentDay, state)
+      : createDay01AssetPayloads(student, currentDay, state);
+  }
+
   function createDay01ServerSaveRequest(currentDay, state) {
-    if (!isDay01ServerSyncEnabled() || !state || currentDay.dayId !== "day01") {
+    if (!isDay01ServerSyncEnabled() || !state || !isPersistedLessonDay(currentDay)) {
       return null;
     }
 
@@ -1576,7 +1968,7 @@
     }
 
     const normalizedState = normalizeDayState(currentDay, cloneJsonValue(state, {}));
-    updateDay01Progress(normalizedState);
+    updateDayProgress(normalizedState, currentDay);
     const lesson = getLessonForDay(currentDay);
     const syncedDayState = cloneJsonValue(normalizedState, {});
     syncedDayState.serverSyncPending = false;
@@ -1588,9 +1980,9 @@
       dayId: currentDay.dayId,
       localRevision: normalizedState.localRevision,
       localUpdatedAt: normalizedState.localUpdatedAt,
-      assets: createDay01AssetPayloads(student, currentDay, normalizedState),
-      quizResult: createDay01QuizPayload(student, currentDay, normalizedState, lesson),
-      dayRecord: createDay01RecordPayload(student, currentDay, syncedDayState),
+      assets: createAssetPayloads(student, currentDay, normalizedState),
+      quizResult: createQuizPayload(student, currentDay, normalizedState, lesson),
+      dayRecord: createDayRecordPayload(student, currentDay, syncedDayState),
     };
   }
 
@@ -1633,7 +2025,7 @@
     }
 
     if (
-      !isDay01Active() ||
+      !isPersistedLessonActive() ||
       !activeDayState ||
       activeDayState.captureStatus !== "recorded" ||
       hasPersistentVideoReference(activeDayState)
@@ -1860,12 +2252,14 @@
   }
 
   function saveDayState(status = SAVE_STATUS.saving, options = {}) {
-    if (!isStudentSelected() || !isDay01Active()) {
+    if (!isStudentSelected() || !isPersistedLessonActive()) {
       return Promise.resolve(false);
     }
 
-    updateDay01Progress(activeDayState);
-    updateDay01ProgressLine();
+    updateDayProgress(activeDayState, activeDay);
+    if (isDay01Active()) {
+      updateDay01ProgressLine();
+    }
     markDayStateServerPending(activeDayState);
 
     try {
@@ -1892,16 +2286,16 @@
   }
 
   function updateDay01State(mutator, status) {
-    if (!isDay01Active()) {
+    if (!isPersistedLessonActive()) {
       return;
     }
 
-    const beforeProgress = getDay01BlockProgress(activeDayState);
+    const beforeProgress = getBlockProgress(activeDay, activeDayState);
     const wasDayCompleted = Boolean(activeDayState.dayCompleted);
 
     mutator(activeDayState);
-    updateDay01Progress(activeDayState);
-    const afterProgress = getDay01BlockProgress(activeDayState);
+    updateDayProgress(activeDayState, activeDay);
+    const afterProgress = getBlockProgress(activeDay, activeDayState);
     const completedBlockNow = Object.keys(afterProgress).some(
       (blockId) =>
         afterProgress[blockId] === "completed" && beforeProgress[blockId] !== "completed"
@@ -1911,23 +2305,23 @@
     saveDayState(status, {
       server: completedBlockNow || completedDayNow ? "immediate" : "",
     });
-    syncDay01UiFromState();
+    syncActiveLessonUiFromState();
   }
 
   function updateDay01RuntimeState(mutator, status, options = {}) {
-    if (!isDay01Active()) {
+    if (!isPersistedLessonActive()) {
       return;
     }
 
     mutator(activeDayState);
-    updateDay01Progress(activeDayState);
+    updateDayProgress(activeDayState, activeDay);
     writeDayStateToLocalStorage(activeDay, activeDayState);
 
     if (status !== undefined) {
       renderSaveState(status, options);
     }
 
-    syncDay01UiFromState();
+    syncActiveLessonUiFromState();
   }
 
   function formatDayNo(dayNo) {
@@ -2084,7 +2478,7 @@
       statusText.textContent = status;
       saveState.appendChild(statusText);
 
-      if ((options.retry || options.retryVideo) && isDay01Active() && isDay01ServerSyncEnabled()) {
+      if ((options.retry || options.retryVideo) && isPersistedLessonActive() && isDay01ServerSyncEnabled()) {
         const retryButton = document.createElement("button");
         retryButton.className = "retry-save-button";
         retryButton.type = "button";
@@ -2106,7 +2500,7 @@
   }
 
   function retryDay01ServerSave() {
-    if (!isDay01Active()) {
+    if (!isPersistedLessonActive()) {
       return;
     }
 
@@ -2190,7 +2584,7 @@
   }
 
   function getPendingStudent() {
-    return findStudentById(pendingStudentId);
+    return findVisibleStudentById(pendingStudentId);
   }
 
   function updateIdentitySelection() {
@@ -2242,7 +2636,7 @@
           <p>그 과정은 나만의 프로젝트 북에 남습니다.</p>
         </div>
         <div class="identity-gate__selector" aria-label="연구원 이름 선택">
-          ${registeredStudents.map((student) => renderStudentOption(student)).join("")}
+          ${getVisibleRegisteredStudents().map((student) => renderStudentOption(student)).join("")}
         </div>
         <p class="identity-gate__confirmation" data-identity-confirmation hidden></p>
         ${
@@ -2302,7 +2696,7 @@
   }
 
   function prepareActiveStateForStudentChange() {
-    if (!isDay01Active()) {
+    if (!isPersistedLessonActive()) {
       return;
     }
 
@@ -2361,7 +2755,7 @@
     try {
       prepareActiveStateForStudentChange();
 
-      if (isDay01Active()) {
+      if (isPersistedLessonActive()) {
         await saveDayState(SAVE_STATUS.saving, {
           server: "immediate",
           waitForServer: true,
@@ -2594,6 +2988,19 @@
       : lesson.bridge.carry.fallbackResult;
   }
 
+  function hasCarryResult(lesson) {
+    const recordSource = currentStudentRecords || {};
+    const previousRecord = recordSource[lesson.bridge.carry.previousDayId];
+
+    return Boolean(previousRecord && (previousRecord.todayDecision || previousRecord.resultSummary));
+  }
+
+  function formatCarryResultForSentence(value) {
+    return String(value || "")
+      .trim()
+      .replace(/^오늘은\s+/, "");
+  }
+
   function getProjectReloadRecord(lesson) {
     const recordSource = currentStudentRecords || {};
     const previous = lesson.projectReload.previousRecord;
@@ -2635,6 +3042,43 @@
   }
 
   function renderResearchBridge(lesson) {
+    if (lesson.dayId === "day02") {
+      const carryResult = formatCarryResultForSentence(getCarryResult(lesson));
+      const isRealRecord = hasCarryResult(lesson);
+
+      return `
+        <section class="lesson-section research-bridge" id="research-bridge" data-section="researchBridge">
+          <p class="section-kicker">연구 이어보기</p>
+          <h2 class="section-title">지난 연구에서 오늘 연구로</h2>
+
+          <div class="story-step" data-section="researchBridgeCarry">
+            <p class="step-label">${escapeHtml(
+              isRealRecord ? lesson.bridge.carry.title : "지난 연구 기록 예시"
+            )}</p>
+            <p class="carried-result">지난 연구에서 나는 ${escapeHtml(carryResult)}</p>
+            <p class="reusable-idea">
+              <span>오늘 다시 사용할 생각</span>
+              ${escapeHtml(lesson.bridge.carry.reusableIdea)}
+            </p>
+          </div>
+
+          <div class="story-step" data-section="researchBridgeRecall">
+            <p class="step-label">${escapeHtml(lesson.bridge.recall.title)}</p>
+            ${renderParagraphs(lesson.bridge.recall.lines || [])}
+          </div>
+
+          <div class="story-step" data-section="researchBridgeConnect">
+            ${renderParagraphs(lesson.bridge.connect.lines || [])}
+            <p class="core-statement">${escapeHtml(lesson.bridge.connect.todayTitle)}</p>
+          </div>
+
+          <div class="section-action">
+            <a class="primary-link" href="#today-research">오늘 연구 확인하기 →</a>
+          </div>
+        </section>
+      `;
+    }
+
     return `
       <section class="lesson-section research-bridge" id="research-bridge" data-section="researchBridge">
         <p class="section-kicker">연구 이어보기</p>
@@ -2977,6 +3421,243 @@
         ${guide ? `<p class="activity-guide">${escapeHtml(guide)}</p>` : ""}
         ${content}
       </div>
+    `;
+  }
+
+  function renderSensorObservationActivity(activity) {
+    return `
+      <div class="plain-group block-activity day02-activity" data-day02-activity="sensor-observation">
+        <h3>${escapeHtml(activity.title)}</h3>
+        ${renderActivityStep("해보기", activity.prompt, renderNumberedList(activity.steps || [], "task-list"))}
+        <div class="plain-group day02-observation-questions">
+          <h4>관찰 질문</h4>
+          ${renderPlainList(activity.questions || [], "help-list")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderThresholdSettingActivity(activity) {
+    const thresholdValue = activeDayState ? activeDayState.thresholdValue || "" : "";
+
+    return `
+      <div class="plain-group block-activity day02-activity" data-day02-activity="threshold-setting">
+        <h3>${escapeHtml(activity.title)}</h3>
+        ${renderActivityStep("정하기", activity.prompt)}
+        <label class="record-field day02-threshold-field" for="day02-threshold-value">
+          <span>${escapeHtml(activity.fieldLabel)}</span>
+          <input
+            id="day02-threshold-value"
+            type="number"
+            inputmode="numeric"
+            step="1"
+            value="${escapeHtml(thresholdValue)}"
+            placeholder="${escapeHtml(activity.placeholder || "")}"
+            data-day02-threshold-value
+          >
+        </label>
+        <div class="plain-group day02-rule-preview">
+          <h4>판단 규칙</h4>
+          ${renderPlainList(activity.relationLines || [], "help-list")}
+        </div>
+        <p class="field-help">${escapeHtml(activity.makeCodeGuide || "")}</p>
+        <p class="inline-feedback inline-feedback--correct" data-day02-threshold-status${
+          thresholdValue ? "" : " hidden"
+        }>기준값 저장 완료 ✓</p>
+      </div>
+    `;
+  }
+
+  function renderSensorDeviceActivity(activity) {
+    const passed = Boolean(activeDayState && activeDayState.conditionTestPassed);
+
+    return `
+      <div class="plain-group block-activity day02-activity" data-day02-activity="sensor-device">
+        <h3>${escapeHtml(activity.title)}</h3>
+        ${renderActivityStep("시험하기", activity.prompt)}
+        <div class="plain-group day02-device-flow">
+          <h4>장치 흐름</h4>
+          ${renderNumberedList(activity.flow || [], "task-list")}
+        </div>
+        <p class="field-help">${escapeHtml(activity.makeCodeGuide || "")}</p>
+        <div class="section-action day02-condition-gate">
+          <button
+            class="${passed ? "secondary-button" : "primary-link"}"
+            type="button"
+            data-day02-condition-test-complete
+            ${passed ? "disabled" : ""}
+          >
+            ${passed ? "✓ 센서 조건 실험 성공" : escapeHtml(activity.confirmLabel)}
+          </button>
+          <p class="field-help" data-day02-condition-test-status>
+            ${
+              passed
+                ? "다시 시험하려면 실제 장치에서 밝은 상태와 어두운 상태를 다시 확인하세요."
+                : "밝은 상태와 어두운 상태를 모두 실제 장치에서 확인한 뒤 누릅니다."
+            }
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderDay02FreeChange(lesson) {
+    if (!lesson.freeChange) {
+      return "";
+    }
+
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day02" });
+    const change = state.changeMade || "";
+    const isOther = change === "기타";
+
+    return `
+      <section class="lesson-section day02-free-change" id="free-change" data-section="freeChange">
+        <p class="section-kicker">자유 변경</p>
+        <h2 class="section-title">${escapeHtml(lesson.freeChange.title)}</h2>
+        <p class="section-description">${escapeHtml(lesson.freeChange.description)}</p>
+
+        <div class="choice-list compact-choice-list" data-day02-change-group>
+          ${lesson.freeChange.options
+            .map((option) => {
+              const selected = change === option;
+
+              return `
+                <button
+                  class="choice-button${selected ? " is-selected" : ""}"
+                  type="button"
+                  aria-pressed="${selected ? "true" : "false"}"
+                  data-day02-change-made="${escapeHtml(option)}"
+                >
+                  ${escapeHtml(option)}
+                </button>
+              `;
+            })
+            .join("")}
+        </div>
+
+        <label class="record-field day02-change-other" for="day02-change-other"${isOther ? "" : " hidden"}>
+          <span>기타 변경</span>
+          <input
+            id="day02-change-other"
+            type="text"
+            maxlength="80"
+            value="${escapeHtml(state.changeMadeOther || "")}"
+            placeholder="${escapeHtml(lesson.freeChange.otherPlaceholder || "")}"
+            data-day02-change-other
+            ${isOther ? "" : "disabled"}
+          >
+        </label>
+
+        <details class="help-toggle">
+          <summary>발전 활동</summary>
+          <p>${escapeHtml(lesson.freeChange.advancedPrompt)}</p>
+        </details>
+
+        <nav class="section-nav" aria-label="자유 변경 이동">
+          <a href="#block06">← 스스로 반응하게 만들기</a>
+          <a class="section-nav__next" href="#video-evidence">연구 모습 영상 →</a>
+        </nav>
+      </section>
+    `;
+  }
+
+  function renderDay02VideoEvidence(lesson) {
+    if (!lesson.videoEvidence) {
+      return "";
+    }
+
+    return `
+      ${renderWebcamEvidenceActivity(lesson.videoEvidence)}
+      <nav class="section-nav day02-video-nav" aria-label="연구 모습 영상 이동">
+        <a href="#free-change">← 마음대로 바꾸기</a>
+        <a class="section-nav__next" href="#today-quiz">오늘의 퀴즈 →</a>
+      </nav>
+    `;
+  }
+
+  function getDay02CompletionLevelText(state = activeDayState) {
+    if (!state || !state.minimumCompleted) {
+      return "진행 중";
+    }
+
+    if (state.advancedCompleted) {
+      return "발전";
+    }
+
+    if (state.basicCompleted) {
+      return "기본";
+    }
+
+    return "최소";
+  }
+
+  function getDay02VideoRecordText(state = activeDayState) {
+    if (!state) {
+      return "아직 영상 없음";
+    }
+
+    if (hasPersistentVideoReference(state)) {
+      return "Drive 저장 완료";
+    }
+
+    if (hasRuntimeVideoReference()) {
+      return "브라우저 임시 영상 있음";
+    }
+
+    return getVideoStatusText(state.videoLocalState);
+  }
+
+  function renderDay02ResearchRecord(lesson) {
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day02" });
+    updateDay02Progress(state);
+
+    return `
+      <section class="lesson-section research-record day02-record" id="research-record" data-section="researchRecord">
+        <p class="section-kicker">기록하기</p>
+        <h2 class="section-title">${escapeHtml(lesson.record.title)}</h2>
+
+        <ul class="completion-requirements day02-record-summary" data-day02-record-summary>
+          <li class="${isDay02ThresholdSaved(state) ? "is-complete" : ""}">
+            <span aria-hidden="true">${isDay02ThresholdSaved(state) ? "✓" : "□"}</span>
+            <strong>기준값</strong>
+            <em data-day02-record-threshold>${escapeHtml(state.thresholdValue || "아직 없음")}</em>
+          </li>
+          <li class="${hasPersistentVideoReference(state) ? "is-complete" : ""}">
+            <span aria-hidden="true">${hasPersistentVideoReference(state) ? "✓" : "□"}</span>
+            <strong>영상</strong>
+            <em data-day02-record-video>${escapeHtml(getDay02VideoRecordText(state))}</em>
+          </li>
+          <li class="${getDay02ChangeMadeText(state) ? "is-complete" : ""}">
+            <span aria-hidden="true">${getDay02ChangeMadeText(state) ? "✓" : "□"}</span>
+            <strong>자유 변경</strong>
+            <em data-day02-record-change>${escapeHtml(getDay02ChangeMadeText(state) || "아직 선택 없음")}</em>
+          </li>
+        </ul>
+
+        <div class="plain-group">
+          <h3>자동 확인 결과</h3>
+          <p data-day02-record-condition>센서 조건 실험: ${state.conditionTestPassed ? "성공" : "통과 전"}</p>
+          <p data-day02-record-level>판정: ${escapeHtml(getDay02CompletionLevelText(state))}</p>
+        </div>
+
+        <div class="plain-group">
+          <h3>오늘 기록</h3>
+          <p data-day02-record-decision>${escapeHtml(
+            state.minimumCompleted || isDay02ThresholdSaved(state)
+              ? getDay02TodayDecision(state)
+              : "기준값을 정하고 두 상황 작동을 확인하면 자동으로 기록됩니다."
+          )}</p>
+        </div>
+
+        <div class="plain-group">
+          <h3>다음 연구</h3>
+          <p data-day02-record-next>다음 연구에서는 장치를 움직이거나 다른 장치와 정보를 주고받는 방법을 알아봅니다.</p>
+        </div>
+
+        <div class="section-action">
+          <a class="primary-link" href="#page-title">연구소 지도에서 확인하기 →</a>
+        </div>
+      </section>
     `;
   }
 
@@ -4367,6 +5048,18 @@
       return renderActivitySequence(activity);
     }
 
+    if (activity.type === "sensor-observation") {
+      return renderSensorObservationActivity(activity);
+    }
+
+    if (activity.type === "threshold-setting") {
+      return renderThresholdSettingActivity(activity);
+    }
+
+    if (activity.type === "sensor-device") {
+      return renderSensorDeviceActivity(activity);
+    }
+
     if (activity.type === "notice") {
       return renderNoticeActivity(activity);
     }
@@ -4539,18 +5232,61 @@
     `;
   }
 
+  function getAfterBlocksTarget(lesson) {
+    if (lesson.freeChange) {
+      return {
+        href: "#free-change",
+        label: "마음대로 바꾸기",
+      };
+    }
+
+    if (lesson.evidence) {
+      return {
+        href: "#research-evidence",
+        label: "연구 증거함",
+      };
+    }
+
+    return {
+      href: "#today-quiz",
+      label: "오늘의 퀴즈",
+    };
+  }
+
+  function getPreQuizTarget(lesson) {
+    if (lesson.videoEvidence) {
+      return {
+        href: "#video-evidence",
+        label: "연구 모습 영상",
+      };
+    }
+
+    if (lesson.evidence) {
+      return {
+        href: "#research-evidence",
+        label: "연구 증거함",
+      };
+    }
+
+    const lastBlock = lesson.lessonBlocks[lesson.lessonBlocks.length - 1];
+
+    return {
+      href: `#${lastBlock.blockId}`,
+      label: lastBlock.shortTitle,
+    };
+  }
+
   function getBlockNav(lesson, index) {
     const blocks = lesson.lessonBlocks;
     const previousBlock = blocks[index - 1];
     const nextBlock = blocks[index + 1];
-    const afterBlocksHref = lesson.evidence ? "#research-evidence" : "#today-quiz";
-    const afterBlocksLabel = lesson.evidence ? "연구 증거함" : "오늘의 퀴즈";
+    const afterBlocks = getAfterBlocksTarget(lesson);
 
     return {
       previousHref: previousBlock ? `#${previousBlock.blockId}` : "#today-research",
       previousLabel: previousBlock ? previousBlock.shortTitle : "오늘의 연구",
-      nextHref: nextBlock ? `#${nextBlock.blockId}` : afterBlocksHref,
-      nextLabel: nextBlock ? nextBlock.shortTitle : afterBlocksLabel,
+      nextHref: nextBlock ? `#${nextBlock.blockId}` : afterBlocks.href,
+      nextLabel: nextBlock ? nextBlock.shortTitle : afterBlocks.label,
     };
   }
 
@@ -4641,16 +5377,20 @@
             : ""
         }
 
-        <div class="plain-group checkpoint-group">
-          <h3>여기까지 했다면</h3>
-          ${
-            isDay01Block
-              ? `${renderActivityLabel("확인하기")}
-                <p class="activity-guide">여기까지 했다면 직접 확인하세요.</p>`
-              : ""
-          }
-          ${renderCheckpointList(block, currentDay)}
-        </div>
+        ${
+          block.checkpoint && block.checkpoint.length
+            ? `<div class="plain-group checkpoint-group">
+                <h3>여기까지 했다면</h3>
+                ${
+                  isDay01Block
+                    ? `${renderActivityLabel("확인하기")}
+                      <p class="activity-guide">여기까지 했다면 직접 확인하세요.</p>`
+                    : ""
+                }
+                ${renderCheckpointList(block, currentDay)}
+              </div>`
+            : ""
+        }
 
         <details class="help-toggle">
           <summary>${escapeHtml(block.helpSummary || "막혔나요? 도움 보기")}</summary>
@@ -4993,9 +5733,9 @@
   }
 
   function renderTodayQuiz(lesson) {
-    const lastBlock = lesson.lessonBlocks[lesson.lessonBlocks.length - 1];
-    const previousHref = lesson.evidence ? "#research-evidence" : `#${lastBlock.blockId}`;
-    const previousLabel = lesson.evidence ? "연구 증거함" : lastBlock.shortTitle;
+    const previous = getPreQuizTarget(lesson);
+    const previousHref = previous.href;
+    const previousLabel = previous.label;
     const renderSequentialNav = shouldRenderSequentialNav(lesson);
 
     return `
@@ -5109,6 +5849,10 @@
   }
 
   function renderResearchRecord(lesson) {
+    if (lesson.dayId === "day02") {
+      return renderDay02ResearchRecord(lesson);
+    }
+
     const renderSequentialNav = shouldRenderSequentialNav(lesson);
 
     return `
@@ -5302,6 +6046,10 @@
       return renderDay01ResearchComplete(lesson);
     }
 
+    if (lesson.dayId === "day02") {
+      return "";
+    }
+
     return `
       <section class="lesson-section research-complete" id="research-complete" data-section="researchComplete">
         <p class="section-kicker">마무리</p>
@@ -5351,6 +6099,8 @@
       ${lesson.lessonBlocks
         .map((block, index) => renderLessonBlock(block, lesson, index, currentDay))
         .join("")}
+      ${lesson.dayId === "day02" ? renderDay02FreeChange(lesson) : ""}
+      ${lesson.dayId === "day02" ? renderDay02VideoEvidence(lesson) : ""}
       ${renderResearchEvidence(lesson)}
       ${renderTodayQuiz(lesson)}
       ${renderResearchRecord(lesson)}
@@ -6108,7 +6858,7 @@
   }
 
   async function startDay01Camera() {
-    if (!isDay01Active()) {
+    if (!isPersistedLessonActive()) {
       return;
     }
 
@@ -6196,20 +6946,23 @@
     clearRecordingTimer();
     day01RecordingTimer = window.setInterval(() => {
       const elapsed = Math.floor((Date.now() - day01RecordingStartedAt) / 1000);
-      const remaining = Math.max(0, DAY01_RECORDING_SECONDS - elapsed);
+      const recordingSeconds =
+        activeDay && activeDay.dayId === "day02" ? DAY02_RECORDING_SECONDS : DAY01_RECORDING_SECONDS;
+      const maxRecordingSeconds =
+        activeDay && activeDay.dayId === "day02"
+          ? DAY02_MAX_RECORDING_SECONDS
+          : DAY01_MAX_RECORDING_SECONDS;
+      const remaining = Math.max(0, recordingSeconds - elapsed);
       countdown.textContent = `남은 시간 ${remaining}초`;
 
-      if (
-        remaining <= 0 ||
-        elapsed >= Math.min(DAY01_RECORDING_SECONDS, DAY01_MAX_RECORDING_SECONDS)
-      ) {
+      if (remaining <= 0 || elapsed >= Math.min(recordingSeconds, maxRecordingSeconds)) {
         stopDay01Recording();
       }
     }, 250);
   }
 
   function startDay01Recording() {
-    if (!isDay01Active()) {
+    if (!isPersistedLessonActive()) {
       return;
     }
 
@@ -6363,7 +7116,9 @@
       return window.crypto.randomUUID();
     }
 
-    return `day01-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    return `${activeDay ? activeDay.dayId : "day"}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
   }
 
   function createTimeoutSignal(timeoutMs) {
@@ -6517,7 +7272,7 @@
         workId: uploadContext.workId,
         dayId: uploadContext.dayId,
         assetId: getExpectedVideoAssetId(uploadContext.studentId, uploadContext.dayId),
-        blockId: "block03",
+        blockId: getVideoBlockId({ dayId: uploadContext.dayId }),
         mimeType: uploadMimeType,
         capturedAt,
       });
@@ -6592,7 +7347,7 @@
       );
     } finally {
       day01UploadInFlight = false;
-      syncDay01UiFromState();
+      syncActiveLessonUiFromState();
     }
   }
 
@@ -6620,7 +7375,7 @@
   }
 
   function retakeDay01Recording() {
-    if (!isDay01Active()) {
+    if (!isPersistedLessonActive()) {
       return;
     }
 
@@ -7071,6 +7826,213 @@
     updateDay01CompletionUi();
   }
 
+  function syncQuizChoiceUiFromState() {
+    if (!activeDayState || !elements.standardDay) {
+      return;
+    }
+
+    elements.standardDay.querySelectorAll("[data-day01-quiz-id]").forEach((group) => {
+      const selectedValue = activeDayState.quizAnswers[group.dataset.day01QuizId];
+
+      group.querySelectorAll("[data-choice-button]").forEach((button) => {
+        const selected = selectedValue === button.dataset.choiceValue;
+        button.classList.toggle("is-selected", selected);
+        button.setAttribute("aria-pressed", selected ? "true" : "false");
+      });
+    });
+  }
+
+  function syncVideoControlsFromState() {
+    if (!activeDayState || !elements.standardDay) {
+      return;
+    }
+
+    const recordedVideo = elements.standardDay.querySelector("[data-recorded-video]");
+    const drivePreview = elements.standardDay.querySelector("[data-drive-video-preview]");
+    const webcamStatus = elements.standardDay.querySelector("[data-webcam-status]");
+    const cameraStart = elements.standardDay.querySelector("[data-camera-start]");
+    const recordStart = elements.standardDay.querySelector("[data-record-start]");
+    const recordStop = elements.standardDay.querySelector("[data-record-stop]");
+    const useRecording = elements.standardDay.querySelector("[data-use-recording]");
+    const retake = elements.standardDay.querySelector("[data-retake-recording]");
+    const isRecording = activeDayState.captureStatus === "recording";
+    const hasVideoReference = hasCurrentVideoReference(activeDayState);
+
+    if (recordedVideo) {
+      recordedVideo.src = day01RecordedUrl || "";
+      recordedVideo.hidden = !day01RecordedUrl;
+    }
+
+    if (drivePreview) {
+      const drivePreviewUrl = getPersistentVideoPlaybackSource(activeDayState);
+      drivePreview.src = drivePreviewUrl;
+      drivePreview.hidden = !drivePreviewUrl;
+    }
+
+    if (webcamStatus) {
+      webcamStatus.textContent = getVideoStatusText(activeDayState.videoLocalState);
+    }
+
+    if (cameraStart) {
+      cameraStart.disabled = isRecording || hasVideoReference || day01UploadInFlight;
+    }
+
+    if (recordStart) {
+      recordStart.disabled =
+        !day01CameraStream || isRecording || hasVideoReference || day01UploadInFlight;
+    }
+
+    if (recordStop) {
+      recordStop.disabled = !isRecording;
+    }
+
+    if (useRecording) {
+      useRecording.textContent =
+        activeDayState.storageStatus === "failed" ? "다시 저장" : "이 영상 사용";
+      useRecording.disabled =
+        isRecording ||
+        !day01RecordedBlob ||
+        day01UploadInFlight ||
+        activeDayState.storageStatus === "too_large";
+    }
+
+    if (retake) {
+      retake.disabled = isRecording || day01UploadInFlight || !hasVideoReference;
+    }
+  }
+
+  function updateDay02SummaryItem(selector, isComplete, text) {
+    const value = elements.standardDay.querySelector(selector);
+
+    if (!value) {
+      return;
+    }
+
+    const item = value.closest("li");
+    const mark = item ? item.querySelector("span") : null;
+
+    value.textContent = text;
+
+    if (item) {
+      item.classList.toggle("is-complete", Boolean(isComplete));
+    }
+
+    if (mark) {
+      mark.textContent = isComplete ? "✓" : "□";
+    }
+  }
+
+  function syncDay02RecordUi() {
+    updateDay02SummaryItem(
+      "[data-day02-record-threshold]",
+      isDay02ThresholdSaved(activeDayState),
+      activeDayState.thresholdValue || "아직 없음"
+    );
+    updateDay02SummaryItem(
+      "[data-day02-record-video]",
+      hasPersistentVideoReference(activeDayState),
+      getDay02VideoRecordText(activeDayState)
+    );
+    updateDay02SummaryItem(
+      "[data-day02-record-change]",
+      Boolean(getDay02ChangeMadeText(activeDayState)),
+      getDay02ChangeMadeText(activeDayState) || "아직 선택 없음"
+    );
+    const decision = elements.standardDay.querySelector("[data-day02-record-decision]");
+    const condition = elements.standardDay.querySelector("[data-day02-record-condition]");
+    const level = elements.standardDay.querySelector("[data-day02-record-level]");
+
+    if (condition) {
+      condition.textContent = `센서 조건 실험: ${
+        activeDayState.conditionTestPassed ? "성공" : "통과 전"
+      }`;
+    }
+
+    if (level) {
+      level.textContent = `판정: ${getDay02CompletionLevelText(activeDayState)}`;
+    }
+
+    if (decision) {
+      decision.textContent =
+        activeDayState.minimumCompleted || isDay02ThresholdSaved(activeDayState)
+          ? getDay02TodayDecision(activeDayState)
+          : "기준값을 정하고 두 상황 작동을 확인하면 자동으로 기록됩니다.";
+    }
+  }
+
+  function syncDay02UiFromState() {
+    if (!isDay02Active() || !elements.standardDay) {
+      return;
+    }
+
+    updateDay02Progress(activeDayState);
+
+    const thresholdInput = elements.standardDay.querySelector("[data-day02-threshold-value]");
+    const thresholdStatus = elements.standardDay.querySelector("[data-day02-threshold-status]");
+
+    if (thresholdInput && thresholdInput.value !== activeDayState.thresholdValue) {
+      thresholdInput.value = activeDayState.thresholdValue || "";
+    }
+
+    if (thresholdStatus) {
+      thresholdStatus.hidden = !isDay02ThresholdSaved(activeDayState);
+    }
+
+    const conditionButton = elements.standardDay.querySelector(
+      "[data-day02-condition-test-complete]"
+    );
+    const conditionStatus = elements.standardDay.querySelector("[data-day02-condition-test-status]");
+
+    if (conditionButton) {
+      conditionButton.textContent = activeDayState.conditionTestPassed
+        ? "✓ 센서 조건 실험 성공"
+        : "두 상황 모두 작동했어요";
+      conditionButton.disabled = Boolean(activeDayState.conditionTestPassed);
+      conditionButton.classList.toggle("primary-link", !activeDayState.conditionTestPassed);
+      conditionButton.classList.toggle("secondary-button", Boolean(activeDayState.conditionTestPassed));
+    }
+
+    if (conditionStatus) {
+      conditionStatus.textContent = activeDayState.conditionTestPassed
+        ? "다시 시험하려면 실제 장치에서 밝은 상태와 어두운 상태를 다시 확인하세요."
+        : "밝은 상태와 어두운 상태를 모두 실제 장치에서 확인한 뒤 누릅니다.";
+    }
+
+    elements.standardDay.querySelectorAll("[data-day02-change-made]").forEach((button) => {
+      const selected = activeDayState.changeMade === button.dataset.day02ChangeMade;
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+
+    const otherField = elements.standardDay.querySelector(".day02-change-other");
+    const otherInput = elements.standardDay.querySelector("[data-day02-change-other]");
+    const isOther = activeDayState.changeMade === "기타";
+
+    if (otherField) {
+      otherField.hidden = !isOther;
+    }
+
+    if (otherInput) {
+      otherInput.disabled = !isOther;
+      if (otherInput.value !== activeDayState.changeMadeOther) {
+        otherInput.value = activeDayState.changeMadeOther || "";
+      }
+    }
+
+    syncQuizChoiceUiFromState();
+    syncVideoControlsFromState();
+    syncDay02RecordUi();
+  }
+
+  function syncActiveLessonUiFromState() {
+    if (isDay02Active()) {
+      syncDay02UiFromState();
+      return;
+    }
+
+    syncDay01UiFromState();
+  }
+
   function handleStartResearch() {
     const currentDay = getCurrentDay();
     const lesson = getLessonForDay(currentDay);
@@ -7115,7 +8077,7 @@
     feedback.hidden = false;
     feedback.classList.toggle("inline-feedback--correct", isCorrect);
 
-    if (isDay01Active() && group.dataset.day01QuizId) {
+    if (isPersistedLessonActive() && group.dataset.day01QuizId) {
       updateDay01State((state) => {
         state.quizAnswers[group.dataset.day01QuizId] = button.dataset.choiceValue;
       });
@@ -7212,8 +8174,45 @@
     });
   }
 
+  function handleDay02ConditionTestComplete() {
+    if (!isDay02Active() || activeDayState.conditionTestPassed) {
+      return;
+    }
+
+    updateDay01State(
+      (state) => {
+        state.conditionTestPassed = true;
+      },
+      "센서 조건 실험 성공 저장 중..."
+    );
+  }
+
+  function handleDay02Click(event) {
+    if (!isDay02Active()) {
+      return;
+    }
+
+    if (event.target.closest("[data-day02-condition-test-complete]")) {
+      handleDay02ConditionTestComplete();
+      return;
+    }
+
+    const day02ChangeButton = event.target.closest("[data-day02-change-made]");
+
+    if (day02ChangeButton) {
+      updateDay01State((state) => {
+        const nextChange = day02ChangeButton.dataset.day02ChangeMade;
+        state.changeMade = state.changeMade === nextChange ? "" : nextChange;
+
+        if (state.changeMade !== "기타") {
+          state.changeMadeOther = "";
+        }
+      });
+    }
+  }
+
   function handleDay01Click(event) {
-    if (!isDay01Active()) {
+    if (!isPersistedLessonActive()) {
       return;
     }
 
@@ -7414,7 +8413,24 @@
   }
 
   function handleDay01Input(event) {
-    if (!isDay01Active()) {
+    if (!isPersistedLessonActive()) {
+      return;
+    }
+
+    if (event.target.closest("[data-day02-threshold-value]") && isDay02Active()) {
+      updateDay01State(
+        (state) => {
+          state.thresholdValue = String(event.target.value || "").trim().slice(0, 12);
+        },
+        "기준값 저장 중..."
+      );
+      return;
+    }
+
+    if (event.target.closest("[data-day02-change-other]") && isDay02Active()) {
+      updateDay01State((state) => {
+        state.changeMadeOther = String(event.target.value || "").trim().slice(0, 80);
+      });
       return;
     }
 
@@ -7429,7 +8445,7 @@
   }
 
   function handleDay01Change(event) {
-    if (!isDay01Active()) {
+    if (!isPersistedLessonActive()) {
       return;
     }
 
@@ -7610,7 +8626,7 @@
     updateIdeaDisplays();
     syncSelectedIdeaToRecord();
     updateProjectReloadRecord();
-    syncDay01UiFromState();
+    syncActiveLessonUiFromState();
   }
 
   async function renderPage() {
@@ -7626,6 +8642,7 @@
     const requestStudentId = getStudentId();
     activeDay = currentDay;
     const serverRestore = await loadServerDayState(currentDay);
+    await loadBridgePreviousRecord(currentDay);
 
     if (!isStudentSelected() || getStudentId() !== requestStudentId) {
       return;
@@ -7635,7 +8652,7 @@
     activeDayState = dayStateRestore.state;
 
     if (activeDayState) {
-      updateDay01Progress(activeDayState);
+      updateDayProgress(activeDayState, activeDay);
 
       if (day01NeedsInitialSave) {
         saveDayState("");
@@ -7685,6 +8702,7 @@
     });
     elements.standardDay.addEventListener("click", handleChoiceClick);
     elements.standardDay.addEventListener("click", handleProjectReloadReveal);
+    elements.standardDay.addEventListener("click", handleDay02Click);
     elements.standardDay.addEventListener("click", handleDay01Click);
     elements.standardDay.addEventListener("input", handleStandardInput);
     elements.standardDay.addEventListener("input", handleDay01Input);

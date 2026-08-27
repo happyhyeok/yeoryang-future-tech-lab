@@ -4,6 +4,7 @@ function uploadVideo_(payload) {
   ensureAssetHeaders_();
   const folder = getVideoDayFolder_(video.studentId, video.dayId);
   const previousFileId = getExistingVideoStorageFileId_(video);
+  const videoLabels = getVideoDayLabels_(video.dayId);
   const now = formatServerDateTime_(new Date());
   let newFile = null;
 
@@ -21,8 +22,8 @@ function uploadVideo_(payload) {
       ownerId: video.studentId,
       dayId: video.dayId,
       blockId: video.blockId,
-      title: "Day01 연구 모습 영상",
-      description: "첫 연구장치 시험 모습",
+      title: videoLabels.title,
+      description: videoLabels.description,
       storageFileId: storageFileId,
       storageUrl: storageUrl,
       thumbnailUrl: "",
@@ -74,11 +75,15 @@ function normalizeVideoUploadPayload_(payload) {
   validateStudent_(studentId);
   validateWorkForStudent_(studentId, workId);
   validateResearchDay_(dayId);
-  assertApi_(dayId === "day01", "DAY_NOT_FOUND", "Day01 영상 업로드만 허용됩니다.");
+  assertApi_(
+    ["day01", "day02"].indexOf(dayId) >= 0,
+    "DAY_NOT_FOUND",
+    "Day01 또는 Day02 영상 업로드만 허용됩니다."
+  );
   assertApi_(
     assetId === expectedAssetId,
     "ASSET_ID_CONFLICT",
-    "Day01 video Asset ID가 학생·연구일 규칙과 일치하지 않습니다."
+    "video Asset ID가 학생·연구일 규칙과 일치하지 않습니다."
   );
 
   return {
@@ -86,11 +91,33 @@ function normalizeVideoUploadPayload_(payload) {
     workId: workId,
     dayId: dayId,
     assetId: assetId,
-    blockId: cleanFreeText_(body.blockId || "block03", FUTURELAB_CONFIG.LIMITS.TITLE, "blockId"),
+    blockId: cleanFreeText_(
+      body.blockId || getDefaultVideoBlockId_(dayId),
+      FUTURELAB_CONFIG.LIMITS.TITLE,
+      "blockId"
+    ),
     mimeType: mimeType,
     capturedAt: cleanFreeText_(body.capturedAt, FUTURELAB_CONFIG.LIMITS.TITLE, "capturedAt"),
     fileName: makeVideoFileName_(studentId, dayId, mimeType),
     base64Data: normalizeVideoBase64_(body.base64Data, mimeType),
+  };
+}
+
+function getDefaultVideoBlockId_(dayId) {
+  return dayId === "day02" ? "block06" : "block03";
+}
+
+function getVideoDayLabels_(dayId) {
+  if (dayId === "day02") {
+    return {
+      title: "Day02 연구 모습 영상",
+      description: "센서 조건 알림 장치 시험 모습",
+    };
+  }
+
+  return {
+    title: "Day01 연구 모습 영상",
+    description: "첫 연구장치 시험 모습",
   };
 }
 

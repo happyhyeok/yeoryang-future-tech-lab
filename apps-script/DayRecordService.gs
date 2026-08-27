@@ -138,15 +138,13 @@ function normalizeDayStateIdentity_(dayState, studentId, workId, dayId) {
 }
 
 function validateBlockProgress_(blockProgress) {
-  ["block01", "block02", "block03"].forEach((blockId) => {
-    if (Object.prototype.hasOwnProperty.call(blockProgress, blockId)) {
-      ensureAllowedValue_(
-        String(blockProgress[blockId] || ""),
-        ["not_started", "in_progress", "completed"],
-        "INVALID_REQUEST",
-        blockId
-      );
-    }
+  Object.keys(blockProgress).forEach((blockId) => {
+    ensureAllowedValue_(
+      String(blockProgress[blockId] || ""),
+      ["not_started", "in_progress", "completed"],
+      "INVALID_REQUEST",
+      blockId
+    );
   });
 }
 
