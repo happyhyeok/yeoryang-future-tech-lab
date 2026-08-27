@@ -697,12 +697,22 @@
           title: "빛의 세기 관찰",
           connection: {
             title: "먼저 micro:bit를 연결해요",
-            steps: [
-              "MakeCode에서 만든 코드를 다운로드합니다.",
-              "USB 케이블로 micro:bit를 컴퓨터에 연결합니다.",
-              "장치 연결에서 micro:bit를 선택해 연결합니다.",
+            summary: "USB 연결 → MakeCode → 장치 연결 확인",
+            stepsBeforeImage: [
+              "USB 케이블로 micro:bit와 컴퓨터를 연결합니다.",
+              "MakeCode를 엽니다.",
             ],
-            detail: "다운로드 → 장치 연결 → micro:bit 선택 → 연결",
+            figure: {
+              title: "micro:bit 연결 순서 복습",
+              image: "assets/day01/makecode-pairing-guide.png",
+              imageAlt: "MakeCode에서 micro:bit를 연결하고 장치를 선택하는 순서 안내",
+              caption: "처음 연결하거나 연결이 끊겼다면 이 순서대로 다시 연결해 보세요.",
+            },
+            stepsAfterImage: [
+              "필요하면 장치 연결에서 내 micro:bit를 선택합니다.",
+              "코드를 만든 뒤 micro:bit로 보냅니다.",
+            ],
+            detail: "이미 연결되어 있다면 연결 상태만 확인하고 바로 빛의 세기 블록을 찾습니다.",
           },
           blockGuideSteps: [
             "입력 메뉴에서 빛의 세기 블록을 찾습니다.",

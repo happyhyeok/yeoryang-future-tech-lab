@@ -2234,6 +2234,10 @@ select:focus-visible,
   margin-top: 12px;
 }
 
+.day02-connection-figure {
+  max-width: 760px;
+}
+
 .day02-block-guide .day02-guide-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

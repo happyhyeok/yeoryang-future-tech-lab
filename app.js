@@ -3474,10 +3474,35 @@
       return "";
     }
 
+    const stepsBeforeImage = Array.isArray(connection.stepsBeforeImage)
+      ? connection.stepsBeforeImage
+      : connection.steps || [];
+    const stepsAfterImage = Array.isArray(connection.stepsAfterImage)
+      ? connection.stepsAfterImage
+      : [];
+    const figure = connection.figure
+      ? renderLessonGuideFigure(connection.figure)
+      : "";
+
+    function renderConnectionSteps(steps, start = 1) {
+      if (!Array.isArray(steps) || !steps.length) {
+        return "";
+      }
+
+      return `
+        <ol class="task-list"${start > 1 ? ` start="${start}"` : ""}>
+          ${steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")}
+        </ol>
+      `;
+    }
+
     return `
       <div class="plain-group day02-connection-guide">
         <h4>${escapeHtml(connection.title)}</h4>
-        ${renderNumberedList(connection.steps || [], "task-list")}
+        ${connection.summary ? `<p class="field-help">${escapeHtml(connection.summary)}</p>` : ""}
+        ${renderConnectionSteps(stepsBeforeImage)}
+        ${figure ? `<div class="day02-connection-figure">${figure}</div>` : ""}
+        ${renderConnectionSteps(stepsAfterImage, stepsBeforeImage.length + 1)}
         ${connection.detail ? `<p class="field-help">${escapeHtml(connection.detail)}</p>` : ""}
       </div>
     `;
