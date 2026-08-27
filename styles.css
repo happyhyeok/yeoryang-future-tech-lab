@@ -2289,6 +2289,112 @@ select:focus-visible,
   margin-top: 14px;
 }
 
+.day02-copy-stack {
+  display: grid;
+  gap: 8px;
+  max-width: 72ch;
+}
+
+.day02-copy-stack p,
+.day02-threshold-decision p,
+.day02-threshold-experiment p,
+.day02-test-item p,
+.day02-test-success p,
+.day02-peer-compare p {
+  margin: 0;
+  line-height: 1.62;
+}
+
+.day02-measurement-list,
+.day02-test-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.day02-measurement-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 220px);
+  align-items: start;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.day02-measurement-row h5,
+.day02-test-item h5 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.day02-number-field {
+  margin: 0;
+}
+
+.day02-choice-row {
+  margin-top: 8px;
+}
+
+.day02-discovery-fields,
+.day02-reflection,
+.day02-observation-review,
+.day02-threshold-decision,
+.day02-threshold-reason,
+.day02-threshold-experiment,
+.day02-test-lab,
+.day02-test-summary,
+.day02-threshold-revise,
+.day02-test-success,
+.day02-peer-compare,
+.day02-free-lead {
+  border-top: 1px solid var(--color-line);
+  padding-top: 16px;
+}
+
+.day02-value-pair {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+
+.day02-value-pair div {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.45fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.day02-value-pair dt {
+  color: var(--color-muted);
+  font-weight: 700;
+}
+
+.day02-value-pair dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.day02-reflection-feedback,
+.day02-test-item {
+  display: grid;
+  gap: 8px;
+}
+
+.day02-test-item {
+  padding: 12px 0;
+  border-top: 1px solid var(--color-line);
+}
+
+.day02-threshold-revise .secondary-button {
+  justify-self: start;
+  margin-top: 12px;
+}
+
+.day02-adjusted-video-note {
+  max-width: 72ch;
+  margin: 0 0 12px;
+}
+
 .day02-rule-preview .field-help {
   margin-bottom: 10px;
 }
@@ -2599,8 +2705,14 @@ select:focus-visible,
 
   .match-board,
   .webcam-grid,
+  .day02-measurement-row,
   .free-lab-grid {
     grid-template-columns: 1fr;
+  }
+
+  .day02-value-pair div {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .research-order-scroll-hint {

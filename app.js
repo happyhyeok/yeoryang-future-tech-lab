@@ -52,6 +52,28 @@
     localSaved: "기기에 저장됨",
     localFailed: "기기에 저장하지 못했어요",
   };
+  const DAY02_LIGHT_OBSERVATION_FIELDS = [
+    { key: "brightPlace", label: "① 창가 또는 밝은 곳" },
+    { key: "seat", label: "② 내 자리" },
+    { key: "shade", label: "③ 책상 아래 또는 그늘진 곳" },
+    { key: "covered", label: "④ micro:bit LED 화면을 손이나 종이로 가렸을 때" },
+  ];
+  const DAY02_LIGHT_PREDICTION_OPTIONS = ["높을 것 같다", "낮을 것 같다"];
+  const DAY02_LIGHT_DIFFERENCE_OPTIONS = ["네", "거의 비슷했어요"];
+  const DAY02_THRESHOLD_REASON_OPTIONS = [
+    "밝을 때와 어두울 때의 중간쯤이라서",
+    "내 자리에서 시험해 보니 잘 구분되어서",
+    "몇 번 시험하면서 찾은 값이라서",
+    "다른 이유",
+  ];
+  const DAY02_THRESHOLD_EXPERIMENT_OPTIONS = ["네", "잘 모르겠어요"];
+  const DAY02_PEER_COMPARE_OPTIONS = ["같았어요", "달랐어요"];
+  const DAY02_PEER_REASON_OPTIONS = [
+    "측정한 장소와 빛이 달랐기 때문에",
+    "모든 micro:bit는 반드시 같은 기준을 사용해야 하기 때문에",
+  ];
+  const DAY02_TEST_SUCCESS_SUMMARY = "모두 잘 작동했어요";
+  const DAY02_TEST_REVISE_SUMMARY = "어떤 곳에서는 잘 작동하지 않았어요";
 
   let activeDay = null;
   let activeDayState = null;
@@ -750,6 +772,20 @@
         nextSensor: "",
       },
       thresholdValue: "",
+      lightObservationValues: createDefaultDay02LightObservationValues(),
+      lightPrediction: "",
+      brightestPlace: "",
+      darkestPlace: "",
+      lightDifferenceObserved: "",
+      thresholdReason: "",
+      thresholdReasonOther: "",
+      thresholdExperimentChanged: "",
+      testResults: createDefaultDay02TestResults(),
+      thresholdAdjustmentValue: "",
+      thresholdAdjusted: false,
+      finalThreshold: "",
+      peerThresholdCompare: "",
+      peerThresholdReason: "",
       conditionTestPassed: false,
       changeMade: "",
       changeMadeOther: "",
@@ -822,6 +858,45 @@
     );
     if (currentDay.dayId === "day02") {
       state.thresholdValue = normalizeDay02ThresholdValue(state.thresholdValue);
+      state.lightObservationValues = normalizeDay02LightObservationValues(
+        state.lightObservationValues
+      );
+      state.lightPrediction = normalizeDay02ChoiceValue(
+        state.lightPrediction,
+        DAY02_LIGHT_PREDICTION_OPTIONS
+      );
+      state.brightestPlace = String(state.brightestPlace || "").trim().slice(0, 40);
+      state.darkestPlace = String(state.darkestPlace || "").trim().slice(0, 40);
+      state.lightDifferenceObserved = normalizeDay02ChoiceValue(
+        state.lightDifferenceObserved,
+        DAY02_LIGHT_DIFFERENCE_OPTIONS
+      );
+      state.thresholdReason = normalizeDay02ChoiceValue(
+        state.thresholdReason,
+        DAY02_THRESHOLD_REASON_OPTIONS
+      );
+      state.thresholdReasonOther =
+        state.thresholdReason === "다른 이유"
+          ? String(state.thresholdReasonOther || "").trim().slice(0, 80)
+          : "";
+      state.thresholdExperimentChanged = normalizeDay02ChoiceValue(
+        state.thresholdExperimentChanged,
+        DAY02_THRESHOLD_EXPERIMENT_OPTIONS
+      );
+      state.testResults = normalizeDay02TestResults(state.testResults);
+      state.thresholdAdjustmentValue = normalizeDay02ThresholdValue(
+        state.thresholdAdjustmentValue
+      );
+      state.thresholdAdjusted = Boolean(state.thresholdAdjusted);
+      state.finalThreshold = normalizeDay02ThresholdValue(state.finalThreshold || state.thresholdValue);
+      state.peerThresholdCompare = normalizeDay02ChoiceValue(
+        state.peerThresholdCompare,
+        DAY02_PEER_COMPARE_OPTIONS
+      );
+      state.peerThresholdReason = normalizeDay02ChoiceValue(
+        state.peerThresholdReason,
+        DAY02_PEER_REASON_OPTIONS
+      );
       state.conditionTestPassed = Boolean(
         state.conditionTestPassed ||
           (savedState &&
@@ -1447,6 +1522,148 @@
     return String(rounded);
   }
 
+  function createDefaultDay02LightObservationValues() {
+    return DAY02_LIGHT_OBSERVATION_FIELDS.reduce((values, field) => {
+      values[field.key] = "";
+      return values;
+    }, {});
+  }
+
+  function createDefaultDay02TestResults() {
+    return {
+      seat: "",
+      dark: "",
+      other: "",
+      summary: "",
+    };
+  }
+
+  function normalizeDay02LightObservationValues(values) {
+    const source = values && typeof values === "object" ? values : {};
+    const normalized = createDefaultDay02LightObservationValues();
+
+    DAY02_LIGHT_OBSERVATION_FIELDS.forEach((field) => {
+      normalized[field.key] = normalizeDay02ThresholdValue(source[field.key]);
+    });
+
+    return normalized;
+  }
+
+  function normalizeDay02ChoiceValue(value, options) {
+    const text = String(value || "").trim();
+
+    return options.includes(text) ? text : "";
+  }
+
+  function normalizeDay02TestResults(testResults) {
+    const source = testResults && typeof testResults === "object" ? testResults : {};
+    const normalized = createDefaultDay02TestResults();
+
+    normalized.seat = normalizeDay02ChoiceValue(source.seat, [
+      "잘 작동했어요",
+      "생각과 달랐어요",
+    ]);
+    normalized.dark = normalizeDay02ChoiceValue(source.dark, ["네", "아니요"]);
+    normalized.other = normalizeDay02ChoiceValue(source.other, [
+      "잘 작동했어요",
+      "생각과 달랐어요",
+    ]);
+    normalized.summary = normalizeDay02ChoiceValue(source.summary, [
+      DAY02_TEST_SUCCESS_SUMMARY,
+      DAY02_TEST_REVISE_SUMMARY,
+    ]);
+
+    return normalized;
+  }
+
+  function getDay02ObservationFieldLabel(key) {
+    const field = DAY02_LIGHT_OBSERVATION_FIELDS.find((item) => item.key === key);
+
+    return field ? field.label : "";
+  }
+
+  function getDay02ObservationMeasurements(state = activeDayState) {
+    const values = state && state.lightObservationValues ? state.lightObservationValues : {};
+
+    return DAY02_LIGHT_OBSERVATION_FIELDS.map((field) => {
+      const value = normalizeDay02ThresholdValue(values[field.key]);
+      const numeric = value ? Number(value) : NaN;
+
+      return {
+        key: field.key,
+        label: field.label,
+        value,
+        numeric,
+        hasValue: Number.isFinite(numeric),
+      };
+    }).filter((item) => item.hasValue);
+  }
+
+  function getDay02ObservationExtreme(state, direction) {
+    const measurements = getDay02ObservationMeasurements(state);
+
+    if (!measurements.length) {
+      return null;
+    }
+
+    return measurements.reduce((selected, item) => {
+      if (!selected) {
+        return item;
+      }
+
+      return direction === "min"
+        ? item.numeric < selected.numeric
+          ? item
+          : selected
+        : item.numeric > selected.numeric
+        ? item
+        : selected;
+    }, null);
+  }
+
+  function formatDay02ObservationExtreme(state, direction) {
+    const extreme = getDay02ObservationExtreme(state, direction);
+
+    return extreme ? `${extreme.label} · ${extreme.value}` : "아직 기록 없음";
+  }
+
+  function hasDay02ObservationValues(state = activeDayState) {
+    return getDay02ObservationMeasurements(state).length > 0;
+  }
+
+  function isDay02SensorExplorationComplete(state = activeDayState) {
+    return getDay02ObservationMeasurements(state).length >= 2;
+  }
+
+  function hasDay02TestResults(state = activeDayState) {
+    const testResults = state && state.testResults ? state.testResults : {};
+
+    return Boolean(testResults.seat || testResults.dark || testResults.other || testResults.summary);
+  }
+
+  function isDay02ResearcherTestLabComplete(state = activeDayState) {
+    if (!state || !state.conditionTestPassed) {
+      return false;
+    }
+
+    const testResults = normalizeDay02TestResults(state.testResults);
+
+    return Boolean(
+      testResults.seat &&
+        testResults.dark &&
+        testResults.other &&
+        testResults.summary === DAY02_TEST_SUCCESS_SUMMARY
+    );
+  }
+
+  function getDay02FinalThreshold(state = activeDayState) {
+    if (!state) {
+      return "";
+    }
+
+    return normalizeDay02ThresholdValue(state.finalThreshold || state.thresholdValue);
+  }
+
   function getDay02ChangeOptions(currentDay) {
     const day = currentDay || getDayForState(activeDayState) || activeDay;
     const lesson = day ? getLessonForDay(day) : null;
@@ -1491,6 +1708,10 @@
   function getDay02Activities(state) {
     const activities = [];
 
+    if (hasDay02ObservationValues(state)) {
+      activities.push("여러 장소 센서값 측정");
+    }
+
     if (
       isDay02ThresholdSaved(state) ||
       state.conditionTestPassed ||
@@ -1506,6 +1727,14 @@
 
     if (state.conditionTestPassed) {
       activities.push("두 상황 작동 확인");
+    }
+
+    if (hasDay02TestResults(state)) {
+      activities.push("연구원 시험실");
+    }
+
+    if (state.thresholdAdjusted) {
+      activities.push("기준값 수정");
     }
 
     if (getDay02ChangeMadeText(state)) {
@@ -1524,41 +1753,49 @@
   }
 
   function getDay02BlockProgress(state) {
-    const progress = state.lessonProgress || {};
+    const hasObservation = hasDay02ObservationValues(state);
+    const hasSensorExploration = isDay02SensorExplorationComplete(state);
     const hasThreshold = isDay02ThresholdSaved(state);
     const hasMinimum = Boolean(state.conditionTestPassed);
     const hasChange = Boolean(getDay02ChangeMadeText(state));
     const hasVideo = hasVideoEvidence(state);
     const hasQuiz = hasAnyQuizAnswer(state);
-    const block04Started = hasThreshold || hasMinimum || hasChange || hasVideo || hasQuiz;
-    const block05Started = hasThreshold || hasMinimum || hasChange || hasVideo;
-    const block06Started = hasMinimum || hasChange || hasVideo;
+    const hasThresholdReason = Boolean(state.thresholdReason || state.thresholdExperimentChanged);
+    const hasTest = hasDay02TestResults(state);
+    const hasTestLab = isDay02ResearcherTestLabComplete(state);
+    const block04Started = hasObservation || hasThreshold || hasMinimum || hasChange || hasVideo || hasQuiz;
+    const block05Started = hasThreshold || hasThresholdReason || hasMinimum || hasChange || hasVideo;
+    const block06Started = hasMinimum || hasTest || hasChange || hasVideo;
 
     return {
-      block04: getProgressValue(Boolean(progress.block04Completed), block04Started),
-      block05: getProgressValue(Boolean(progress.block05Completed), block05Started),
-      block06: getProgressValue(Boolean(progress.block06Completed), block06Started),
+      block04: getProgressValue(hasSensorExploration, block04Started),
+      block05: getProgressValue(hasThreshold, block05Started),
+      block06: getProgressValue(hasTestLab, block06Started),
     };
   }
 
   function updateDay02Progress(state) {
     const currentDay = getDayForState(state) || activeDay;
     const lesson = currentDay ? getLessonForDay(currentDay) : null;
+    const hasSensorExploration = isDay02SensorExplorationComplete(state);
     const hasThreshold = isDay02ThresholdSaved(state);
     const hasMinimum = Boolean(state.conditionTestPassed);
     const hasSavedVideo = hasPersistentVideoReference(state);
     const hasChange = Boolean(getDay02ChangeMadeText(state));
+    const hasTestLab = isDay02ResearcherTestLabComplete(state);
 
     state.lessonProgress = {
-      block04Completed: hasThreshold || hasMinimum || hasChange || hasSavedVideo,
+      block04Completed: hasSensorExploration,
       block05Completed: hasThreshold,
-      block06Completed: hasMinimum,
+      block06Completed: hasTestLab,
       videoSaved: hasSavedVideo,
       quizCompleted: isDay01QuizCompleted(state, lesson),
       recordCompleted: true,
     };
     state.minimumCompleted = hasMinimum;
-    state.basicCompleted = Boolean(hasMinimum && hasThreshold && hasSavedVideo);
+    state.basicCompleted = Boolean(
+      hasMinimum && hasThreshold && hasSavedVideo && hasSensorExploration && hasTestLab
+    );
     state.advancedCompleted = Boolean(state.basicCompleted && hasChange);
     state.dayCompleted = state.basicCompleted;
     state.completionLevel = state.advancedCompleted
@@ -3508,6 +3745,18 @@
         <h4>${escapeHtml(connection.title)}</h4>
         ${connection.summary ? `<p class="field-help">${escapeHtml(connection.summary)}</p>` : ""}
         ${renderConnectionSteps(stepsBeforeImage)}
+        ${
+          connection.quickLink && connection.quickLink.url
+            ? `<a
+                class="primary-link makecode-open-link day02-makecode-shortcut"
+                href="${escapeHtml(connection.quickLink.url)}"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                ${escapeHtml(connection.quickLink.label || "MakeCode 바로가기 ↗")}
+              </a>`
+            : ""
+        }
         ${figure ? `<div class="day02-connection-figure">${figure}</div>` : ""}
         ${renderConnectionSteps(stepsAfterImage, stepsBeforeImage.length + 1)}
         ${connection.detail ? `<p class="field-help">${escapeHtml(connection.detail)}</p>` : ""}
@@ -3587,6 +3836,161 @@
     `;
   }
 
+  function renderDay02StateChoiceButtons(field, options, selectedValue) {
+    const values = Array.isArray(options) ? options : [];
+
+    return `
+      <div class="choice-list compact-choice-list day02-choice-row">
+        ${values
+          .map((option) => {
+            const selected = selectedValue === option;
+
+            return `
+              <button
+                class="choice-button${selected ? " is-selected" : ""}"
+                type="button"
+                aria-pressed="${selected ? "true" : "false"}"
+                data-day02-state-field="${escapeHtml(field)}"
+                data-day02-state-value="${escapeHtml(option)}"
+              >
+                ${escapeHtml(option)}
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderDay02TestChoiceButtons(testKey, options, selectedValue) {
+    const values = Array.isArray(options) ? options : [];
+
+    return `
+      <div class="choice-list compact-choice-list day02-choice-row">
+        ${values
+          .map((option) => {
+            const selected = selectedValue === option;
+
+            return `
+              <button
+                class="choice-button${selected ? " is-selected" : ""}"
+                type="button"
+                aria-pressed="${selected ? "true" : "false"}"
+                data-day02-test-result="${escapeHtml(testKey)}"
+                data-day02-test-value="${escapeHtml(option)}"
+              >
+                ${escapeHtml(option)}
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderDay02LightField(field, index, value) {
+    const fieldId = `day02-light-${field.key}`;
+    const showPrediction = index === 0;
+
+    return `
+      <div class="day02-measurement-row" data-day02-measurement-row="${escapeHtml(field.key)}">
+        <div>
+          <h5>${escapeHtml(field.label)}</h5>
+          ${
+            showPrediction
+              ? `<p class="field-help">예상하기</p>
+                <p class="field-help">여기에서는 숫자가 높게 나올까요, 낮게 나올까요?</p>
+                ${renderDay02StateChoiceButtons(
+                  "lightPrediction",
+                  DAY02_LIGHT_PREDICTION_OPTIONS,
+                  activeDayState ? activeDayState.lightPrediction : ""
+                )}`
+              : ""
+          }
+        </div>
+        <label class="record-field day02-number-field" for="${escapeHtml(fieldId)}">
+          <span>측정한 값</span>
+          <input
+            id="${escapeHtml(fieldId)}"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            max="255"
+            step="1"
+            value="${escapeHtml(value)}"
+            placeholder="숫자 입력"
+            data-day02-light-value="${escapeHtml(field.key)}"
+          >
+        </label>
+      </div>
+    `;
+  }
+
+  function renderDay02ObservationFieldStudy(activity) {
+    const fieldStudy = activity.fieldStudy;
+
+    if (!fieldStudy) {
+      return "";
+    }
+
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day02" });
+    const values = state.lightObservationValues || {};
+
+    return `
+      <div class="plain-group day02-field-study">
+        <h4>${escapeHtml(fieldStudy.title)}</h4>
+        <div class="day02-copy-stack">
+          ${renderParagraphs(fieldStudy.lead || [])}
+        </div>
+        <div class="day02-measurement-list">
+          ${DAY02_LIGHT_OBSERVATION_FIELDS.map((field, index) =>
+            renderDay02LightField(field, index, values[field.key] || "")
+          ).join("")}
+        </div>
+        <div class="plain-group day02-discovery-fields">
+          <h4>${escapeHtml(fieldStudy.discovery.title)}</h4>
+          <label class="record-field" for="day02-brightest-place">
+            <span>${escapeHtml(fieldStudy.discovery.brightestLabel)}</span>
+            <input
+              id="day02-brightest-place"
+              type="text"
+              maxlength="40"
+              value="${escapeHtml(state.brightestPlace || "")}"
+              placeholder="짧은 입력 또는 위 장소 중 선택"
+              data-day02-text-field="brightestPlace"
+            >
+          </label>
+          <label class="record-field" for="day02-darkest-place">
+            <span>${escapeHtml(fieldStudy.discovery.darkestLabel)}</span>
+            <input
+              id="day02-darkest-place"
+              type="text"
+              maxlength="40"
+              value="${escapeHtml(state.darkestPlace || "")}"
+              placeholder="짧은 입력 또는 위 장소 중 선택"
+              data-day02-text-field="darkestPlace"
+            >
+          </label>
+        </div>
+        <div class="plain-group day02-reflection" data-day02-reflection>
+          <h4>${escapeHtml(fieldStudy.reflection.title)}</h4>
+          <p>${escapeHtml(fieldStudy.reflection.prompt)}</p>
+          ${renderDay02StateChoiceButtons(
+            "lightDifferenceObserved",
+            fieldStudy.reflection.options || DAY02_LIGHT_DIFFERENCE_OPTIONS,
+            state.lightDifferenceObserved || ""
+          )}
+          <div class="day02-reflection-feedback" data-day02-light-feedback${
+            state.lightDifferenceObserved ? "" : " hidden"
+          }>
+            ${renderParagraphs(fieldStudy.reflection.feedback || [])}
+            <p><strong>${escapeHtml(fieldStudy.reflection.emphasis)}</strong></p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function renderSensorObservationActivity(activity) {
     return `
       <div class="plain-group block-activity day02-activity" data-day02-activity="sensor-observation">
@@ -3598,12 +4002,205 @@
           <h4>관찰 질문</h4>
           ${renderPlainList(activity.questions || [], "help-list")}
         </div>
+        ${renderDay02ObservationFieldStudy(activity)}
+      </div>
+    `;
+  }
+
+  function renderDay02ObservationReview(activity, state) {
+    const review = activity.observationReview;
+
+    if (!review) {
+      return "";
+    }
+
+    return `
+      <div class="plain-group day02-observation-review">
+        <h4>${escapeHtml(review.title)}</h4>
+        <p class="field-help">${escapeHtml(review.lead)}</p>
+        <dl class="day02-value-pair">
+          <div>
+            <dt>${escapeHtml(review.brightestLabel)}</dt>
+            <dd data-day02-brightest-measured>${escapeHtml(
+              formatDay02ObservationExtreme(state, "max")
+            )}</dd>
+          </div>
+          <div>
+            <dt>${escapeHtml(review.darkestLabel)}</dt>
+            <dd data-day02-darkest-measured>${escapeHtml(
+              formatDay02ObservationExtreme(state, "min")
+            )}</dd>
+          </div>
+        </dl>
+      </div>
+    `;
+  }
+
+  function renderDay02ThresholdDecision(activity) {
+    const decision = activity.thresholdDecision;
+
+    if (!decision) {
+      return "";
+    }
+
+    return `
+      <div class="plain-group day02-threshold-decision">
+        <h4>${escapeHtml(decision.title)}</h4>
+        ${renderParagraphs(decision.lines || [])}
+      </div>
+    `;
+  }
+
+  function renderDay02ThresholdReason(activity, state) {
+    const reason = activity.reason;
+
+    if (!reason) {
+      return "";
+    }
+
+    const isOther = state.thresholdReason === "다른 이유";
+
+    return `
+      <div class="plain-group day02-threshold-reason">
+        <h4>${escapeHtml(reason.title)}</h4>
+        <p class="field-help">${escapeHtml(reason.prompt)}</p>
+        ${renderDay02StateChoiceButtons(
+          "thresholdReason",
+          reason.options || DAY02_THRESHOLD_REASON_OPTIONS,
+          state.thresholdReason || ""
+        )}
+        <label class="record-field day02-threshold-reason-other" for="day02-threshold-reason-other"${
+          isOther ? "" : " hidden"
+        }>
+          <span>${escapeHtml(reason.otherLabel)}</span>
+          <input
+            id="day02-threshold-reason-other"
+            type="text"
+            maxlength="80"
+            value="${escapeHtml(state.thresholdReasonOther || "")}"
+            placeholder="${escapeHtml(reason.otherPlaceholder || "")}"
+            data-day02-text-field="thresholdReasonOther"
+            ${isOther ? "" : "disabled"}
+          >
+        </label>
+      </div>
+    `;
+  }
+
+  function renderDay02ThresholdExperiment(activity, state) {
+    const experiment = activity.thresholdExperiment;
+
+    if (!experiment) {
+      return "";
+    }
+
+    return `
+      <div class="plain-group day02-threshold-experiment">
+        <h4>${escapeHtml(experiment.title)}</h4>
+        ${renderParagraphs(experiment.lines || [])}
+        <p>${escapeHtml(experiment.prompt)}</p>
+        ${renderDay02StateChoiceButtons(
+          "thresholdExperimentChanged",
+          experiment.options || DAY02_THRESHOLD_EXPERIMENT_OPTIONS,
+          state.thresholdExperimentChanged || ""
+        )}
+        <p class="inline-feedback inline-feedback--correct" data-day02-threshold-experiment-feedback${
+          state.thresholdExperimentChanged ? "" : " hidden"
+        }>${escapeHtml(experiment.feedback)}</p>
+      </div>
+    `;
+  }
+
+  function renderDay02TestLab(activity, state) {
+    const testLab = activity.testLab;
+
+    if (!testLab) {
+      return "";
+    }
+
+    const testResults = state.testResults || createDefaultDay02TestResults();
+    const showRevise = testResults.summary === DAY02_TEST_REVISE_SUMMARY;
+    const showSuccess = testResults.summary === DAY02_TEST_SUCCESS_SUMMARY;
+    const currentThreshold = getDay02FinalThreshold(state) || state.thresholdValue || "아직 없음";
+
+    return `
+      <div class="plain-group day02-test-lab" id="day02-test-lab"${
+        state.conditionTestPassed ? "" : " hidden"
+      }>
+        <h4>${escapeHtml(testLab.title)}</h4>
+        <div class="day02-copy-stack">
+          ${renderParagraphs(testLab.lead || [])}
+        </div>
+        <div class="day02-test-list">
+          ${(testLab.tests || [])
+            .map(
+              (test) => `
+                <div class="day02-test-item">
+                  <h5>${escapeHtml(test.title)}</h5>
+                  <p>${escapeHtml(test.guide)}</p>
+                  <p><strong>${escapeHtml(test.prompt)}</strong></p>
+                  ${renderDay02TestChoiceButtons(
+                    test.key,
+                    test.options || [],
+                    testResults[test.key] || ""
+                  )}
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+        <div class="plain-group day02-test-summary">
+          <h4>${escapeHtml(testLab.summaryPrompt)}</h4>
+          ${renderDay02TestChoiceButtons(
+            "summary",
+            testLab.summaryOptions || [],
+            testResults.summary || ""
+          )}
+        </div>
+        <div class="plain-group day02-threshold-revise" data-day02-threshold-revise${
+          showRevise ? "" : " hidden"
+        }>
+          <h4>${escapeHtml(testLab.revise.title)}</h4>
+          ${renderParagraphs(testLab.revise.lines || [])}
+          <dl class="day02-value-pair">
+            <div>
+              <dt>${escapeHtml(testLab.revise.currentLabel)}</dt>
+              <dd data-day02-current-threshold>${escapeHtml(currentThreshold)}</dd>
+            </div>
+          </dl>
+          <label class="record-field day02-threshold-field" for="day02-threshold-adjustment">
+            <span>${escapeHtml(testLab.revise.nextLabel)}</span>
+            <input
+              id="day02-threshold-adjustment"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              max="255"
+              step="1"
+              value="${escapeHtml(state.thresholdAdjustmentValue || "")}"
+              placeholder="숫자 입력"
+              data-day02-threshold-adjustment
+            >
+          </label>
+          <button class="secondary-button" type="button" data-day02-retest-with-threshold>
+            ${escapeHtml(testLab.revise.buttonLabel)}
+          </button>
+        </div>
+        <div class="plain-group day02-test-success" data-day02-test-success${
+          showSuccess ? "" : " hidden"
+        }>
+          <h4>${escapeHtml(testLab.success.title)}</h4>
+          ${renderParagraphs(testLab.success.lines || [])}
+          <p><strong>${escapeHtml(testLab.success.emphasis)}</strong></p>
+          <p>${escapeHtml(testLab.success.next)}</p>
+        </div>
       </div>
     `;
   }
 
   function renderThresholdSettingActivity(activity) {
-    const thresholdValue = activeDayState ? activeDayState.thresholdValue || "" : "";
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day02" });
+    const thresholdValue = state.thresholdValue || "";
 
     return `
       <div class="plain-group block-activity day02-activity" data-day02-activity="threshold-setting">
@@ -3613,6 +4210,8 @@
             ? `<div class="day02-threshold-concept">${renderParagraphs(activity.conceptLines)}</div>`
             : ""
         }
+        ${renderDay02ObservationReview(activity, state)}
+        ${renderDay02ThresholdDecision(activity)}
         ${activity.prompt ? `<p class="field-help day02-threshold-prompt">${escapeHtml(activity.prompt)}</p>` : ""}
         <label class="record-field day02-threshold-field" for="day02-threshold-value">
           <span>${escapeHtml(activity.fieldLabel)}</span>
@@ -3632,9 +4231,12 @@
           <h4>판단 규칙</h4>
           ${activity.ruleIntro ? `<p class="field-help">${escapeHtml(activity.ruleIntro)}</p>` : ""}
           ${renderPlainList(activity.relationLines || [], "help-list")}
+          ${activity.ruleNote ? `<p class="field-help">${escapeHtml(activity.ruleNote)}</p>` : ""}
         </div>
+        ${renderDay02ThresholdReason(activity, state)}
         ${renderDay02LogicGuide(activity.logicGuide)}
         <p class="field-help">${escapeHtml(activity.makeCodeGuide || "")}</p>
+        ${renderDay02ThresholdExperiment(activity, state)}
         <p class="inline-feedback inline-feedback--correct" data-day02-threshold-status${
           thresholdValue ? "" : " hidden"
         }>기준값 저장 완료 ✓</p>
@@ -3644,6 +4246,7 @@
 
   function renderSensorDeviceActivity(activity) {
     const passed = Boolean(activeDayState && activeDayState.conditionTestPassed);
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day02" });
 
     return `
       <div class="plain-group block-activity day02-activity" data-day02-activity="sensor-device">
@@ -3676,6 +4279,38 @@
             ${passed ? "다시 시험하려면 실제 micro:bit에서 밝은 상태와 어두운 상태를 다시 확인하세요." : ""}
           </p>
         </div>
+        ${renderDay02TestLab(activity, state)}
+      </div>
+    `;
+  }
+
+  function renderDay02PeerCompareActivity(peerCompare, state) {
+    if (!peerCompare) {
+      return "";
+    }
+
+    const reasonSelected = state.peerThresholdReason || "";
+    const isCorrect = reasonSelected === peerCompare.correctReason;
+
+    return `
+      <div class="day02-peer-compare">
+        <h4>${escapeHtml(peerCompare.title)}</h4>
+        <p>${escapeHtml(peerCompare.prompt)}</p>
+        <p><strong>${escapeHtml(peerCompare.compareQuestion)}</strong></p>
+        ${renderDay02StateChoiceButtons(
+          "peerThresholdCompare",
+          peerCompare.compareOptions || DAY02_PEER_COMPARE_OPTIONS,
+          state.peerThresholdCompare || ""
+        )}
+        <p><strong>${escapeHtml(peerCompare.reasonQuestion)}</strong></p>
+        ${renderDay02StateChoiceButtons(
+          "peerThresholdReason",
+          peerCompare.reasonOptions || DAY02_PEER_REASON_OPTIONS,
+          reasonSelected
+        )}
+        <p class="inline-feedback${isCorrect ? " inline-feedback--correct" : ""}" data-day02-peer-feedback${
+          reasonSelected ? "" : " hidden"
+        }>${escapeHtml(peerCompare.feedback)}</p>
       </div>
     `;
   }
@@ -3692,6 +4327,13 @@
     return `
       <section class="lesson-section day02-free-change" id="free-change" data-section="freeChange">
         <p class="section-kicker">자유 변경</p>
+        ${
+          lesson.freeChange.lead
+            ? `<div class="plain-group day02-free-lead">
+                ${renderParagraphs(lesson.freeChange.lead)}
+              </div>`
+            : ""
+        }
         <h2 class="section-title">${escapeHtml(lesson.freeChange.title)}</h2>
         <p class="section-description">${escapeHtml(lesson.freeChange.description)}</p>
 
@@ -3730,6 +4372,7 @@
         <details class="help-toggle">
           <summary>발전 활동</summary>
           <p>${escapeHtml(lesson.freeChange.advancedPrompt)}</p>
+          ${renderDay02PeerCompareActivity(lesson.freeChange.peerCompare, state)}
         </details>
 
         <nav class="section-nav" aria-label="자유 변경 이동">
@@ -3799,6 +4442,9 @@
     }
 
     return `
+      <p class="field-help day02-adjusted-video-note" data-day02-adjusted-video-note${
+        activeDayState && activeDayState.thresholdAdjusted ? "" : " hidden"
+      }>기준값을 고친 연구원은 마지막으로 잘 작동하는 상태를 확인한 뒤 촬영하세요.</p>
       ${renderWebcamEvidenceActivity(lesson.videoEvidence)}
       <nav class="section-nav day02-video-nav" aria-label="연구 모습 영상 이동">
         <a href="#makecode-evidence">← 작품 링크 남기기</a>
@@ -3876,12 +4522,18 @@
         </div>
 
         <div class="plain-group">
+          <h3>오늘 내가 정한 최종 기준</h3>
+          <p data-day02-final-threshold>${escapeHtml(getDay02FinalThreshold(state) || "아직 없음")}</p>
+        </div>
+
+        <div class="plain-group">
           <h3>오늘 기록</h3>
-          <p data-day02-record-decision>${escapeHtml(
-            state.minimumCompleted || isDay02ThresholdSaved(state)
-              ? getDay02TodayDecision(state)
-              : "밝은 상태와 어두운 상태에서 모두 작동했는지 확인하면 자동으로 기록됩니다."
-          )}</p>
+          <p data-day02-record-decision>
+            나는 빛을 숫자로 관찰하고, 내가 정한 기준으로 장치가 판단하게 만든 뒤, 여러 상황에서 시험해 보았습니다.
+          </p>
+          <p data-day02-record-adjusted${state.thresholdAdjusted ? "" : " hidden"}>
+            시험하면서 기준값도 다시 조절했습니다.
+          </p>
         </div>
 
         <div class="section-description" data-day02-complete-summary${state.minimumCompleted ? "" : " hidden"}>
@@ -8182,6 +8834,8 @@
     );
     const decision = elements.standardDay.querySelector("[data-day02-record-decision]");
     const condition = elements.standardDay.querySelector("[data-day02-record-condition]");
+    const finalThreshold = elements.standardDay.querySelector("[data-day02-final-threshold]");
+    const adjustedRecord = elements.standardDay.querySelector("[data-day02-record-adjusted]");
     const completeSummary = elements.standardDay.querySelector("[data-day02-complete-summary]");
     const nextResearch = elements.standardDay.querySelector("[data-day02-next-research]");
 
@@ -8193,9 +8847,15 @@
 
     if (decision) {
       decision.textContent =
-        activeDayState.minimumCompleted || isDay02ThresholdSaved(activeDayState)
-          ? getDay02TodayDecision(activeDayState)
-          : "밝은 상태와 어두운 상태에서 모두 작동했는지 확인하면 자동으로 기록됩니다.";
+        "나는 빛을 숫자로 관찰하고, 내가 정한 기준으로 장치가 판단하게 만든 뒤, 여러 상황에서 시험해 보았습니다.";
+    }
+
+    if (finalThreshold) {
+      finalThreshold.textContent = getDay02FinalThreshold(activeDayState) || "아직 없음";
+    }
+
+    if (adjustedRecord) {
+      adjustedRecord.hidden = !activeDayState.thresholdAdjusted;
     }
 
     if (completeSummary) {
@@ -8204,6 +8864,94 @@
 
     if (nextResearch) {
       nextResearch.hidden = !activeDayState.minimumCompleted;
+    }
+  }
+
+  function syncDay02InputValue(selector, value) {
+    const input = elements.standardDay.querySelector(selector);
+
+    if (input && input.value !== value) {
+      input.value = value;
+    }
+  }
+
+  function syncDay02ChoiceButtons() {
+    elements.standardDay.querySelectorAll("[data-day02-state-field]").forEach((button) => {
+      const field = button.dataset.day02StateField;
+      const selected = activeDayState[field] === button.dataset.day02StateValue;
+
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+
+    elements.standardDay.querySelectorAll("[data-day02-test-result]").forEach((button) => {
+      const testKey = button.dataset.day02TestResult;
+      const selected =
+        activeDayState.testResults &&
+        activeDayState.testResults[testKey] === button.dataset.day02TestValue;
+
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+  }
+
+  function syncDay02ExpandedPanels() {
+    const lightFeedback = elements.standardDay.querySelector("[data-day02-light-feedback]");
+    const reasonOther = elements.standardDay.querySelector(".day02-threshold-reason-other");
+    const reasonOtherInput = elements.standardDay.querySelector(
+      "[data-day02-text-field='thresholdReasonOther']"
+    );
+    const experimentFeedback = elements.standardDay.querySelector(
+      "[data-day02-threshold-experiment-feedback]"
+    );
+    const testLab = elements.standardDay.querySelector("[data-day02-activity='sensor-device'] .day02-test-lab");
+    const revise = elements.standardDay.querySelector("[data-day02-threshold-revise]");
+    const success = elements.standardDay.querySelector("[data-day02-test-success]");
+    const videoNote = elements.standardDay.querySelector("[data-day02-adjusted-video-note]");
+    const peerFeedback = elements.standardDay.querySelector("[data-day02-peer-feedback]");
+
+    if (lightFeedback) {
+      lightFeedback.hidden = !activeDayState.lightDifferenceObserved;
+    }
+
+    if (reasonOther) {
+      reasonOther.hidden = activeDayState.thresholdReason !== "다른 이유";
+    }
+
+    if (reasonOtherInput) {
+      reasonOtherInput.disabled = activeDayState.thresholdReason !== "다른 이유";
+    }
+
+    if (experimentFeedback) {
+      experimentFeedback.hidden = !activeDayState.thresholdExperimentChanged;
+    }
+
+    if (testLab) {
+      testLab.hidden = !activeDayState.conditionTestPassed;
+    }
+
+    if (revise) {
+      revise.hidden =
+        !activeDayState.testResults ||
+        activeDayState.testResults.summary !== DAY02_TEST_REVISE_SUMMARY;
+    }
+
+    if (success) {
+      success.hidden =
+        !activeDayState.testResults ||
+        activeDayState.testResults.summary !== DAY02_TEST_SUCCESS_SUMMARY;
+    }
+
+    if (videoNote) {
+      videoNote.hidden = !activeDayState.thresholdAdjusted;
+    }
+
+    if (peerFeedback) {
+      peerFeedback.hidden = !activeDayState.peerThresholdReason;
+      peerFeedback.classList.toggle(
+        "inline-feedback--correct",
+        activeDayState.peerThresholdReason === DAY02_PEER_REASON_OPTIONS[0]
+      );
     }
   }
 
@@ -8223,6 +8971,39 @@
 
     if (thresholdStatus) {
       thresholdStatus.hidden = !isDay02ThresholdSaved(activeDayState);
+    }
+
+    DAY02_LIGHT_OBSERVATION_FIELDS.forEach((field) => {
+      syncDay02InputValue(
+        `[data-day02-light-value="${field.key}"]`,
+        activeDayState.lightObservationValues[field.key] || ""
+      );
+    });
+    syncDay02InputValue("[data-day02-text-field='brightestPlace']", activeDayState.brightestPlace || "");
+    syncDay02InputValue("[data-day02-text-field='darkestPlace']", activeDayState.darkestPlace || "");
+    syncDay02InputValue(
+      "[data-day02-text-field='thresholdReasonOther']",
+      activeDayState.thresholdReasonOther || ""
+    );
+    syncDay02InputValue(
+      "[data-day02-threshold-adjustment]",
+      activeDayState.thresholdAdjustmentValue || ""
+    );
+
+    const brightestMeasured = elements.standardDay.querySelector("[data-day02-brightest-measured]");
+    const darkestMeasured = elements.standardDay.querySelector("[data-day02-darkest-measured]");
+    const currentThreshold = elements.standardDay.querySelector("[data-day02-current-threshold]");
+
+    if (brightestMeasured) {
+      brightestMeasured.textContent = formatDay02ObservationExtreme(activeDayState, "max");
+    }
+
+    if (darkestMeasured) {
+      darkestMeasured.textContent = formatDay02ObservationExtreme(activeDayState, "min");
+    }
+
+    if (currentThreshold) {
+      currentThreshold.textContent = getDay02FinalThreshold(activeDayState) || "아직 없음";
     }
 
     const conditionButton = elements.standardDay.querySelector(
@@ -8245,6 +9026,9 @@
         : "";
       conditionStatus.hidden = !activeDayState.conditionTestPassed;
     }
+
+    syncDay02ChoiceButtons();
+    syncDay02ExpandedPanels();
 
     const makeCodeInput = elements.standardDay.querySelector("[data-makecode-url]");
     const makeCodeFeedback = elements.standardDay.querySelector("[data-makecode-feedback]");
@@ -8459,6 +9243,106 @@
     );
   }
 
+  function updateDay02StateChoice(field, value) {
+    const normalizedValue = String(value || "").trim();
+
+    updateDay01State((state) => {
+      if (field === "lightPrediction") {
+        const next = normalizeDay02ChoiceValue(normalizedValue, DAY02_LIGHT_PREDICTION_OPTIONS);
+        state.lightPrediction = state.lightPrediction === next ? "" : next;
+        return;
+      }
+
+      if (field === "lightDifferenceObserved") {
+        const next = normalizeDay02ChoiceValue(normalizedValue, DAY02_LIGHT_DIFFERENCE_OPTIONS);
+        state.lightDifferenceObserved = state.lightDifferenceObserved === next ? "" : next;
+        return;
+      }
+
+      if (field === "thresholdReason") {
+        const next = normalizeDay02ChoiceValue(normalizedValue, DAY02_THRESHOLD_REASON_OPTIONS);
+        state.thresholdReason = state.thresholdReason === next ? "" : next;
+
+        if (state.thresholdReason !== "다른 이유") {
+          state.thresholdReasonOther = "";
+        }
+
+        return;
+      }
+
+      if (field === "thresholdExperimentChanged") {
+        const next = normalizeDay02ChoiceValue(
+          normalizedValue,
+          DAY02_THRESHOLD_EXPERIMENT_OPTIONS
+        );
+        state.thresholdExperimentChanged =
+          state.thresholdExperimentChanged === next ? "" : next;
+        return;
+      }
+
+      if (field === "peerThresholdCompare") {
+        const next = normalizeDay02ChoiceValue(normalizedValue, DAY02_PEER_COMPARE_OPTIONS);
+        state.peerThresholdCompare = state.peerThresholdCompare === next ? "" : next;
+        return;
+      }
+
+      if (field === "peerThresholdReason") {
+        const next = normalizeDay02ChoiceValue(normalizedValue, DAY02_PEER_REASON_OPTIONS);
+        state.peerThresholdReason = state.peerThresholdReason === next ? "" : next;
+      }
+    });
+  }
+
+  function updateDay02TestResult(testKey, value) {
+    updateDay01State((state) => {
+      const current = state.testResults || createDefaultDay02TestResults();
+      const normalized = normalizeDay02TestResults(
+        Object.assign({}, current, {
+          [testKey]: value,
+        })
+      );
+
+      normalized[testKey] = current[testKey] === normalized[testKey] ? "" : normalized[testKey];
+      state.testResults = normalized;
+
+      if (testKey === "summary" && state.conditionTestPassed) {
+        state.finalThreshold = getDay02FinalThreshold(state) || state.thresholdValue;
+      }
+    });
+  }
+
+  function handleDay02RetestWithThreshold() {
+    const input = elements.standardDay.querySelector("[data-day02-threshold-adjustment]");
+    const nextThreshold = normalizeDay02ThresholdValue(input ? input.value : "");
+
+    if (!nextThreshold) {
+      if (input) {
+        input.focus();
+        input.reportValidity();
+      }
+      return;
+    }
+
+    updateDay01State(
+      (state) => {
+        state.thresholdValue = nextThreshold;
+        state.thresholdAdjustmentValue = nextThreshold;
+        state.finalThreshold = nextThreshold;
+        state.thresholdAdjusted = true;
+        state.testResults = createDefaultDay02TestResults();
+      },
+      "새 기준값 저장 중..."
+    );
+
+    window.setTimeout(() => {
+      const testLab = elements.standardDay.querySelector("#day02-test-lab");
+
+      if (testLab) {
+        testLab.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 0);
+  }
+
   function handleDay02Click(event) {
     if (!isDay02Active()) {
       return;
@@ -8466,6 +9350,31 @@
 
     if (event.target.closest("[data-day02-condition-test-complete]")) {
       handleDay02ConditionTestComplete();
+      return;
+    }
+
+    const day02StateButton = event.target.closest("[data-day02-state-field]");
+
+    if (day02StateButton) {
+      updateDay02StateChoice(
+        day02StateButton.dataset.day02StateField,
+        day02StateButton.dataset.day02StateValue
+      );
+      return;
+    }
+
+    const day02TestButton = event.target.closest("[data-day02-test-result]");
+
+    if (day02TestButton) {
+      updateDay02TestResult(
+        day02TestButton.dataset.day02TestResult,
+        day02TestButton.dataset.day02TestValue
+      );
+      return;
+    }
+
+    if (event.target.closest("[data-day02-retest-with-threshold]")) {
+      handleDay02RetestWithThreshold();
       return;
     }
 
@@ -8695,9 +9604,51 @@
           state.thresholdValue = normalizeDay02ThresholdValue(
             String(event.target.value || "").trim().slice(0, 12)
           );
+          state.finalThreshold = state.thresholdValue;
         },
         "기준값 저장 중..."
       );
+      return;
+    }
+
+    if (event.target.closest("[data-day02-light-value]") && isDay02Active()) {
+      const fieldKey = event.target.dataset.day02LightValue;
+
+      updateDay01State((state) => {
+        if (!state.lightObservationValues) {
+          state.lightObservationValues = createDefaultDay02LightObservationValues();
+        }
+
+        state.lightObservationValues[fieldKey] = normalizeDay02ThresholdValue(
+          String(event.target.value || "").trim().slice(0, 12)
+        );
+      });
+      return;
+    }
+
+    if (event.target.closest("[data-day02-text-field]") && isDay02Active()) {
+      const fieldKey = event.target.dataset.day02TextField;
+
+      updateDay01State((state) => {
+        const value = String(event.target.value || "").trim();
+
+        if (fieldKey === "brightestPlace" || fieldKey === "darkestPlace") {
+          state[fieldKey] = value.slice(0, 40);
+        }
+
+        if (fieldKey === "thresholdReasonOther") {
+          state.thresholdReasonOther = value.slice(0, 80);
+        }
+      });
+      return;
+    }
+
+    if (event.target.closest("[data-day02-threshold-adjustment]") && isDay02Active()) {
+      updateDay01State((state) => {
+        state.thresholdAdjustmentValue = normalizeDay02ThresholdValue(
+          String(event.target.value || "").trim().slice(0, 12)
+        );
+      });
       return;
     }
 
