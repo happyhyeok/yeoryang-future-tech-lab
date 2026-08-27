@@ -201,6 +201,18 @@
     return params.get("test") === "1";
   }
 
+  function getDayUrl(day) {
+    const params = new URLSearchParams();
+
+    params.set("day", String(day.dayNo));
+
+    if (isTestStudentMode()) {
+      params.set("test", "1");
+    }
+
+    return `?${params.toString()}`;
+  }
+
   function isStudentVisibleInCurrentMode(student) {
     return Boolean(student && (!isE2eTestStudent(student) || isTestStudentMode()));
   }
@@ -1426,8 +1438,13 @@
     }
 
     const numeric = Number(trimmed);
+    const rounded = Math.round(numeric);
 
-    return Number.isFinite(numeric) ? String(Math.round(numeric)) : "";
+    if (!Number.isFinite(numeric) || rounded < 0 || rounded > 255) {
+      return "";
+    }
+
+    return String(rounded);
   }
 
   function getDay02ChangeOptions(currentDay) {
@@ -1467,8 +1484,8 @@
     const threshold = String(state.thresholdValue || "").trim();
 
     return threshold
-      ? `광센서 값을 기준값 ${threshold}와 비교해 밝을 때와 어두울 때 LED가 다르게 나타나도록 만들었습니다.`
-      : "광센서 값을 내가 정한 기준값과 비교해 밝을 때와 어두울 때 LED가 다르게 나타나도록 만들었습니다.";
+      ? `빛의 세기를 기준값 ${threshold}와 비교해 밝을 때와 어두울 때 LED가 다르게 나타나도록 만들었습니다.`
+      : "빛의 세기를 내가 정한 기준값과 비교해 밝을 때와 어두울 때 LED가 다르게 나타나도록 만들었습니다.";
   }
 
   function getDay02Activities(state) {
@@ -1480,7 +1497,7 @@
       getDay02ChangeMadeText(state) ||
       hasVideoEvidence(state)
     ) {
-      activities.push("광센서값 관찰");
+      activities.push("빛의 세기 관찰");
     }
 
     if (isDay02ThresholdSaved(state)) {
@@ -1488,11 +1505,15 @@
     }
 
     if (state.conditionTestPassed) {
-      activities.push("센서 조건 알림 장치 시험");
+      activities.push("두 상황 작동 확인");
     }
 
     if (getDay02ChangeMadeText(state)) {
       activities.push("마음대로 바꾸기");
+    }
+
+    if (state.makeCodeShareUrl) {
+      activities.push("MakeCode 작품 링크 저장");
     }
 
     if (hasVideoEvidence(state)) {
@@ -1783,6 +1804,10 @@
   function getDay02PersonalEvidenceRefs(student, currentDay, state) {
     const refs = [];
 
+    if (state.makeCodeShareUrl) {
+      refs.push(getMakeCodeAssetId(student.studentId, currentDay.dayId));
+    }
+
     if (hasPersistentVideoReference(state)) {
       refs.push(getVideoAssetId(student.studentId, currentDay.dayId, state));
     }
@@ -1802,7 +1827,7 @@
       todayDecision: state.minimumCompleted || isDay02ThresholdSaved(state)
         ? getDay02TodayDecision(state)
         : "",
-      discovery: "빛 → 센서 → 값 → 기준값과 비교 → 조건 판단 → LED 출력",
+      discovery: "빛의 세기 → 기준값과 비교 → LED 출력",
       difficulty: "",
       changeMade: getDay02ChangeMadeText(state),
       changeReason: "",
@@ -1926,12 +1951,28 @@
   }
 
   function createDay02AssetPayloads(student, currentDay, state) {
-    if (!hasPersistentVideoReference(state)) {
-      return [];
+    const assets = [];
+
+    if (state.makeCodeShareUrl) {
+      assets.push({
+        assetId: getMakeCodeAssetId(student.studentId, currentDay.dayId),
+        assetType: "webpage_link",
+        ownerType: "student",
+        ownerId: student.studentId,
+        dayId: currentDay.dayId,
+        blockId: "block06",
+        title: "Day02 MakeCode 코드",
+        description: "빛에 따라 반응하는 micro:bit MakeCode 공유 주소",
+        storageUrl: state.makeCodeShareUrl,
+        thumbnailUrl: "",
+        fileName: "",
+        mimeType: "",
+        capturedAt: "",
+      });
     }
 
-    return [
-      {
+    if (hasPersistentVideoReference(state)) {
+      assets.push({
         assetId: getVideoAssetId(student.studentId, currentDay.dayId, state),
         assetType: "video",
         ownerType: "student",
@@ -1939,15 +1980,17 @@
         dayId: currentDay.dayId,
         blockId: getVideoBlockId(currentDay),
         title: "Day02 연구 모습 영상",
-        description: "센서 조건 알림 장치 시험 모습",
+        description: "빛에 따라 반응하는 micro:bit 시험 모습",
         storageFileId: state.videoStorageFileId || state.videoFileId || "",
         storageUrl: state.videoStorageUrl || state.videoPlaybackUrl || "",
         thumbnailUrl: "",
         fileName: state.videoFileName || "",
         mimeType: state.videoMimeType || "video/webm",
         capturedAt: state.videoCapturedAt || "",
-      },
-    ];
+      });
+    }
+
+    return assets;
   }
 
   function createAssetPayloads(student, currentDay, state) {
@@ -2901,8 +2944,10 @@
     return `
       <li class="research-day research-day--${state}"${currentAttributes}>
         <div class="research-day__line">
-          <span class="research-day__number">${formatDayNo(day.dayNo)}</span>
-          <span class="research-day__title">${escapeHtml(day.title)}</span>
+          <a class="research-day__link" href="${escapeHtml(getDayUrl(day))}">
+            <span class="research-day__number">${formatDayNo(day.dayNo)}</span>
+            <span class="research-day__title">${escapeHtml(day.title)}</span>
+          </a>
           ${status}
         </div>
         ${currentContent}
@@ -3424,10 +3469,91 @@
     `;
   }
 
+  function renderDay02ConnectionGuide(connection) {
+    if (!connection) {
+      return "";
+    }
+
+    return `
+      <div class="plain-group day02-connection-guide">
+        <h4>${escapeHtml(connection.title)}</h4>
+        ${renderNumberedList(connection.steps || [], "task-list")}
+        ${connection.detail ? `<p class="field-help">${escapeHtml(connection.detail)}</p>` : ""}
+      </div>
+    `;
+  }
+
+  function renderDay02GuideFigures(guides) {
+    const figures = Array.isArray(guides) ? guides : [];
+
+    return figures
+      .filter((guide) => guide && guide.image)
+      .map((guide) => renderLessonGuideFigure(guide))
+      .join("");
+  }
+
+  function renderDay02BlockGuide(activity) {
+    const guides = Array.isArray(activity.blockGuides) ? activity.blockGuides : [];
+    const guideSteps = Array.isArray(activity.blockGuideSteps) ? activity.blockGuideSteps : [];
+    const figures = guides
+      ? renderDay02GuideFigures(guides)
+      : "";
+
+    if (!figures && !guideSteps.length) {
+      return "";
+    }
+
+    return `
+      <div class="plain-group day02-block-guide">
+        <h4>MakeCode에서 찾기</h4>
+        ${figures ? `<div class="day02-guide-grid">${figures}</div>` : ""}
+        ${guideSteps.length ? renderNumberedList(guideSteps, "task-list") : ""}
+      </div>
+    `;
+  }
+
+  function renderDay02LogicGuide(logicGuide) {
+    if (!logicGuide) {
+      return "";
+    }
+
+    const figures = renderDay02GuideFigures(logicGuide.guides || []);
+
+    return `
+      <div class="plain-group day02-logic-guide">
+        <h4>${escapeHtml(logicGuide.title)}</h4>
+        ${figures ? `<div class="day02-guide-grid">${figures}</div>` : ""}
+        ${renderNumberedList(logicGuide.steps || [], "task-list")}
+      </div>
+    `;
+  }
+
+  function renderDay02PseudoCode(activity) {
+    if (!activity || !Array.isArray(activity.pseudoCode) || !activity.pseudoCode.length) {
+      return "";
+    }
+
+    return `
+      <div class="plain-group day02-basic-code">
+        <h4>${escapeHtml(activity.pseudoCodeTitle || "기본 코드 흐름")}</h4>
+        ${
+          activity.pseudoCodeImage
+            ? `<div class="day02-guide-grid">${renderLessonGuideFigure(
+                activity.pseudoCodeImage
+              )}</div>`
+            : ""
+        }
+        <pre><code>${escapeHtml(activity.pseudoCode.join("\n"))}</code></pre>
+      </div>
+    `;
+  }
+
   function renderSensorObservationActivity(activity) {
     return `
       <div class="plain-group block-activity day02-activity" data-day02-activity="sensor-observation">
         <h3>${escapeHtml(activity.title)}</h3>
+        ${renderDay02ConnectionGuide(activity.connection)}
+        ${renderDay02BlockGuide(activity)}
         ${renderActivityStep("해보기", activity.prompt, renderNumberedList(activity.steps || [], "task-list"))}
         <div class="plain-group day02-observation-questions">
           <h4>관찰 질문</h4>
@@ -3450,6 +3576,8 @@
             id="day02-threshold-value"
             type="number"
             inputmode="numeric"
+            min="0"
+            max="255"
             step="1"
             value="${escapeHtml(thresholdValue)}"
             placeholder="${escapeHtml(activity.placeholder || "")}"
@@ -3460,6 +3588,7 @@
           <h4>판단 규칙</h4>
           ${renderPlainList(activity.relationLines || [], "help-list")}
         </div>
+        ${renderDay02LogicGuide(activity.logicGuide)}
         <p class="field-help">${escapeHtml(activity.makeCodeGuide || "")}</p>
         <p class="inline-feedback inline-feedback--correct" data-day02-threshold-status${
           thresholdValue ? "" : " hidden"
@@ -3479,6 +3608,7 @@
           <h4>장치 흐름</h4>
           ${renderNumberedList(activity.flow || [], "task-list")}
         </div>
+        ${renderDay02PseudoCode(activity)}
         <p class="field-help">${escapeHtml(activity.makeCodeGuide || "")}</p>
         <div class="section-action day02-condition-gate">
           <button
@@ -3487,13 +3617,13 @@
             data-day02-condition-test-complete
             ${passed ? "disabled" : ""}
           >
-            ${passed ? "✓ 센서 조건 실험 성공" : escapeHtml(activity.confirmLabel)}
+            ${passed ? "✓ 빛에 따라 스스로 반응하기 성공" : escapeHtml(activity.confirmLabel)}
           </button>
           <p class="field-help" data-day02-condition-test-status>
             ${
               passed
-                ? "다시 시험하려면 실제 장치에서 밝은 상태와 어두운 상태를 다시 확인하세요."
-                : "밝은 상태와 어두운 상태를 모두 실제 장치에서 확인한 뒤 누릅니다."
+                ? "다시 시험하려면 실제 micro:bit에서 밝은 상태와 어두운 상태를 다시 확인하세요."
+                : "밝은 상태와 어두운 상태를 모두 실제 micro:bit에서 확인한 뒤 누릅니다."
             }
           </p>
         </div>
@@ -3555,6 +3685,59 @@
 
         <nav class="section-nav" aria-label="자유 변경 이동">
           <a href="#block06">← 스스로 반응하게 만들기</a>
+          <a class="section-nav__next" href="#makecode-evidence">작품 링크 남기기 →</a>
+        </nav>
+      </section>
+    `;
+  }
+
+  function renderDay02MakeCodeEvidence(lesson) {
+    if (!lesson.makeCodeEvidence) {
+      return "";
+    }
+
+    const shareUrl = activeDayState ? activeDayState.makeCodeShareUrl : "";
+
+    return `
+      <section class="lesson-section day02-makecode-evidence" id="makecode-evidence" data-section="makeCodeEvidence">
+        <p class="section-kicker">작품 링크</p>
+        <h2 class="section-title">${escapeHtml(lesson.makeCodeEvidence.title)}</h2>
+        <p class="section-description">${escapeHtml(lesson.makeCodeEvidence.prompt)}</p>
+
+        <div class="plain-group block-activity day02-activity" data-day02-activity="makecode-link">
+          <div class="makecode-link-row">
+            <label class="record-field" for="day02-makecode-share-url">
+              <span>URL 입력</span>
+              <input
+                id="day02-makecode-share-url"
+                type="url"
+                inputmode="url"
+                data-makecode-url
+                value="${escapeHtml(shareUrl)}"
+                placeholder="https://makecode.microbit.org/_..."
+              >
+            </label>
+            <button class="secondary-button" type="button" data-save-makecode-link>
+              작품 링크 저장
+            </button>
+          </div>
+          <p class="inline-feedback inline-feedback--correct" data-makecode-feedback${
+            shareUrl ? "" : " hidden"
+          }>${shareUrl ? escapeHtml(lesson.makeCodeEvidence.successFeedback) : ""}</p>
+          <a
+            class="primary-link makecode-open-link"
+            href="${escapeHtml(shareUrl || "#")}"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-makecode-open
+            ${shareUrl ? "" : "hidden"}
+          >
+            MakeCode에서 다시 열기
+          </a>
+        </div>
+
+        <nav class="section-nav" aria-label="작품 링크 이동">
+          <a href="#free-change">← 마음대로 바꾸기</a>
           <a class="section-nav__next" href="#video-evidence">연구 모습 영상 →</a>
         </nav>
       </section>
@@ -3569,7 +3752,7 @@
     return `
       ${renderWebcamEvidenceActivity(lesson.videoEvidence)}
       <nav class="section-nav day02-video-nav" aria-label="연구 모습 영상 이동">
-        <a href="#free-change">← 마음대로 바꾸기</a>
+        <a href="#makecode-evidence">← 작품 링크 남기기</a>
         <a class="section-nav__next" href="#today-quiz">오늘의 퀴즈 →</a>
       </nav>
     `;
@@ -3597,11 +3780,11 @@
     }
 
     if (hasPersistentVideoReference(state)) {
-      return "Drive 저장 완료";
+      return "영상 저장 완료";
     }
 
     if (hasRuntimeVideoReference()) {
-      return "브라우저 임시 영상 있음";
+      return "방금 찍은 영상 있음";
     }
 
     return getVideoStatusText(state.videoLocalState);
@@ -3614,7 +3797,9 @@
     return `
       <section class="lesson-section research-record day02-record" id="research-record" data-section="researchRecord">
         <p class="section-kicker">기록하기</p>
-        <h2 class="section-title">${escapeHtml(lesson.record.title)}</h2>
+        <h2 class="section-title">${escapeHtml(
+          lesson.complete && lesson.complete.title ? lesson.complete.title : lesson.record.title
+        )}</h2>
 
         <ul class="completion-requirements day02-record-summary" data-day02-record-summary>
           <li class="${isDay02ThresholdSaved(state) ? "is-complete" : ""}">
@@ -3636,8 +3821,9 @@
 
         <div class="plain-group">
           <h3>자동 확인 결과</h3>
-          <p data-day02-record-condition>센서 조건 실험: ${state.conditionTestPassed ? "성공" : "통과 전"}</p>
-          <p data-day02-record-level>판정: ${escapeHtml(getDay02CompletionLevelText(state))}</p>
+          <p data-day02-record-condition>빛에 따라 스스로 반응하기: ${
+            state.conditionTestPassed ? "성공" : "확인 전"
+          }</p>
         </div>
 
         <div class="plain-group">
@@ -3645,13 +3831,17 @@
           <p data-day02-record-decision>${escapeHtml(
             state.minimumCompleted || isDay02ThresholdSaved(state)
               ? getDay02TodayDecision(state)
-              : "기준값을 정하고 두 상황 작동을 확인하면 자동으로 기록됩니다."
+              : "밝은 상태와 어두운 상태에서 모두 작동했는지 확인하면 자동으로 기록됩니다."
           )}</p>
         </div>
 
-        <div class="plain-group">
+        <div class="section-description" data-day02-complete-summary${state.minimumCompleted ? "" : " hidden"}>
+          ${renderParagraphs(lesson.complete.summaryLines || [])}
+        </div>
+
+        <div class="plain-group" data-day02-next-research${state.minimumCompleted ? "" : " hidden"}>
           <h3>다음 연구</h3>
-          <p data-day02-record-next>다음 연구에서는 장치를 움직이거나 다른 장치와 정보를 주고받는 방법을 알아봅니다.</p>
+          <p data-day02-record-next>${escapeHtml(lesson.complete.nextSummary)}</p>
         </div>
 
         <div class="section-action">
@@ -4788,7 +4978,7 @@
             내 코드 연결하기
           </button>
         </div>
-        <p class="inline-feedback inline-feedback--correct" data-day01-feedback="makecode-link"${
+        <p class="inline-feedback inline-feedback--correct" data-day01-feedback="makecode-link" data-makecode-feedback${
           shareUrl ? "" : " hidden"
         }>${shareUrl ? escapeHtml(activity.successFeedback) : ""}</p>
         <a
@@ -6100,6 +6290,7 @@
         .map((block, index) => renderLessonBlock(block, lesson, index, currentDay))
         .join("")}
       ${lesson.dayId === "day02" ? renderDay02FreeChange(lesson) : ""}
+      ${lesson.dayId === "day02" ? renderDay02MakeCodeEvidence(lesson) : ""}
       ${lesson.dayId === "day02" ? renderDay02VideoEvidence(lesson) : ""}
       ${renderResearchEvidence(lesson)}
       ${renderTodayQuiz(lesson)}
@@ -6714,7 +6905,7 @@
 
   function updateMakeCodeLink() {
     const input = elements.standardDay.querySelector("[data-makecode-url]");
-    const feedback = elements.standardDay.querySelector('[data-day01-feedback="makecode-link"]');
+    const feedback = elements.standardDay.querySelector("[data-makecode-feedback]");
 
     if (!input || !feedback) {
       return;
@@ -7940,23 +8131,28 @@
     );
     const decision = elements.standardDay.querySelector("[data-day02-record-decision]");
     const condition = elements.standardDay.querySelector("[data-day02-record-condition]");
-    const level = elements.standardDay.querySelector("[data-day02-record-level]");
+    const completeSummary = elements.standardDay.querySelector("[data-day02-complete-summary]");
+    const nextResearch = elements.standardDay.querySelector("[data-day02-next-research]");
 
     if (condition) {
-      condition.textContent = `센서 조건 실험: ${
-        activeDayState.conditionTestPassed ? "성공" : "통과 전"
+      condition.textContent = `빛에 따라 스스로 반응하기: ${
+        activeDayState.conditionTestPassed ? "성공" : "확인 전"
       }`;
-    }
-
-    if (level) {
-      level.textContent = `판정: ${getDay02CompletionLevelText(activeDayState)}`;
     }
 
     if (decision) {
       decision.textContent =
         activeDayState.minimumCompleted || isDay02ThresholdSaved(activeDayState)
           ? getDay02TodayDecision(activeDayState)
-          : "기준값을 정하고 두 상황 작동을 확인하면 자동으로 기록됩니다.";
+          : "밝은 상태와 어두운 상태에서 모두 작동했는지 확인하면 자동으로 기록됩니다.";
+    }
+
+    if (completeSummary) {
+      completeSummary.hidden = !activeDayState.minimumCompleted;
+    }
+
+    if (nextResearch) {
+      nextResearch.hidden = !activeDayState.minimumCompleted;
     }
   }
 
@@ -7985,7 +8181,7 @@
 
     if (conditionButton) {
       conditionButton.textContent = activeDayState.conditionTestPassed
-        ? "✓ 센서 조건 실험 성공"
+        ? "✓ 빛에 따라 스스로 반응하기 성공"
         : "두 상황 모두 작동했어요";
       conditionButton.disabled = Boolean(activeDayState.conditionTestPassed);
       conditionButton.classList.toggle("primary-link", !activeDayState.conditionTestPassed);
@@ -7994,8 +8190,32 @@
 
     if (conditionStatus) {
       conditionStatus.textContent = activeDayState.conditionTestPassed
-        ? "다시 시험하려면 실제 장치에서 밝은 상태와 어두운 상태를 다시 확인하세요."
-        : "밝은 상태와 어두운 상태를 모두 실제 장치에서 확인한 뒤 누릅니다.";
+        ? "다시 시험하려면 실제 micro:bit에서 밝은 상태와 어두운 상태를 다시 확인하세요."
+        : "밝은 상태와 어두운 상태를 모두 실제 micro:bit에서 확인한 뒤 누릅니다.";
+    }
+
+    const makeCodeInput = elements.standardDay.querySelector("[data-makecode-url]");
+    const makeCodeFeedback = elements.standardDay.querySelector("[data-makecode-feedback]");
+    const makeCodeOpen = elements.standardDay.querySelector("[data-makecode-open]");
+    const lesson = activeDay ? getLessonForDay(activeDay) : null;
+    const makeCodeSuccess =
+      lesson && lesson.makeCodeEvidence && lesson.makeCodeEvidence.successFeedback
+        ? lesson.makeCodeEvidence.successFeedback
+        : "MakeCode 작품 링크 저장 완료 ✓";
+
+    if (makeCodeInput && makeCodeInput.value !== activeDayState.makeCodeShareUrl) {
+      makeCodeInput.value = activeDayState.makeCodeShareUrl || "";
+    }
+
+    if (makeCodeFeedback) {
+      makeCodeFeedback.textContent = activeDayState.makeCodeShareUrl ? makeCodeSuccess : "";
+      makeCodeFeedback.classList.add("inline-feedback--correct");
+      makeCodeFeedback.hidden = !activeDayState.makeCodeShareUrl;
+    }
+
+    if (makeCodeOpen) {
+      makeCodeOpen.href = activeDayState.makeCodeShareUrl || "#";
+      makeCodeOpen.hidden = !activeDayState.makeCodeShareUrl;
     }
 
     elements.standardDay.querySelectorAll("[data-day02-change-made]").forEach((button) => {
@@ -8183,7 +8403,7 @@
       (state) => {
         state.conditionTestPassed = true;
       },
-      "센서 조건 실험 성공 저장 중..."
+      "빛에 따라 스스로 반응하기 성공 저장 중..."
     );
   }
 
@@ -8420,7 +8640,9 @@
     if (event.target.closest("[data-day02-threshold-value]") && isDay02Active()) {
       updateDay01State(
         (state) => {
-          state.thresholdValue = String(event.target.value || "").trim().slice(0, 12);
+          state.thresholdValue = normalizeDay02ThresholdValue(
+            String(event.target.value || "").trim().slice(0, 12)
+          );
         },
         "기준값 저장 중..."
       );

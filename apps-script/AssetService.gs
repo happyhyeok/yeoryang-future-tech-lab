@@ -63,7 +63,7 @@ function normalizeAssetPayload_(payload) {
 
   validateStudent_(asset.ownerId);
   validateResearchDay_(asset.dayId);
-  validateDay01MakeCodeAssetId_(
+  validateMakeCodeAssetId_(
     asset.assetId,
     asset.assetType,
     asset.ownerId,
@@ -150,8 +150,8 @@ function validateExistingAssetIdentity_(existing, incoming) {
   }
 }
 
-function validateDay01MakeCodeAssetId_(assetId, assetType, ownerId, dayId, storageUrl) {
-  if (assetType !== "webpage_link" || dayId !== "day01") {
+function validateMakeCodeAssetId_(assetId, assetType, ownerId, dayId, storageUrl) {
+  if (assetType !== "webpage_link" || (dayId !== "day01" && dayId !== "day02")) {
     return;
   }
 
@@ -165,13 +165,13 @@ function validateDay01MakeCodeAssetId_(assetId, assetType, ownerId, dayId, stora
   assertApi_(
     assetId === expectedAssetId,
     "ASSET_ID_CONFLICT",
-    "Day01 MakeCode Asset ID가 학생·연구일 규칙과 일치하지 않습니다."
+    "MakeCode Asset ID가 학생·연구일 규칙과 일치하지 않습니다."
   );
 
   assertApi_(
     /^https:\/\/makecode\.microbit\.org(?:[/?#]|$)/i.test(storageUrl),
     "INVALID_ASSET_URL",
-    "Day01 MakeCode 공유 주소는 https://makecode.microbit.org/ 주소여야 합니다."
+    "MakeCode 공유 주소는 https://makecode.microbit.org/ 주소여야 합니다."
   );
 }
 

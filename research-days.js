@@ -19,7 +19,7 @@
       title: "센서로 현실 읽기",
       phase: "기술 익히기",
       todayDescription:
-        "센서가 주변의 상태를 어떻게 값으로 알아보는지 관찰합니다. 처리 단계에서 기준값과 조건을 사용해 장치가 반응하게 만들어 봅니다.",
+        "micro:bit가 주변 밝기를 0~255 숫자로 읽는 모습을 관찰합니다. 내가 정한 기준값으로 밝음과 어두움을 나누고 스스로 반응하게 만들어 봅니다.",
       dayType: "standard",
       phaseNotice: "",
       specialNotice: "",
@@ -683,35 +683,71 @@
         shortTitle: "빛을 숫자로 읽기",
         title: "빛을 숫자로 읽기",
         position: {
-          current: "광센서 값 관찰하기",
+          current: "micro:bit 빛의 세기 관찰하기",
           next: "내 기준값 정하기",
         },
         explanation: [
-          "센서는 현실의 상태를 컴퓨터가 사용할 수 있는 값으로 바꾸어 줍니다.",
-          "오늘은 광센서 앞의 빛을 바꾸며 숫자가 어떻게 달라지는지 먼저 관찰합니다.",
+          "micro:bit에는 주변 밝기를 알아차리는 기능이 있습니다.",
+          "이처럼 주변 상태를 알아차리는 기능을 센서라고 부릅니다.",
+          "빛의 세기는 0부터 255까지 숫자로 나타납니다. 0에 가까울수록 어둡고, 255에 가까울수록 밝습니다.",
         ],
         thinkingQuestion: "빛이 달라지면 숫자는 어떻게 달라질까요?",
         activity: {
           type: "sensor-observation",
-          title: "광센서 값 관찰",
+          title: "빛의 세기 관찰",
+          connection: {
+            title: "먼저 micro:bit를 연결해요",
+            steps: [
+              "MakeCode에서 만든 코드를 다운로드합니다.",
+              "USB 케이블로 micro:bit를 컴퓨터에 연결합니다.",
+              "장치 연결에서 micro:bit를 선택해 연결합니다.",
+            ],
+            detail: "다운로드 → 장치 연결 → micro:bit 선택 → 연결",
+          },
+          blockGuideSteps: [
+            "입력 메뉴에서 빛의 세기 블록을 찾습니다.",
+            "기본 메뉴에서 숫자 출력 블록을 찾습니다.",
+            "계속 반복하기 안에 숫자 출력과 빛의 세기를 넣어 값을 봅니다.",
+          ],
+          blockGuides: [
+            {
+              title: "입력 메뉴에서 빛의 세기 찾기",
+              image: "assets/day02/makecode-input-light-level.png",
+              imageAlt: "MakeCode 입력 메뉴에서 빛 밝기 블록이 강조된 화면",
+              caption: "입력 메뉴에서 micro:bit가 읽은 빛의 세기 값을 가져오는 블록을 찾습니다.",
+            },
+            {
+              title: "기본 메뉴에서 숫자 출력 찾기",
+              image: "assets/day02/makecode-basic-show-number.png",
+              imageAlt: "MakeCode 기본 메뉴에서 숫자 출력 블록이 강조된 화면",
+              caption: "기본 메뉴에서 숫자 출력 블록을 찾습니다.",
+            },
+            {
+              title: "빛의 세기 숫자 보기",
+              image: "assets/day02/makecode-light-forever-number.png",
+              imageAlt: "무한반복 안에 숫자 출력과 빛 밝기 블록을 넣은 코드",
+              caption: "무한반복 안에 숫자 출력과 빛 밝기를 넣어 밝기가 숫자로 바뀌는 모습을 봅니다.",
+            },
+          ],
           prompt:
-            "자리에서 손, 종이, 책으로 광센서를 가리거나 조금 열어 보며 값을 비교합니다.",
+            "micro:bit LED 화면을 그대로 두거나 손, 종이, 책으로 살짝 덮어 보며 값을 비교합니다.",
           steps: [
-            "광센서 값을 확인합니다.",
-            "센서를 그대로 둡니다.",
-            "손, 종이, 책 등으로 가립니다.",
+            "micro:bit를 연결합니다.",
+            "밝은 곳에서 빛의 세기 숫자를 확인합니다.",
+            "손, 종이, 책 등으로 LED 화면을 덮습니다.",
             "조금 열어 봅니다.",
             "다시 밝게 합니다.",
             "값이 어떻게 변하는지 관찰합니다.",
           ],
           questions: [
             "숫자가 항상 같은가요?",
-            "빛이 달라지면 숫자는 어떻게 달라지나요?",
+            "0에 가까운 값은 언제 나오나요?",
+            "255에 가까운 값은 언제 나오나요?",
           ],
         },
         checkpoint: [],
         help: [
-          "값이 거의 변하지 않는다면 센서를 더 확실히 가리거나 다시 밝게 해 보세요.",
+          "값이 거의 변하지 않는다면 LED 화면을 더 확실히 덮거나 다시 밝게 해 보세요.",
           "친구와 값이 달라도 괜찮습니다. 오늘은 내 자리의 밝고 어두운 값을 비교합니다.",
         ],
       },
@@ -725,7 +761,7 @@
           next: "스스로 반응하게 만들기",
         },
         explanation: [
-          "센서값을 읽은 뒤에는 어느 상태에서 다르게 반응할지 정해야 합니다.",
+          "빛의 세기를 읽은 뒤에는 어느 상태에서 다르게 반응할지 정해야 합니다.",
           "밝은 상태와 어두운 상태의 값을 보고, 내 장치에 맞는 기준값을 하나 고릅니다.",
         ],
         thinkingQuestion:
@@ -736,13 +772,29 @@
           prompt:
             "밝을 때와 어두울 때의 값을 비교한 뒤, 내 장치에 사용할 숫자 하나를 정합니다.",
           fieldLabel: "내 기준값",
-          placeholder: "예: 300",
+          placeholder: "예: 100",
           relationLines: [
-            "센서값 < 내가 정한 기준값 → 어두움",
+            "빛의 세기 < 내가 정한 기준값 → 어두움",
             "그렇지 않으면 → 밝음",
           ],
+          logicGuide: {
+            title: "조건 블록 생각하기",
+            guides: [
+              {
+                title: "논리 메뉴에서 조건 블록 찾기",
+                image: "assets/day02/makecode-logic-if-block.png",
+                imageAlt: "MakeCode 논리 메뉴에서 만약 참이면 블록이 강조된 화면",
+                caption: "논리 메뉴에서 만약 / 아니면 블록을 찾습니다.",
+              },
+            ],
+            steps: [
+              "논리 메뉴에서 비교 블록 < 를 찾습니다.",
+              "논리 메뉴에서 만약 / 아니면 블록을 찾습니다.",
+              "빛의 세기 < 내가 정한 기준값 이라면 어두운 쪽 반응을 실행합니다.",
+            ],
+          },
           makeCodeGuide:
-            "MakeCode에서는 센서값을 읽는 블록, 비교 블록, 조건 블록, LED 출력 블록을 사용합니다.",
+            "MakeCode에서는 입력의 빛의 세기, 논리의 비교와 만약 / 아니면, 기본의 LED 표시 블록을 함께 사용합니다.",
         },
         checkpoint: [],
         help: [
@@ -754,14 +806,14 @@
         blockId: "block06",
         number: "06",
         shortTitle: "스스로 반응하게 만들기",
-        title: "센서 조건 알림 장치",
+        title: "빛에 따라 스스로 반응하게 만들기",
         position: {
-          current: "센서값으로 조건 판단하기",
+          current: "빛에 따라 스스로 반응하게 만들기",
           next: "마음대로 바꾸기",
         },
         explanation: [
-          "빛 → 센서 → 값 → 기준값과 비교 → 조건 판단 → LED 출력이 연결되면 장치가 주변 상황을 스스로 알아차릴 수 있습니다.",
-          "오늘의 최소 결과물은 밝을 때와 어두울 때 LED가 다르게 반응하는 센서 조건 알림 장치입니다.",
+          "이제 사람이 버튼을 누르지 않아도 micro:bit가 빛의 세기를 읽고 스스로 반응하게 만듭니다.",
+          "오늘의 최소 결과물은 밝은 상태와 어두운 상태에서 LED 화면이 서로 다르게 보이는 micro:bit입니다.",
         ],
         thinkingQuestion:
           "어두울 때와 밝을 때 LED가 어떻게 다르게 보이면 좋을까요?",
@@ -769,12 +821,28 @@
           type: "sensor-device",
           title: "두 상황에서 시험하기",
           prompt:
-            "광센서를 밝게 두었을 때와 가렸을 때 LED 반응이 서로 다른지 확인합니다.",
+            "micro:bit LED 화면을 밝게 둔 상태와 손이나 종이로 덮은 상태에서 반응이 서로 다른지 확인합니다.",
           flow: [
-            "광센서값을 계속 읽습니다.",
+            "빛의 세기를 계속 읽습니다.",
             "내 기준값과 비교합니다.",
             "어두우면 LED 그림 A를 보여 줍니다.",
             "그렇지 않으면 LED 그림 B를 보여 줍니다.",
+          ],
+          pseudoCodeTitle: "기본 코드 흐름",
+          pseudoCodeImage: {
+            title: "빛의 세기 조건 코드",
+            image: "assets/day02/makecode-light-condition-code.png",
+            imageAlt: "무한반복 안에 빛 밝기 조건 블록을 넣은 MakeCode 코드",
+            caption:
+              "사진 속 = 0은 예시입니다. 실제로는 내가 정한 기준값과 < 비교를 사용합니다.",
+          },
+          pseudoCode: [
+            "계속 반복하기",
+            "",
+            "    만약 빛의 세기 < 내 기준값 이라면",
+            "        어두울 때 그림 보여주기",
+            "    아니면",
+            "        밝을 때 그림 보여주기",
           ],
           makeCodeGuide:
             "필요한 블록 위치만 확인하고, LED 그림은 원하는 모양으로 바꾸어도 됩니다.",
@@ -784,7 +852,7 @@
         help: [
           "반응이 너무 자주 일어나면 기준값을 조금 높이거나 낮추어 보세요.",
           "조건 방향이 반대로 되어 있으면 원하는 상황이 아닐 때 작동할 수 있습니다.",
-          "정확한 연결 핀은 강사가 확인한 지니어스키트 설정을 따릅니다.",
+          "다시 시험하려면 실제 micro:bit에서 밝은 상태와 어두운 상태를 다시 확인하세요.",
         ],
       },
     ],
@@ -1016,8 +1084,8 @@
         recall: {
           title: "지난 연구에서는",
           lines: [
-            "지난 연구에서는 사람이 버튼을 눌렀습니다.",
-            "장치가 주변 상황을 스스로 알아차리게 하려면 무엇이 필요할까요?",
+            "지난 연구에서는 사람이 버튼을 누르면 micro:bit가 반응했습니다.",
+            "사람이 누르지 않아도 주변 상황을 알아차릴 수 있을까요?",
           ],
         },
         carry: {
@@ -1025,14 +1093,15 @@
           previousDayId: "day01",
           fallbackResult:
             "버튼을 누르면 LED가 다르게 반응하는 장치를 만들었습니다.",
-          reusableIdea: "입력 → 처리 → 출력",
+          reusableIdea: "장치가 알아차린 신호에 맞춰 LED 반응을 바꾸기",
         },
         connect: {
           title: "연결하기",
           todayTitle: "오늘의 연구: 센서로 현실 읽기",
           lines: [
-            "오늘은 빛을 광센서가 읽은 값으로 바꾸어 봅니다.",
-            "그리고 내가 정한 기준값과 비교해 장치가 스스로 판단하게 만듭니다.",
+            "오늘은 micro:bit가 주변 밝기를 숫자로 읽어 봅니다.",
+            "빛의 세기는 0부터 255까지이고, 0에 가까울수록 어둡고 255에 가까울수록 밝습니다.",
+            "그리고 내가 정한 기준값과 비교해 밝을 때와 어두울 때 스스로 다르게 반응하게 만듭니다.",
           ],
         },
       },
@@ -1040,39 +1109,45 @@
         label: "연구 02",
         title: "센서로 현실 읽기",
         coreStatement:
-          "센서는 주변의 상태를 컴퓨터가 사용할 수 있는 값으로 바꾸어 줍니다.",
+          "micro:bit는 주변 밝기를 0부터 255까지의 숫자로 읽을 수 있습니다.",
         question:
-          "센서값을 보고 장치가 스스로 작동하게 하려면 어떤 기준과 조건이 필요할까요?",
+          "빛의 세기를 보고 장치가 스스로 작동하게 하려면 어떤 기준이 필요할까요?",
         blocks: [
           { number: "04", title: "빛을 숫자로 읽기" },
           { number: "05", title: "내 기준값 정하기" },
           { number: "06", title: "스스로 반응하게 만들기" },
         ],
-        outcome: "센서 조건 알림 장치",
+        outcome: "빛에 따라 스스로 반응하는 micro:bit",
         nextConnection: "다음에는 장치의 반응을 움직임과 통신으로 넓혀 봅니다.",
       },
       lessonBlocks: LESSON_BLOCKS.day02,
       freeChange: {
         title: "마음대로 바꾸기",
         description:
-          "block06 실험이 성공했다면 기준값이나 LED 반응을 충분히 바꾸어 보세요. 기록은 마지막에 한 가지만 고릅니다.",
+          "기본 작동에 성공했다면 이제 내 방식으로 바꾸어 보세요.",
         options: [
-          "기준값",
-          "LED 그림",
-          "반응 방법",
-          "표시 내용",
-          "여러 가지 변경",
+          "기준값 바꾸기",
+          "어두울 때 그림 바꾸기",
+          "밝을 때 그림 바꾸기",
+          "그림 대신 숫자나 글자 표시하기",
+          "반응을 반대로 만들기",
           "기타",
         ],
         otherPlaceholder: "바꾼 내용을 짧게 적기",
         advancedPrompt: "더 해보고 싶다면 어두움 / 보통 / 밝음 3단계 조건을 시험해 보세요.",
+      },
+      makeCodeEvidence: {
+        title: "MakeCode 작품 링크 남기기",
+        prompt:
+          "내가 만든 MakeCode 작품의 공유 주소를 남기면 나중에 다시 열어 볼 수 있습니다.",
+        successFeedback: "MakeCode 작품 링크 저장 완료 ✓",
       },
       videoEvidence: {
         type: "webcam-evidence",
         blockId: "block06",
         title: "연구 모습 영상 남기기",
         prompt:
-          "밝은 상태와 어두운 상태에서 장치가 다르게 반응하는 모습을 모두 보여주세요. 권장 20~30초, 최대 30초입니다.",
+          "micro:bit를 밝게 둔 모습과 LED 화면을 손이나 종이로 덮은 모습을 모두 보여주세요. 두 상태에서 반응이 다르게 보이면 됩니다. 권장 20~30초, 최대 30초입니다.",
       },
       quiz: {
         title: "오늘의 퀴즈",
@@ -1089,13 +1164,13 @@
               { text: "프로그램을 자동으로 만든다.", correct: false },
             ],
             explanation:
-              "센서는 빛 같은 현실의 상태를 컴퓨터가 사용할 수 있는 값으로 바꾸어 줍니다.",
+              "오늘은 micro:bit가 주변 밝기를 숫자로 읽었습니다.",
           },
           {
             id: "threshold-purpose",
             prompt: "기준값이 필요한 이유는 무엇일까요?",
             choices: [
-              { text: "센서 색깔을 정하기 위해", correct: false },
+              { text: "LED 색깔을 정하기 위해", correct: false },
               { text: "어느 상태에서 다르게 반응할지 판단하기 위해", correct: true },
               { text: "micro:bit를 충전하기 위해", correct: false },
               { text: "LED 개수를 세기 위해", correct: false },
@@ -1107,20 +1182,20 @@
             id: "sensor-device-flow",
             prompt: "오늘 만든 장치의 흐름에 가장 가까운 것은?",
             choices: [
-              { text: "LED → 센서 → 빛", correct: false },
-              { text: "빛 → 센서 → 판단 → LED", correct: true },
-              { text: "센서 → USB → 마우스", correct: false },
-              { text: "버튼 → 센서 → 인터넷", correct: false },
+              { text: "LED → 빛 → 버튼", correct: false },
+              { text: "빛의 세기 → 기준값과 비교 → LED", correct: true },
+              { text: "USB → 마우스 → LED", correct: false },
+              { text: "버튼 → 인터넷 → LED", correct: false },
             ],
             explanation:
-              "빛을 센서가 값으로 읽고, 조건으로 판단한 뒤 LED 출력이 달라집니다.",
+              "빛의 세기를 기준값과 비교한 뒤 LED 출력이 달라집니다.",
           },
           {
             id: "sensor-future-use",
             prompt: "오늘 배운 센서는 나중에 왜 필요할까요?",
             choices: [
               { text: "장치가 주변 상황을 스스로 알아차리는 데 사용할 수 있어서", correct: true },
-              { text: "모든 작품에 반드시 광센서를 써야 해서", correct: false },
+              { text: "모든 작품에 반드시 밝기 기능만 써야 해서", correct: false },
               { text: "컴퓨터 없이 코딩할 수 있어서", correct: false },
               { text: "3D 프린터를 움직여서", correct: false },
             ],
@@ -1134,12 +1209,12 @@
         fields: [],
       },
       complete: {
-        title: "Day02 연구 상태",
-        gained: "센서 조건 알림 장치",
+        title: "오늘의 연구 결과",
+        gained: "빛에 따라 스스로 반응하는 micro:bit",
         summaryLines: [
-          "광센서 값을 관찰했습니다.",
-          "내 기준값으로 밝음과 어두움을 판단했습니다.",
-          "LED가 조건에 따라 다르게 반응하도록 만들었습니다.",
+          "micro:bit가 빛의 세기를 숫자로 읽는 것을 관찰했습니다.",
+          "내 기준값으로 밝음과 어두움을 나누었습니다.",
+          "밝은 상태와 어두운 상태에서 LED 화면이 다르게 반응하도록 만들었습니다.",
         ],
         nextTitle: "움직이고 연결하기",
         nextSummary:

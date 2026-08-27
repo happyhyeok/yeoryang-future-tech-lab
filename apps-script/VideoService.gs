@@ -111,7 +111,7 @@ function getVideoDayLabels_(dayId) {
   if (dayId === "day02") {
     return {
       title: "Day02 연구 모습 영상",
-      description: "센서 조건 알림 장치 시험 모습",
+      description: "빛에 따라 반응하는 micro:bit 시험 모습",
     };
   }
 
