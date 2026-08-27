@@ -802,6 +802,13 @@
             title: "조건 블록 생각하기",
             guides: [
               {
+                title: "논리 메뉴에서 비교 블록 찾기",
+                image: "assets/day02/makecode-logic-comparison-operator.png",
+                imageRole: "locator",
+                imageAlt: "MakeCode 논리 메뉴에서 비교 연산 블록이 강조된 화면",
+                caption: "논리 메뉴에서 빛의 세기와 기준값을 비교하는 블록을 찾습니다.",
+              },
+              {
                 title: "논리 메뉴에서 조건 블록 찾기",
                 image: "assets/day02/makecode-logic-if-block.png",
                 imageRole: "locator",
