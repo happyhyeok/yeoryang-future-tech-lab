@@ -3437,8 +3437,15 @@
       return "";
     }
 
+    const roleClasses = {
+      locator: "lesson-guide-figure--locator",
+      "code-example": "lesson-guide-figure--code-example",
+      "pairing-guide": "lesson-guide-figure--pairing-guide",
+    };
+    const roleClass = roleClasses[activity.imageRole] || "";
+
     return `
-      <figure class="lesson-guide-figure">
+      <figure class="lesson-guide-figure${roleClass ? ` ${roleClass}` : ""}">
         <img
           class="lesson-guide-image"
           src="${escapeHtml(activity.image)}"
@@ -3520,18 +3527,25 @@
   function renderDay02BlockGuide(activity) {
     const guides = Array.isArray(activity.blockGuides) ? activity.blockGuides : [];
     const guideSteps = Array.isArray(activity.blockGuideSteps) ? activity.blockGuideSteps : [];
-    const figures = guides
-      ? renderDay02GuideFigures(guides)
-      : "";
+    const locatorGuides = guides.filter((guide) => guide.imageRole !== "code-example");
+    const codeGuides = guides.filter((guide) => guide.imageRole === "code-example");
+    const locatorFigures = locatorGuides.length ? renderDay02GuideFigures(locatorGuides) : "";
+    const codeFigures = codeGuides.length ? renderDay02GuideFigures(codeGuides) : "";
 
-    if (!figures && !guideSteps.length) {
+    if (!locatorFigures && !codeFigures && !guideSteps.length) {
       return "";
     }
 
     return `
       <div class="plain-group day02-block-guide">
         <h4>MakeCode에서 찾기</h4>
-        ${figures ? `<div class="day02-guide-grid">${figures}</div>` : ""}
+        ${locatorFigures ? `<div class="day02-guide-grid day02-guide-grid--locator">${locatorFigures}</div>` : ""}
+        ${
+          codeFigures
+            ? `<p class="field-help day02-guide-bridge">두 블록을 이렇게 연결합니다.</p>
+              <div class="day02-guide-grid day02-guide-grid--code">${codeFigures}</div>`
+            : ""
+        }
         ${guideSteps.length ? renderNumberedList(guideSteps, "task-list") : ""}
       </div>
     `;
@@ -3547,7 +3561,7 @@
     return `
       <div class="plain-group day02-logic-guide">
         <h4>${escapeHtml(logicGuide.title)}</h4>
-        ${figures ? `<div class="day02-guide-grid">${figures}</div>` : ""}
+        ${figures ? `<div class="day02-guide-grid day02-guide-grid--locator">${figures}</div>` : ""}
         ${renderNumberedList(logicGuide.steps || [], "task-list")}
       </div>
     `;
@@ -3563,7 +3577,7 @@
         <h4>${escapeHtml(activity.pseudoCodeTitle || "기본 코드 흐름")}</h4>
         ${
           activity.pseudoCodeImage
-            ? `<div class="day02-guide-grid">${renderLessonGuideFigure(
+            ? `<div class="day02-guide-grid day02-guide-grid--code">${renderLessonGuideFigure(
                 activity.pseudoCodeImage
               )}</div>`
             : ""
@@ -3594,7 +3608,12 @@
     return `
       <div class="plain-group block-activity day02-activity" data-day02-activity="threshold-setting">
         <h3>${escapeHtml(activity.title)}</h3>
-        ${renderActivityStep("정하기", activity.prompt)}
+        ${
+          activity.conceptLines
+            ? `<div class="day02-threshold-concept">${renderParagraphs(activity.conceptLines)}</div>`
+            : ""
+        }
+        ${activity.prompt ? `<p class="field-help day02-threshold-prompt">${escapeHtml(activity.prompt)}</p>` : ""}
         <label class="record-field day02-threshold-field" for="day02-threshold-value">
           <span>${escapeHtml(activity.fieldLabel)}</span>
           <input
@@ -3611,6 +3630,7 @@
         </label>
         <div class="plain-group day02-rule-preview">
           <h4>판단 규칙</h4>
+          ${activity.ruleIntro ? `<p class="field-help">${escapeHtml(activity.ruleIntro)}</p>` : ""}
           ${renderPlainList(activity.relationLines || [], "help-list")}
         </div>
         ${renderDay02LogicGuide(activity.logicGuide)}
@@ -3636,6 +3656,14 @@
         ${renderDay02PseudoCode(activity)}
         <p class="field-help">${escapeHtml(activity.makeCodeGuide || "")}</p>
         <div class="section-action day02-condition-gate">
+          <div class="day02-condition-instructions">
+            ${renderParagraphs(
+              activity.confirmationGuide || [
+                "밝은 상태와 어두운 상태를 실제 micro:bit에서 모두 확인해 보세요.",
+                "두 상태에서 서로 다른 반응이 나타났다면 아래 버튼을 누릅니다.",
+              ]
+            )}
+          </div>
           <button
             class="${passed ? "secondary-button" : "primary-link"}"
             type="button"
@@ -3644,12 +3672,8 @@
           >
             ${passed ? "✓ 빛에 따라 스스로 반응하기 성공" : escapeHtml(activity.confirmLabel)}
           </button>
-          <p class="field-help" data-day02-condition-test-status>
-            ${
-              passed
-                ? "다시 시험하려면 실제 micro:bit에서 밝은 상태와 어두운 상태를 다시 확인하세요."
-                : "밝은 상태와 어두운 상태를 모두 실제 micro:bit에서 확인한 뒤 누릅니다."
-            }
+          <p class="field-help" data-day02-condition-test-status${passed ? "" : " hidden"}>
+            ${passed ? "다시 시험하려면 실제 micro:bit에서 밝은 상태와 어두운 상태를 다시 확인하세요." : ""}
           </p>
         </div>
       </div>
@@ -5211,9 +5235,11 @@
     const videoState = activeDayState ? activeDayState.videoLocalState : {};
     const localPlaybackSource = day01RecordedUrl || "";
     const drivePreviewSource = getPersistentVideoPlaybackSource(activeDayState);
+    const dayClass =
+      activeDay && activeDay.dayId === "day02" ? " webcam-panel--day02" : "";
 
     return `
-      <div class="plain-group block-activity day01-activity webcam-panel" id="video-evidence" data-day01-activity="webcam-evidence">
+      <div class="plain-group block-activity day01-activity webcam-panel${dayClass}" id="video-evidence" data-day01-activity="webcam-evidence">
         <h3>${escapeHtml(activity.title)}</h3>
         ${renderActivityStep("확인하기", activity.prompt)}
         <div class="webcam-grid">
@@ -8216,7 +8242,8 @@
     if (conditionStatus) {
       conditionStatus.textContent = activeDayState.conditionTestPassed
         ? "다시 시험하려면 실제 micro:bit에서 밝은 상태와 어두운 상태를 다시 확인하세요."
-        : "밝은 상태와 어두운 상태를 모두 실제 micro:bit에서 확인한 뒤 누릅니다.";
+        : "";
+      conditionStatus.hidden = !activeDayState.conditionTestPassed;
     }
 
     const makeCodeInput = elements.standardDay.querySelector("[data-makecode-url]");

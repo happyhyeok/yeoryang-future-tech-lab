@@ -705,6 +705,7 @@
             figure: {
               title: "micro:bit 연결 순서 복습",
               image: "assets/day01/makecode-pairing-guide.png",
+              imageRole: "pairing-guide",
               imageAlt: "MakeCode에서 micro:bit를 연결하고 장치를 선택하는 순서 안내",
               caption: "처음 연결하거나 연결이 끊겼다면 이 순서대로 다시 연결해 보세요.",
             },
@@ -723,18 +724,21 @@
             {
               title: "입력 메뉴에서 빛의 세기 찾기",
               image: "assets/day02/makecode-input-light-level.png",
+              imageRole: "locator",
               imageAlt: "MakeCode 입력 메뉴에서 빛 밝기 블록이 강조된 화면",
               caption: "입력 메뉴에서 micro:bit가 읽은 빛의 세기 값을 가져오는 블록을 찾습니다.",
             },
             {
               title: "기본 메뉴에서 숫자 출력 찾기",
               image: "assets/day02/makecode-basic-show-number.png",
+              imageRole: "locator",
               imageAlt: "MakeCode 기본 메뉴에서 숫자 출력 블록이 강조된 화면",
               caption: "기본 메뉴에서 숫자 출력 블록을 찾습니다.",
             },
             {
               title: "빛의 세기 숫자 보기",
               image: "assets/day02/makecode-light-forever-number.png",
+              imageRole: "code-example",
               imageAlt: "무한반복 안에 숫자 출력과 빛 밝기 블록을 넣은 코드",
               caption: "무한반복 안에 숫자 출력과 빛 밝기를 넣어 밝기가 숫자로 바뀌는 모습을 봅니다.",
             },
@@ -767,22 +771,29 @@
         shortTitle: "내 기준값 정하기",
         title: "내 기준값 정하기",
         position: {
-          current: "밝음과 어두움 사이 고르기",
+          current: "밝음과 어두움을 나눌 경계 생각하기",
           next: "스스로 반응하게 만들기",
         },
         explanation: [
-          "빛의 세기를 읽은 뒤에는 어느 상태에서 다르게 반응할지 정해야 합니다.",
-          "밝은 상태와 어두운 상태의 값을 보고, 내 장치에 맞는 기준값을 하나 고릅니다.",
+          "앞에서 밝을 때와 어두울 때 서로 다른 숫자가 나오는 것을 확인했습니다.",
+          "하지만 micro:bit는 숫자만 보고 스스로 \"지금은 어둡다\"라고 판단하지 못합니다.",
+          "그래서 어느 숫자보다 작으면 어둡다고 볼지 경계를 하나 정해야 합니다.",
+          "이때 밝음과 어두움을 나누기 위해 정한 숫자를 기준값이라고 합니다.",
         ],
         thinkingQuestion:
-          "밝을 때 값과 어두울 때 값 사이에서 어떤 숫자를 기준으로 삼을까요?",
+          "밝을 때 나온 값과 어두울 때 나온 값 사이에서 어디를 경계로 나누면 좋을까요?",
         activity: {
           type: "threshold-setting",
-          title: "내 기준값 저장",
+          title: "내 기준값 정하기",
           prompt:
-            "밝을 때와 어두울 때의 값을 비교한 뒤, 내 장치에 사용할 숫자 하나를 정합니다.",
+            "내가 관찰한 밝은 값과 어두운 값 사이에서 기준값을 하나 정해 보세요.",
+          conceptLines: [
+            "밝을 때 약 180, 어두울 때 약 40이 나왔다면 그 사이의 100을 기준값으로 정해볼 수 있습니다.",
+            "정답은 하나가 아닙니다. 내 자리에서 관찰한 값에 맞게 고르면 됩니다.",
+          ],
           fieldLabel: "내 기준값",
           placeholder: "예: 100",
+          ruleIntro: "이제 이 숫자를 micro:bit의 판단 기준으로 사용합니다.",
           relationLines: [
             "빛의 세기 < 내가 정한 기준값 → 어두움",
             "그렇지 않으면 → 밝음",
@@ -793,6 +804,7 @@
               {
                 title: "논리 메뉴에서 조건 블록 찾기",
                 image: "assets/day02/makecode-logic-if-block.png",
+                imageRole: "locator",
                 imageAlt: "MakeCode 논리 메뉴에서 만약 참이면 블록이 강조된 화면",
                 caption: "논리 메뉴에서 만약 / 아니면 블록을 찾습니다.",
               },
@@ -842,6 +854,7 @@
           pseudoCodeImage: {
             title: "빛의 세기 조건 코드",
             image: "assets/day02/makecode-light-condition-code.png",
+            imageRole: "code-example",
             imageAlt: "무한반복 안에 빛 밝기 조건 블록을 넣은 MakeCode 코드",
             caption:
               "사진 속 = 0은 예시입니다. 실제로는 내가 정한 기준값과 < 비교를 사용합니다.",
@@ -857,6 +870,10 @@
           makeCodeGuide:
             "필요한 블록 위치만 확인하고, LED 그림은 원하는 모양으로 바꾸어도 됩니다.",
           confirmLabel: "두 상황 모두 작동했어요",
+          confirmationGuide: [
+            "밝은 상태와 어두운 상태를 실제 micro:bit에서 모두 확인해 보세요.",
+            "두 상태에서 서로 다른 반응이 나타났다면 아래 버튼을 누릅니다.",
+          ],
         },
         checkpoint: [],
         help: [

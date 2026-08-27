@@ -2231,19 +2231,93 @@ select:focus-visible,
 .day02-guide-grid {
   display: grid;
   gap: 14px;
+  justify-items: center;
+  align-items: start;
   margin-top: 12px;
 }
 
-.day02-connection-figure {
-  max-width: 760px;
+.day02-guide-grid--locator {
+  grid-template-columns: repeat(2, minmax(0, 360px));
+  justify-content: center;
 }
 
-.day02-block-guide .day02-guide-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.day02-logic-guide .day02-guide-grid--locator {
+  grid-template-columns: minmax(0, 360px);
 }
 
-.day02-block-guide .day02-guide-grid .lesson-guide-figure:nth-child(3) {
-  grid-column: 1 / -1;
+.day02-guide-grid--code {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lesson-guide-figure--locator,
+.lesson-guide-figure--code-example,
+.lesson-guide-figure--pairing-guide {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.lesson-guide-figure--locator {
+  width: min(100%, 340px);
+}
+
+.lesson-guide-figure--code-example {
+  width: min(100%, 500px);
+}
+
+.lesson-guide-figure--pairing-guide {
+  width: min(100%, 760px);
+}
+
+.day02-guide-bridge {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.day02-threshold-concept {
+  display: grid;
+  gap: 8px;
+  max-width: 68ch;
+  margin-top: 12px;
+}
+
+.day02-threshold-concept p {
+  margin: 0;
+  line-height: 1.62;
+}
+
+.day02-threshold-prompt {
+  margin-top: 14px;
+}
+
+.day02-rule-preview .field-help {
+  margin-bottom: 10px;
+}
+
+.day02-condition-gate {
+  display: grid;
+  justify-content: start;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.day02-condition-instructions {
+  display: grid;
+  gap: 6px;
+  max-width: 68ch;
+}
+
+.day02-condition-instructions p {
+  margin: 0;
+  line-height: 1.62;
+}
+
+.day02-condition-gate .primary-link,
+.day02-condition-gate .secondary-button {
+  justify-self: start;
+  min-width: 240px;
+  max-width: 100%;
+  padding: 12px 20px;
+  white-space: nowrap;
 }
 
 .day02-basic-code pre {
@@ -2304,6 +2378,27 @@ select:focus-visible,
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
+}
+
+.webcam-panel--day02 .webcam-grid {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 760px;
+}
+
+.webcam-panel--day02 .webcam-controls {
+  display: grid;
+  gap: 12px;
+  max-width: 680px;
+}
+
+.webcam-panel--day02 .webcam-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  max-width: 680px;
+}
+
+.webcam-panel--day02 .webcam-buttons .secondary-button {
+  white-space: nowrap;
 }
 
 .teacher-ingest {
@@ -2573,12 +2668,14 @@ select:focus-visible,
     align-items: stretch;
   }
 
-  .day02-block-guide .day02-guide-grid {
+  .day02-guide-grid--locator {
     grid-template-columns: 1fr;
   }
 
-  .day02-block-guide .day02-guide-grid .lesson-guide-figure:nth-child(3) {
-    grid-column: auto;
+  .day02-condition-gate .primary-link,
+  .day02-condition-gate .secondary-button {
+    min-width: 0;
+    width: 100%;
   }
 
   .self-check-option {
