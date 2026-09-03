@@ -5300,9 +5300,6 @@
         >
           ${state.servoAngleTested ? "프로그램의 숫자가 실제 움직임으로 바뀌었습니다!" : "시험해 보기"}
         </button>
-        <p class="field-help" data-day03-servo-test-status${state.servoAngleTested ? "" : " hidden"}>
-          이제 P1에 연결한 외부 조도센서의 값과 연결해 봅니다.
-        </p>
       </div>
     `;
   }
@@ -5414,7 +5411,6 @@
           <li>수업일: 2026-09-04</li>
           <li>진행 블록: Block07~08</li>
           <li>핵심 결과물: 외부 조도센서의 조건에 따라 서보모터가 서로 다른 위치로 움직이는 장치</li>
-          <li>원고 상태: 외부 조도센서 전환 반영 수정안</li>
         </ul>
 
         <h2>연구 이어보기</h2>
@@ -5463,7 +5459,6 @@
       </section>
 
       <section class="lesson-section day03-source-section" id="block07" data-section="lessonBlock">
-        <p class="section-kicker">Block07</p>
         <h2 class="section-title">Block07 · 프로그램으로 움직임 만들기</h2>
 
         <h3>1. 모터와 서보모터는 무엇이 다를까요?</h3>
@@ -5593,7 +5588,6 @@
       </section>
 
       <section class="lesson-section day03-source-section" id="block08" data-section="lessonBlock">
-        <p class="section-kicker">Block08</p>
         <h2 class="section-title">Block08 · 외부 조도센서가 판단하고 서보모터가 움직이게 하기</h2>
 
         <h3>6. 외부 조도센서의 값을 먼저 확인합니다</h3>
@@ -5804,6 +5798,8 @@
         ${renderDay03SourceParagraph("무선통신은 오늘 반드시 해야 하는 활동이 아닙니다.")}
       </section>
 
+      ${renderDay02MakeCodeEvidence(lesson)}
+
       <section class="lesson-section day03-source-section" id="video-evidence" data-section="videoEvidence">
         <h2 class="section-title">내 연구 증거 남기기</h2>
         ${renderDay03SourceParagraph("외부 조도센서의 상태가 바뀌고 서보모터가 움직이는 모습을 짧게 촬영합니다.")}
@@ -5846,17 +5842,9 @@
           "빛에 따라 열리고 닫히는 장치",
           "내가 생각한 다른 장치",
         ])}
-        <label class="record-field day03-record-form" for="record-day03-next-use">
-          <span>이 기술을 나중에 어디에 사용할 수 있을까요?</span>
-          <input
-            id="record-day03-next-use"
-            type="text"
-            maxlength="120"
-            value="${escapeHtml(state.recordValues.day03NextUse || "")}"
-            placeholder="내가 생각한 다른 장치"
-            data-day03-record-field="day03NextUse"
-          >
-        </label>
+        <div class="day03-record-form">
+          ${lesson.record.fields.map((field) => renderDay03RecordField(field, state)).join("")}
+        </div>
       </section>
 
       <section class="lesson-section research-complete day03-source-section" id="research-complete" data-section="researchComplete">
@@ -5875,11 +5863,15 @@
     }
 
     const shareUrl = activeDayState ? activeDayState.makeCodeShareUrl : "";
-    const lastBlock = lesson.lessonBlocks[lesson.lessonBlocks.length - 1];
+    const lastBlock = lesson.lessonBlocks && lesson.lessonBlocks.length
+      ? lesson.lessonBlocks[lesson.lessonBlocks.length - 1]
+      : null;
     const previous =
       lesson.dayId === "day02"
         ? { href: "#free-change", label: "마음대로 바꾸기" }
-        : { href: `#${lastBlock.blockId}`, label: lastBlock.shortTitle };
+        : lastBlock
+        ? { href: `#${lastBlock.blockId}`, label: lastBlock.shortTitle }
+        : { href: "#block08", label: "빛으로 움직이기" };
     const next = lesson.videoEvidence
       ? { href: "#video-evidence", label: "연구 모습 영상" }
       : { href: "#today-quiz", label: "오늘의 퀴즈" };
@@ -5889,7 +5881,7 @@
       <section class="lesson-section ${escapeHtml(lesson.dayId)}-makecode-evidence" id="makecode-evidence" data-section="makeCodeEvidence">
         <p class="section-kicker">작품 링크</p>
         <h2 class="section-title">${escapeHtml(lesson.makeCodeEvidence.title)}</h2>
-        <p class="section-description">${escapeHtml(lesson.makeCodeEvidence.prompt)}</p>
+        ${lesson.makeCodeEvidence.prompt ? `<p class="section-description">${escapeHtml(lesson.makeCodeEvidence.prompt)}</p>` : ""}
 
         <div class="plain-group block-activity day02-activity" data-day02-activity="makecode-link">
           <div class="makecode-link-row">
