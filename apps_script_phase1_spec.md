@@ -79,7 +79,7 @@ saveQuizResult
 upsertAsset
 ```
 
-Day02~Day15 Apps Script 연동과 프로젝트 북 연결은 1차 범위가 아니다. Day01 영상은 `uploadVideo` action으로 Google Drive 파일, `09_자료파일` video Asset, `05_학생연구기록.personalEvidenceRefs`를 연결한다.
+Day04~Day15 학생용 Apps Script 연동과 프로젝트 북 연결은 현재 범위가 아니다. Day01~Day03 영상은 `uploadVideo` action으로 Google Drive 파일, `09_자료파일` video Asset, `05_학생연구기록.personalEvidenceRefs`를 연결한다.
 
 ## 4-1. `getStudents` 계약
 
@@ -478,8 +478,22 @@ Day01 Apps Script Web App 배포·프론트 학생조회 연결 완료
 - `getStudents` 실제 학생 5명 확인
 - localhost 프론트 학생조회 연결 확인
 
-이번 1차 기준에서 아직 하지 않는 작업:
+이번 기준에서 아직 하지 않는 작업:
 
-- Day02~Day15 Apps Script 연동
-- 실제 학생환경 Day01 영상 Drive 업로드 E2E 검증
+- Day04~Day15 학생용 Apps Script 연동
+- 실제 학생 PC 5대 동시 카메라 리허설
 - 새 인증 시스템 구현
+
+## 15. Day03 영상 저장 계약
+
+Day03 영상은 기존 Day01/Day02 영상 저장 구조를 재사용한다.
+
+- `dayId`: 활성 `03_연구일` 행이며 `day01`~`day15` 범위
+- `studentId` / `workId`: 현재 학생과 연결된 작품
+- `assetId`: `asset_{studentId}_{dayId}_video`
+- `blockId`: Day03은 `block08`
+- Asset: `09_자료파일`의 `video` 행
+- DayRecord: `05_학생연구기록.personalEvidenceRefs`와 `dayStateJson`에 연결
+- Drive 경로: 영상 루트 → `stuXX` → `dayXX`
+
+`VideoService.gs`는 임의의 dayId를 허용하지 않고 활성 ResearchDay와 `day01`~`day15` 형식을 함께 검증한다. Day01/Day02의 기존 block, 라벨, Asset 및 DayRecord 호환성은 유지한다.

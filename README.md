@@ -10,7 +10,7 @@
 4. `README.md`
 5. 실제 코드
 
-기준문서와 코드가 충돌할 경우 임의로 코드를 기준으로 판단하지 않습니다. 현재 상태는 Day01 Apps Script Web App 배포·프론트 학생조회 연결 완료 / A/B Google Sheets E2E 검증 전입니다.
+기준문서와 코드가 충돌할 경우 임의로 코드를 기준으로 판단하지 않습니다. 현재 상태는 Day01~Day03 학생용 흐름 및 Apps Script 저장 연동 구현 완료 / Day03 브라우저 E2E 검수 완료입니다.
 
 ## 1. 현재 구현 범위
 
@@ -27,7 +27,7 @@
 
 이번 Day01 구조 동결 작업의 주요 수정 파일은 `research-days.js`, `app.js`, `styles.css`, `runtime-config.js`, `README.md`와 `apps-script/`입니다.
 
-로그인, 비밀번호, PIN, 인증코드, 회원가입, 학생번호 직접 입력은 구현하지 않았습니다. 현재 상태는 Day01 Apps Script Web App 배포·프론트 학생조회 연결 완료 / 실제 학생환경 시험 전입니다. Script Properties의 `SPREADSHEET_ID` 설정, `setupProject()` 실행, Apps Script Web App 배포, `ping`, `getStudents` 실제 학생 5명 조회는 완료되었습니다. Day01 영상은 Google Drive 업로드 코드와 Asset/DayRecord 복원 연결이 구현되어 있으며, 운영 배포 후 실제 학생환경 E2E 확인이 필요합니다.
+로그인, 비밀번호, PIN, 인증코드, 회원가입, 학생번호 직접 입력은 구현하지 않았습니다. Script Properties의 `SPREADSHEET_ID` 설정, `setupProject()` 실행, Apps Script Web App 배포, `ping`, `getStudents` 실제 학생 5명 조회는 완료되었습니다. Day01~Day03 영상은 Google Drive 업로드 코드와 Asset/DayRecord 복원 연결이 구현되어 있으며, 운영 사이트 배포 후 공개 URL 최종 확인이 필요합니다.
 
 ## 연구원 확인/학생 식별
 
@@ -784,6 +784,31 @@ assets/day01/ipo-flow.png
 assets/day01/makecode-pairing-guide.png
 ```
 
+## Day03 완료 기록
+
+Day03 `움직이고 연결하기` 학생용 흐름이 구현되어 실제 브라우저 검수를 완료했다.
+
+- P1 외부 조도센서, P2 서보모터, Sensor:Edge S/V/G 연결 안내
+- 외부 조도센서 값 측정 → 기준값 설정 → 조건에 따른 서보모터 각도 시험
+- 확정 학생용 원고와 `assets/day03/` 이미지 7개 반영
+- MakeCode 작품 URL 저장·복원
+- `day03Finding`, `day03NextUse`를 포함한 연구기록 저장·복원
+- 영상 촬영 → Google Drive 영구저장 → 새로고침 복원
+- 학생별 Drive 경로: `stuXX/dayXX`
+- 영상 업로드 서버의 유효 연구일 검증: `day01`~`day15`
+- Day01/Day02 기존 흐름 유지 및 Day03 학생 A/B 분리·저장·복원 검수
+
+Day03 완료 판정은 프론트엔드에서 다음 기준으로 계산한다.
+
+```text
+최소 수행: 조건 시험 또는 실제 움직임 확인
+기본 완성: 센서 측정, 기준값, 방향, 서보 각도, 양 상태 시험, 예상 결과 확인
+심화: 기본 완성 + 직접 변경
+최종 완료: 기본 완성 + 퀴즈 + 연구기록
+```
+
+영상과 MakeCode URL은 저장·복원 증거로 관리하며 최종 완료 판정에 필수로 강제하지 않는다.
+
 ## 18. 아직 미구현
 
 - A/B Google Sheets E2E 저장·복원 시험
@@ -791,7 +816,6 @@ assets/day01/makecode-pairing-guide.png
 - GitHub 저장소 생성·연결
 - 실제 학생환경 시험
 - Day01 DayRecord/Quiz/Asset의 A/B end-to-end 저장 확인
-- Google Drive 실제 업로드 코드
-- 영상 바이너리 Drive 영구 저장
 - 서버 Asset과 프로젝트 북 연결
 - 실제 학생 PC 5대 동시 카메라 리허설
+- Cloudflare Pages 학생용 운영 배포 및 공개 URL 최종 확인

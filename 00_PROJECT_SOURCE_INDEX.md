@@ -1,6 +1,6 @@
 # 여량초 미래기술 연구소 기준소스 인덱스
 
-정리일: 2026-08-16
+정리일: 2026-09-04
 
 이 문서는 `내일을 바꾸는 미래기술 연구소` 프로젝트의 기준소스 진입점이다. 새 기능을 개발하기 전에는 이 문서에서 기준문서의 우선순위와 현재 개발 상태를 먼저 확인한다.
 
@@ -164,8 +164,8 @@ serverUpdatedAt
 현재 상태는 다음이다.
 
 ```text
-Day01 Apps Script Web App 배포·프론트 학생조회 연결 완료
-/ A/B Google Sheets E2E 검증 전
+Day01~Day03 학생용 흐름 및 Apps Script 저장 연동 구현 완료
+/ Day03 브라우저 E2E 검수 완료
 ```
 
 완료로 표현하지 않는 항목:
@@ -193,13 +193,21 @@ workId 중복 없음
 → runtime-config.js를 통한 프론트 학생조회 연결
 ```
 
+Day03 `움직이고 연결하기`:
+
+- P1 외부 조도센서와 P2 서보모터, Sensor:Edge S/V/G 연결 안내
+- 확정 학생용 원고와 이미지 7개 반영
+- MakeCode URL, DayRecord 연구기록, 영상 Asset 저장·복원
+- `stuXX/dayXX` 학생별 Drive 영상 폴더 구조
+- 활성 `researchDay` 기준 day01~day15 영상 업로드 검증
+- 실제 브라우저 입력·저장·새로고침·학생 분리·영상 preview E2E 검수
+
 아직 남은 주요 작업:
 
 ```text
-A/B Google Sheets E2E
-→ Git 초기화
-→ GitHub 저장소 생성·연결
-→ Cloudflare Pages 최초 배포 준비
+A/B 전체 연구일 확장 검수
+→ 운영 사이트 배포 및 최종 확인
+→ Day04 제작 시작
 ```
 
 ## 8. 배포 역할 기준
