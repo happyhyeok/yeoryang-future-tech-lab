@@ -76,9 +76,9 @@ function normalizeVideoUploadPayload_(payload) {
   validateWorkForStudent_(studentId, workId);
   validateResearchDay_(dayId);
   assertApi_(
-    ["day01", "day02"].indexOf(dayId) >= 0,
+    /^day(?:0[1-9]|1[0-5])$/.test(dayId),
     "DAY_NOT_FOUND",
-    "Day01 또는 Day02 영상 업로드만 허용됩니다."
+    "Day01부터 Day15까지의 영상 업로드만 허용됩니다."
   );
   assertApi_(
     assetId === expectedAssetId,
@@ -104,7 +104,11 @@ function normalizeVideoUploadPayload_(payload) {
 }
 
 function getDefaultVideoBlockId_(dayId) {
-  return dayId === "day02" ? "block06" : "block03";
+  if (dayId === "day02") {
+    return "block06";
+  }
+
+  return dayId === "day03" ? "block08" : "block03";
 }
 
 function getVideoDayLabels_(dayId) {
@@ -115,9 +119,23 @@ function getVideoDayLabels_(dayId) {
     };
   }
 
+  if (dayId === "day03") {
+    return {
+      title: "Day03 연구 모습 영상",
+      description: "P1 외부 조도센서 변화에 따라 P2 서보모터가 움직이는 시험 모습",
+    };
+  }
+
+  if (dayId === "day01") {
+    return {
+      title: "Day01 연구 모습 영상",
+      description: "첫 연구장치 시험 모습",
+    };
+  }
+
   return {
-    title: "Day01 연구 모습 영상",
-    description: "첫 연구장치 시험 모습",
+    title: dayId.replace(/^day/, "Day") + " 연구 모습 영상",
+    description: "오늘 연구 장치의 작동 모습",
   };
 }
 
