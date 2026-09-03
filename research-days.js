@@ -27,10 +27,10 @@
     {
       dayId: "day03",
       dayNo: 3,
-      title: "움직이고 연결하기",
+      title: "움직이는 장치 만들기",
       phase: "기술 익히기",
       todayDescription:
-        "장치를 움직이거나 다른 장치와 정보를 주고받는 방법을 연구합니다. 앞으로 내 작품에 필요한 움직임이나 통신 기능을 선택할 수 있는 경험을 쌓습니다.",
+        "외부 조도센서의 조건에 따라 서보모터가 서로 다른 위치로 움직이는 장치",
       dayType: "standard",
       phaseNotice: "",
       specialNotice: "",
@@ -1025,6 +1025,265 @@
         ],
       },
     ],
+    day03: [
+      {
+        blockId: "block07",
+        number: "07",
+        shortTitle: "서보모터 연결하기",
+        title: "외부 장치를 연결하고 서보모터 움직이기",
+        position: {
+          current: "Sensor:Edge와 서보모터 연결하기",
+          next: "외부 조도센서 값으로 움직이기",
+        },
+        explanation: [
+          "Day02에서는 micro:bit의 내장 조도센서가 주변 밝기를 0~255 숫자로 읽었습니다.",
+          "Day03에서는 Sensor:Edge의 P1에 연결한 외부 조도센서가 빛을 0~1023 범위의 아날로그 입력값으로 읽습니다.",
+          "오늘은 외부 조도센서의 값에 따라 P2에 연결한 서보모터의 각도가 달라지게 만듭니다.",
+        ],
+        thinkingQuestion:
+          "빛이 밝을 때와 어두울 때 서보모터가 어느 각도로 움직이면 좋을까요?",
+        activity: {
+          type: "day03-servo-setup",
+          title: "Sensor:Edge와 서보모터 연결",
+          motorFigure: {
+            title: "일반 모터와 서보모터 비교",
+            image: "assets/day03/day03-motor-vs-servo.png",
+            imageRole: "wide",
+            imageAlt: "일반 모터의 연속 회전과 서보모터의 각도 이동을 비교한 그림",
+            caption:
+              "일반 모터는 계속 돌아가고, 서보모터는 정한 각도로 움직였다가 멈출 수 있습니다.",
+          },
+          sensorEdge: {
+            title: "Sensor:Edge와 S·V·G",
+            lines: [
+              "Sensor:Edge는 여러 센서와 모터를 포트에 꽂아 사용할 수 있게 도와주는 보드입니다.",
+              "포트의 S는 신호, V는 전원, G는 전원의 기준선입니다.",
+              "센서와 모터를 연결할 때는 S·V·G 표시가 서로 맞는지 먼저 확인합니다.",
+            ],
+          },
+          wiring: {
+            title: "P1과 P2 연결 확인",
+            lines: [
+              "Sensor:Edge P1에는 외부 조도센서를 연결합니다.",
+              "P1 외부 조도센서는 센서와 포트의 S·V·G 표시를 맞춰 연결합니다.",
+              "Sensor:Edge P2에는 서보모터를 연결합니다.",
+              "P2 서보모터는 노랑→S, 빨강→V, 갈색→G 순서로 맞춥니다.",
+            ],
+            figure: {
+              title: "Sensor:Edge 배선 안내",
+              image: "assets/day03/day03-sensor-edge-wiring.png",
+              imageRole: "wide",
+              imageAlt: "외부 조도센서 P1, 서보모터 P2, S·V·G 연결 안내 그림",
+              caption:
+                "외부 조도센서는 P1, 서보모터는 P2에 연결하고 S·V·G 표시를 맞춥니다.",
+            },
+          },
+          servoBlockHelp: {
+            summary: "블록 도움말 펼치기",
+            title: "서보 출력 블록 찾기",
+            lines: [
+              "MakeCode에서 고급 메뉴를 펼친 뒤 핀 메뉴를 엽니다.",
+              "서보 출력 블록을 찾아 P2 서보모터를 움직이는 코드에 사용합니다.",
+            ],
+            figure: {
+              title: "서보 출력 블록 위치",
+              image: "assets/day03/day03-servo-block-location.png",
+              imageRole: "locator",
+              imageAlt: "MakeCode 고급·핀 메뉴에서 서보 출력 블록을 찾는 화면",
+              caption:
+                "고급 메뉴의 핀에서 서보 출력 블록을 찾습니다.",
+            },
+          },
+          angleTest: {
+            title: "서보모터 각도 시험",
+            lines: [
+              "먼저 서보모터만 움직여 봅니다.",
+              "30° → 90° → 150°처럼 서로 다른 각도로 움직이는지 확인합니다.",
+              "아래에는 내 장치에서 사용할 두 각도를 적습니다.",
+            ],
+            figure: {
+              title: "서보모터 각도 시험 코드",
+              image: "assets/day03/day03-servo-angle-test.png",
+              imageRole: "code-example",
+              imageAlt: "P2 서보모터를 30도·90도·150도로 움직이는 코드",
+              caption:
+                "P2 서보모터가 30°, 90°, 150°로 움직이는지 먼저 시험합니다.",
+            },
+            fields: [
+              {
+                key: "servoAngleOne",
+                label: "첫 번째 서보 각도",
+                placeholder: "예: 30",
+              },
+              {
+                key: "servoAngleTwo",
+                label: "두 번째 서보 각도",
+                placeholder: "예: 150",
+              },
+            ],
+          },
+        },
+        checkpoint: [
+          "Sensor:Edge P1에 외부 조도센서를 연결했다.",
+          "Sensor:Edge P2에 서보모터를 연결했다.",
+          "서보모터가 서로 다른 각도로 움직이는지 시험했다.",
+        ],
+        help: [
+          "서보모터가 움직이지 않으면 P2에 꽂았는지 확인하세요.",
+          "서보모터 선 색깔이 노랑→S, 빨강→V, 갈색→G로 맞는지 확인하세요.",
+          "외부 조도센서는 P1에 꽂고 S·V·G 표시를 맞춰 연결하세요.",
+        ],
+      },
+      {
+        blockId: "block08",
+        number: "08",
+        shortTitle: "빛으로 움직이기",
+        title: "외부 조도센서 값으로 서보모터 움직이기",
+        position: {
+          current: "외부 조도센서 측정과 기준 정하기",
+          next: "오늘의 퀴즈",
+        },
+        explanation: [
+          "Day02에서 사용한 측정 → 기준 설정 → 조건 판단 방법을 다시 사용합니다.",
+          "하지만 오늘은 micro:bit의 내장 조도센서가 아니라 Sensor:Edge P1에 연결한 외부 조도센서를 사용합니다.",
+          "외부 조도센서는 센서 모듈에 따라 밝을 때 숫자가 커지는 방향이 다를 수 있습니다. 그래서 실제로 밝을 때 값과 어두울 때 값을 측정한 뒤 조건을 정합니다.",
+        ],
+        thinkingQuestion:
+          "내 외부 조도센서에서는 밝을 때와 어두울 때 숫자가 어느 쪽으로 달라질까요?",
+        activity: {
+          type: "day03-light-servo",
+          title: "P1 값으로 P2 서보모터 움직이기",
+          makeCode: {
+            title: "MakeCode 바로가기",
+            prompt: "오늘 사용할 프로젝트를 열거나 새 프로젝트를 시작합니다.",
+            url: "https://makecode.microbit.org/",
+            label: "🚀 MakeCode 열기 ↗",
+          },
+          analogBlockHelp: {
+            summary: "P1의 아날로그 값을 읽는 블록 도움말 펼치기",
+            title: "아날로그 입력 블록 찾기",
+            lines: [
+              "MakeCode에서 고급 메뉴를 펼친 뒤 핀 메뉴를 엽니다.",
+              "아날로그 입력값을 읽는 블록을 찾습니다.",
+            ],
+            figure: {
+              title: "아날로그 입력 블록 위치",
+              image: "assets/day03/day03-analog-block-location.png",
+              imageRole: "locator",
+              imageAlt: "MakeCode 고급·핀 메뉴에서 아날로그 입력 블록을 찾는 화면",
+              caption:
+                "고급 메뉴의 핀에서 아날로그 입력값을 읽는 블록을 찾습니다.",
+            },
+          },
+          p1Reading: {
+            title: "P1 값 계속 표시하기",
+            lines: [
+              "아날로그 입력 핀을 P1으로 바꿉니다.",
+              "계속 반복하기 안에서 P1의 아날로그 입력값을 숫자로 표시합니다.",
+              "외부 조도센서를 손으로 가리거나 밝은 곳에 두고 숫자가 어떻게 달라지는지 봅니다.",
+            ],
+            figure: {
+              title: "P1 아날로그 입력값 표시 코드",
+              image: "assets/day03/day03-p1-light-reading.png",
+              imageRole: "code-example",
+              imageAlt: "P1 아날로그 입력값을 계속 표시하는 코드",
+              caption:
+                "핀을 P1으로 바꾸어 외부 조도센서 값을 계속 표시합니다.",
+            },
+          },
+          measurements: [
+            {
+              key: "externalLightDarkValue",
+              label: "외부 조도센서의 어두울 때 측정값",
+              placeholder: "0~1023",
+            },
+            {
+              key: "externalLightBrightValue",
+              label: "외부 조도센서의 밝을 때 측정값",
+              placeholder: "0~1023",
+            },
+          ],
+          threshold: {
+            key: "day03ThresholdValue",
+            label: "Day03에서 새로 정한 기준값",
+            placeholder: "예: 두 값 사이의 숫자",
+          },
+          direction: {
+            title: "조건 방향 정하기",
+            prompt: "내 외부 조도센서에서는 어느 쪽에서 숫자가 더 커졌나요?",
+            options: [
+              "밝을 때 숫자가 더 커졌어요",
+              "어두울 때 숫자가 더 커졌어요",
+            ],
+            note:
+              "센서 모듈에 따라 방향이 다를 수 있으므로 내가 직접 측정한 값으로 정합니다.",
+          },
+          finalCode: {
+            title: "조건과 서보 각도 결합",
+            lines: [
+              "P1 값이 내가 정한 기준보다 큰지 또는 작은지 비교합니다.",
+              "조건이 맞으면 P2 서보모터를 첫 번째 각도로 움직입니다.",
+              "그렇지 않으면 P2 서보모터를 두 번째 각도로 움직입니다.",
+            ],
+            figure: {
+              title: "외부 조도센서와 서보모터 조건 코드",
+              image: "assets/day03/day03-light-servo-condition.png",
+              imageRole: "code-example",
+              imageAlt:
+                "P1 값이 기준보다 클 때 P2를 30도, 아니면 150도로 움직이는 코드",
+              caption:
+                "P1 값을 기준과 비교해 P2 서보모터가 서로 다른 각도로 움직이게 합니다.",
+            },
+          },
+          tests: [
+            {
+              key: "dark",
+              title: "어두운 상태 시험",
+              guide: "외부 조도센서를 손이나 종이로 가리고 P2 서보모터 위치를 확인합니다.",
+              prompt: "어두운 상태에서 내가 예상한 각도로 움직였나요?",
+              options: ["잘 작동했어요", "생각과 달랐어요"],
+            },
+            {
+              key: "bright",
+              title: "밝은 상태 시험",
+              guide: "외부 조도센서를 밝은 곳에 두고 P2 서보모터 위치를 확인합니다.",
+              prompt: "밝은 상태에서 내가 예상한 각도로 움직였나요?",
+              options: ["잘 작동했어요", "생각과 달랐어요"],
+            },
+          ],
+          confirmLabel: "P1 조건 변화로 P2 위치가 달라졌어요",
+          confirmationGuide: [
+            "어두운 상태와 밝은 상태에서 P1 값이 달라지는지 확인합니다.",
+            "그 차이 때문에 P2 서보모터 위치가 한 번 이상 달라졌다면 아래 버튼을 누릅니다.",
+          ],
+          revise: {
+            title: "오류 수정하기",
+            lines: [
+              "원하는 각도로 움직이지 않으면 P1 값, 기준값, 조건 방향, P2 연결을 다시 확인합니다.",
+              "조건 방향이 반대로 되어 있으면 밝을 때와 어두울 때 움직임이 서로 바뀔 수 있습니다.",
+            ],
+          },
+          changeOptions: [
+            "기준값을 바꾸었다",
+            "서보 각도를 바꾸었다",
+            "조건 방향을 바꾸었다",
+            "센서 위치를 바꾸었다",
+            "기타",
+          ],
+          changeOtherPlaceholder: "직접 바꾼 내용을 짧게 적기",
+        },
+        checkpoint: [
+          "외부 조도센서의 어두울 때 값과 밝을 때 값을 측정했다.",
+          "두 값 사이에서 Day03의 새 기준값을 정했다.",
+          "조건에 따라 P2 서보모터 위치가 달라지는지 시험했다.",
+        ],
+        help: [
+          "P1 값이 0~1023 범위를 벗어나면 다시 측정해 보세요.",
+          "기준값은 밝을 때 값과 어두울 때 값 사이에서 정해 보세요.",
+          "밝을 때와 어두울 때 움직임이 반대로 보이면 조건의 크다/작다 방향을 바꾸어 보세요.",
+        ],
+      },
+    ],
     day06: [
       {
         blockId: "block13",
@@ -1421,6 +1680,182 @@
         nextTitle: "움직이고 연결하기",
         nextSummary:
           "오늘 만든 센서의 반응을 움직임이나 다른 장치와 연결해 봅니다.",
+      },
+    },
+    day03: {
+      dayId: "day03",
+      dayType: "standard",
+      flowStartId: "research-bridge",
+      bridge: {
+        recall: {
+          title: "지난 연구에서는",
+          question: "Day02에서 micro:bit가 읽은 빛의 세기는 어떤 센서였나요?",
+          choices: [
+            { text: "micro:bit의 내장 조도센서", correct: true },
+            { text: "Sensor:Edge P1의 외부 조도센서", correct: false },
+            { text: "P2에 연결한 서보모터", correct: false },
+          ],
+          correctFeedback:
+            "맞아요. Day02에서는 micro:bit의 내장 조도센서로 0~255 범위의 값을 읽었습니다.",
+          incorrectFeedback:
+            "다시 생각해 보세요. Day02에서는 micro:bit 안에 있는 내장 조도센서를 사용했습니다.",
+        },
+        carry: {
+          title: "지난 연구에서 나는",
+          previousDayId: "day02",
+          fallbackResult:
+            "micro:bit의 내장 조도센서 값을 기준값과 비교해 밝을 때와 어두울 때 LED가 다르게 반응하도록 만들었습니다.",
+          reusableIdea: "측정 → 기준 설정 → 조건 판단",
+        },
+        connect: {
+          question: "Day03에서 새로 정하는 것은 무엇일까요?",
+          choices: [
+            { text: "외부 조도센서의 값과 새 기준값", correct: true },
+            { text: "Day02에서 쓰던 기준값", correct: false },
+            { text: "micro:bit 내장 조도센서의 위치", correct: false },
+          ],
+          correctFeedback:
+            "맞아요. 오늘은 P1 외부 조도센서의 어두울 때 값, 밝을 때 값, 새 기준값을 직접 정합니다.",
+          incorrectFeedback:
+            "다시 생각해 보세요. 오늘은 외부 조도센서를 새로 측정하고 Day03 기준값을 정합니다.",
+        },
+      },
+      todayResearch: {
+        label: "연구 03",
+        title: "움직이고 연결하기",
+        coreStatement:
+          "Sensor:Edge P1 외부 조도센서 값을 기준과 비교해 P2 서보모터가 서로 다른 각도로 움직이게 만듭니다.",
+        question:
+          "외부 조도센서의 밝음·어두움 값을 어떻게 기준으로 나누고 움직임으로 연결할 수 있을까요?",
+        blocks: [
+          { number: "07", title: "외부 장치를 연결하고 서보모터 움직이기" },
+          { number: "08", title: "외부 조도센서 값으로 서보모터 움직이기" },
+        ],
+        outcome: "빛의 변화에 따라 움직이는 서보모터 장치",
+        nextConnection:
+          "다음에는 AI가 정보를 분류하고 결과를 만드는 과정을 살펴봅니다.",
+      },
+      lessonBlocks: LESSON_BLOCKS.day03,
+      makeCodeEvidence: {
+        title: "MakeCode 작품 링크 남기기",
+        prompt:
+          "내가 만든 MakeCode 작품의 공유 주소를 남기면 나중에 다시 열어 볼 수 있습니다.",
+        successFeedback: "MakeCode 작품 링크 저장 완료 ✓",
+      },
+      videoEvidence: {
+        type: "webcam-evidence",
+        blockId: "block08",
+        title: "연구 모습 영상 남기기",
+        prompt:
+          "외부 조도센서를 밝게 둔 모습과 어둡게 만든 모습을 모두 보여주세요. 두 상태에서 P2 서보모터 위치가 달라지면 됩니다. 권장 20~30초, 최대 30초입니다.",
+      },
+      quiz: {
+        title: "오늘의 퀴즈",
+        description: "",
+        questions: [
+          {
+            id: "day03-sensor-difference",
+            prompt: "지난 시간과 오늘 사용한 조도센서의 차이로 알맞은 것은?",
+            choices: [
+              {
+                text: "① 지난 시간은 내장 조도센서, 오늘은 P1에 연결한 외부 조도센서를 사용한다.",
+                correct: true,
+              },
+              { text: "② 두 시간 모두 P1 외부 조도센서만 사용한다.", correct: false },
+              { text: "③ 오늘은 조도센서를 사용하지 않는다.", correct: false },
+            ],
+            explanation: "정답: ①",
+            correctFeedback: "정답: ①",
+            incorrectFeedback: "정답: ①",
+          },
+          {
+            id: "day03-p1-connect-check",
+            prompt: "외부 조도센서를 P1에 연결할 때 확인할 것은 무엇인가요?",
+            choices: [
+              { text: "① S·V·G가 같은 표시와 연결되었는지 확인한다.", correct: true },
+              { text: "② 선의 길이만 확인한다.", correct: false },
+              { text: "③ P1과 P2에 동시에 연결한다.", correct: false },
+            ],
+            explanation: "정답: ①",
+            correctFeedback: "정답: ①",
+            incorrectFeedback: "정답: ①",
+          },
+          {
+            id: "day03-day02-threshold",
+            prompt: "Day02의 기준값을 오늘 그대로 사용하지 않는 이유는 무엇인가요?",
+            choices: [
+              {
+                text: "① 센서의 종류와 값의 범위가 달라서 오늘 다시 측정해야 하기 때문이다.",
+                correct: true,
+              },
+              { text: "② 서보모터에는 숫자가 필요 없기 때문이다.", correct: false },
+              { text: "③ 지난 연구는 오늘 연구와 관계가 없기 때문이다.", correct: false },
+            ],
+            explanation: "정답: ①",
+            correctFeedback: "정답: ①",
+            incorrectFeedback: "정답: ①",
+          },
+          {
+            id: "day03-servo-s-wire",
+            prompt: "서보모터의 S선은 어떤 역할을 하나요?",
+            choices: [
+              { text: "① 어느 위치로 움직일지 명령 신호를 전달한다.", correct: true },
+              { text: "② 빛을 측정한다.", correct: false },
+              { text: "③ 사진을 저장한다.", correct: false },
+            ],
+            explanation: "정답: ①",
+            correctFeedback: "정답: ①",
+            incorrectFeedback: "정답: ①",
+          },
+          {
+            id: "day03-retest-method",
+            prompt: "예상한 것과 실제 움직임이 다르다면 가장 알맞은 연구 방법은?",
+            choices: [
+              { text: "① 모두 지우고 처음부터 다시 만든다.", correct: false },
+              {
+                text: "② 연결·센서값·조건·각도를 확인하고 필요한 부분을 고쳐 다시 시험한다.",
+                correct: true,
+              },
+              { text: "③ 작동했다고 기록하고 넘어간다.", correct: false },
+            ],
+            explanation: "정답: ②",
+            correctFeedback: "정답: ②",
+            incorrectFeedback: "정답: ②",
+          },
+        ],
+      },
+      record: {
+        title: "오늘의 연구기록",
+        fields: [
+          {
+            id: "day03-finding",
+            key: "day03Finding",
+            label: "오늘 확인한 작동 결과",
+            type: "textarea",
+            placeholder:
+              "예: 어두울 때는 30도, 밝을 때는 150도로 움직이도록 만들었다.",
+          },
+          {
+            id: "day03-next-use",
+            key: "day03NextUse",
+            label: "다음에 활용할 생각",
+            type: "text",
+            placeholder:
+              "예: 빛이 달라지면 문이 열리거나 알림판이 움직이는 장치",
+          },
+        ],
+      },
+      complete: {
+        title: "오늘 연구 정리",
+        gained: "외부 조도센서 · 기준값 · 서보모터 움직임",
+        summaryLines: [
+          "Day02의 측정 → 기준 설정 → 조건 판단 방법을 다시 사용했습니다.",
+          "P1 외부 조도센서의 밝음·어두움 값을 측정하고 Day03 기준값을 정했습니다.",
+          "조건에 따라 P2 서보모터가 서로 다른 각도로 움직이도록 만들었습니다.",
+        ],
+        nextTitle: "AI는 어떻게 배우는가",
+        nextSummary:
+          "다음 연구에서는 AI가 정보를 분류하고 결과를 만드는 과정을 살펴봅니다.",
       },
     },
     day06: {

@@ -2223,7 +2223,15 @@ select:focus-visible,
 .day02-connection-guide,
 .day02-block-guide,
 .day02-logic-guide,
-.day02-basic-code {
+.day02-basic-code,
+.day03-info-group,
+.day03-makecode-start,
+.day03-measurement-panel,
+.day03-direction-group,
+.day03-test-lab,
+.day03-condition-gate,
+.day03-revise-group,
+.day03-change-group {
   border-top: 1px solid var(--color-line);
   padding-top: 16px;
 }
@@ -2251,7 +2259,8 @@ select:focus-visible,
 
 .lesson-guide-figure--locator,
 .lesson-guide-figure--code-example,
-.lesson-guide-figure--pairing-guide {
+.lesson-guide-figure--pairing-guide,
+.lesson-guide-figure--wide {
   margin-right: auto;
   margin-left: auto;
 }
@@ -2266,6 +2275,167 @@ select:focus-visible,
 
 .lesson-guide-figure--pairing-guide {
   width: min(100%, 760px);
+}
+
+.lesson-guide-figure--wide {
+  width: min(100%, 780px);
+}
+
+.day03-help-details__body {
+  margin-top: 14px;
+}
+
+.day03-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  max-width: 760px;
+}
+
+.day03-number-field {
+  min-width: 0;
+}
+
+.day03-makecode-button {
+  margin-top: 12px;
+  margin-bottom: 8px;
+}
+
+.day03-angle-test,
+.day03-final-code {
+  display: grid;
+  gap: 12px;
+}
+
+.day03-record-form {
+  margin-top: 22px;
+}
+
+.day03-record-summary li {
+  grid-template-columns: 24px minmax(124px, 0.75fr) minmax(0, 1.25fr);
+}
+
+.day03-source-section {
+  display: grid;
+  gap: 16px;
+}
+
+.day03-source-section h2,
+.day03-source-section h3,
+.day03-source-section h4,
+.day03-source-section p {
+  margin: 0;
+}
+
+.day03-source-section h3 {
+  margin-top: 8px;
+}
+
+.day03-source-section h4 {
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.day03-source-meta-list,
+.day03-source-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.day03-source-meta-list,
+.day03-source-list,
+.day03-source-section p {
+  line-height: 1.64;
+}
+
+.day03-source-quote {
+  margin: 0;
+  padding: 14px 16px;
+  border-left: 4px solid var(--color-accent);
+  background: var(--color-accent-soft);
+  border-radius: 8px;
+  line-height: 1.7;
+}
+
+.day03-source-placeholder {
+  font-weight: 700;
+  color: var(--color-accent-dark);
+}
+
+.day03-source-figure {
+  margin-top: 2px;
+}
+
+.day03-source-table-wrap {
+  overflow-x: auto;
+}
+
+.day03-source-table {
+  width: 100%;
+  min-width: 460px;
+  border-collapse: collapse;
+  line-height: 1.55;
+}
+
+.day03-source-table th,
+.day03-source-table td {
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.day03-source-table th {
+  background: var(--color-accent-soft);
+  font-weight: 800;
+}
+
+.day03-source-input {
+  width: min(100%, 180px);
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-field);
+}
+
+.day03-source-position-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+
+.day03-source-inline-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+.day03-source-action {
+  justify-content: flex-start;
+}
+
+.day03-source-section .webcam-panel {
+  margin-top: 0;
+}
+
+.day03-source-section .choice-button {
+  white-space: normal;
+  text-align: left;
+}
+
+.day03-source-section .day03-record-summary {
+  display: grid;
+  gap: 6px;
+}
+
+.day03-source-section .day03-record-summary li {
+  display: list-item;
 }
 
 .day02-guide-bridge {
@@ -2494,13 +2664,17 @@ select:focus-visible,
 .webcam-panel--day02 .webcam-controls {
   display: grid;
   gap: 12px;
+  width: 100%;
   max-width: 680px;
+  min-width: 0;
 }
 
 .webcam-panel--day02 .webcam-buttons {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 128px), 1fr));
+  width: 100%;
   max-width: 680px;
+  min-width: 0;
 }
 
 .webcam-panel--day02 .webcam-buttons .secondary-button {

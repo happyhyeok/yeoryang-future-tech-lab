@@ -35,7 +35,7 @@
     workId: "currentWorkId",
   };
   const E2E_TEST_STUDENT_ID = "test01";
-  const PERSISTED_LESSON_DAY_IDS = new Set(["day01", "day02"]);
+  const PERSISTED_LESSON_DAY_IDS = new Set(["day01", "day02", "day03"]);
   const DAY01_RECORDING_SECONDS = 10;
   const DAY02_RECORDING_SECONDS = 30;
   const DAY01_MAX_RECORDING_SECONDS = 15;
@@ -74,6 +74,35 @@
   ];
   const DAY02_TEST_SUCCESS_SUMMARY = "모두 잘 작동했어요";
   const DAY02_TEST_REVISE_SUMMARY = "어떤 곳에서는 잘 작동하지 않았어요";
+  const DAY03_LIGHT_DIRECTION_OPTIONS = [
+    "밝을 때 숫자가 더 컸습니다.",
+    "어두울 때 숫자가 더 컸습니다.",
+    "숫자가 거의 달라지지 않았습니다.",
+  ];
+  const DAY03_TEST_RESULT_OPTIONS = [
+    "네, 예상한 대로 움직였습니다.",
+    "움직였지만 예상과 달랐습니다.",
+    "움직이지 않았습니다.",
+  ];
+  const DAY03_EXPECTED_TEST_RESULT = "네, 예상한 대로 움직였습니다.";
+  const DAY03_MOVEMENT_TEST_RESULTS = new Set([
+    "네, 예상한 대로 움직였습니다.",
+    "움직였지만 예상과 달랐습니다.",
+  ]);
+  const DAY03_CHANGE_OPTIONS = [
+    "서보모터 각도를 내가 원하는 값으로 바꾸기",
+    "외부 조도센서 기준값을 바꾸고 결과 비교하기",
+    "움직임의 방향을 반대로 만들기",
+    "외부 조도센서를 장치에서 빛을 잘 감지할 위치로 옮겨 보기",
+    "내가 만들 미래 장치에서는 이 움직임을 어디에 사용할지 생각하기",
+    "무선통신 기술 카드에 도전하기",
+  ];
+  const DAY03_POSITION_FIELD_KEYS = new Set([
+    "day03DarkExpectedPosition",
+    "day03DarkActualPosition",
+    "day03BrightExpectedPosition",
+    "day03BrightActualPosition",
+  ]);
 
   let activeDay = null;
   let activeDayState = null;
@@ -789,6 +818,18 @@
       conditionTestPassed: false,
       changeMade: "",
       changeMadeOther: "",
+      externalLightDarkValue: "",
+      externalLightBrightValue: "",
+      day03ThresholdValue: "",
+      lightDirection: "",
+      servoAngleOne: "30",
+      servoAngleTwo: "150",
+      servoAngleTested: false,
+      day03TestResults: createDefaultDay03TestResults(),
+      day03DarkExpectedPosition: "",
+      day03DarkActualPosition: "",
+      day03BrightExpectedPosition: "",
+      day03BrightActualPosition: "",
       videoAssetId: "",
       videoFileId: "",
       videoStorageFileId: "",
@@ -907,6 +948,36 @@
       state.changeMade = normalizeDay02ChangeMade(currentDay, state.changeMade);
       state.changeMadeOther =
         state.changeMade === "기타" ? String(state.changeMadeOther || "").trim().slice(0, 80) : "";
+    }
+    if (currentDay.dayId === "day03") {
+      state.externalLightDarkValue = normalizeDay03AnalogValue(state.externalLightDarkValue);
+      state.externalLightBrightValue = normalizeDay03AnalogValue(
+        state.externalLightBrightValue
+      );
+      state.day03ThresholdValue = normalizeDay03AnalogValue(state.day03ThresholdValue);
+      state.lightDirection = normalizeDay02ChoiceValue(
+        state.lightDirection,
+        DAY03_LIGHT_DIRECTION_OPTIONS
+      );
+      state.servoAngleOne = normalizeDay03ServoAngle(state.servoAngleOne);
+      state.servoAngleTwo = normalizeDay03ServoAngle(state.servoAngleTwo);
+      state.servoAngleTested = Boolean(state.servoAngleTested);
+      state.day03TestResults = normalizeDay03TestResults(state.day03TestResults);
+      DAY03_POSITION_FIELD_KEYS.forEach((fieldKey) => {
+        state[fieldKey] = String(state[fieldKey] || "").trim().slice(0, 40);
+      });
+      state.conditionTestPassed = Boolean(
+        state.conditionTestPassed || isDay03MovementConfirmed(state)
+      );
+      state.changeMade = normalizeDay03ChangeMade(currentDay, state.changeMade);
+      state.changeMadeOther =
+        state.changeMade === "기타" ? String(state.changeMadeOther || "").trim().slice(0, 80) : "";
+      state.recordValues.day03Finding = String(
+        state.recordValues.day03Finding || ""
+      ).trim().slice(0, 180);
+      state.recordValues.day03NextUse = String(
+        state.recordValues.day03NextUse || ""
+      ).trim().slice(0, 120);
     }
     state.supersededVideoEvidence = Array.isArray(state.supersededVideoEvidence)
       ? state.supersededVideoEvidence
@@ -1311,6 +1382,10 @@
 
   function isDay02Active() {
     return activeDay && activeDay.dayId === "day02" && activeDayState;
+  }
+
+  function isDay03Active() {
+    return activeDay && activeDay.dayId === "day03" && activeDayState;
   }
 
   function addUnlockedTools(state, tools) {
@@ -1807,13 +1882,284 @@
       : "in_progress";
   }
 
+  function normalizeIntegerInRange(value, min, max) {
+    const trimmed = value === undefined || value === null ? "" : String(value).trim();
+
+    if (!trimmed) {
+      return "";
+    }
+
+    const numeric = Number(trimmed);
+    const rounded = Math.round(numeric);
+
+    if (!Number.isFinite(numeric) || rounded < min || rounded > max) {
+      return "";
+    }
+
+    return String(rounded);
+  }
+
+  function normalizeDay03AnalogValue(value) {
+    return normalizeIntegerInRange(value, 0, 1023);
+  }
+
+  function normalizeDay03ServoAngle(value) {
+    return normalizeIntegerInRange(value, 0, 180);
+  }
+
+  function createDefaultDay03TestResults() {
+    return {
+      dark: "",
+      bright: "",
+      summary: "",
+    };
+  }
+
+  function normalizeDay03TestResults(testResults) {
+    const source = testResults && typeof testResults === "object" ? testResults : {};
+    const normalized = createDefaultDay03TestResults();
+
+    normalized.dark = normalizeDay02ChoiceValue(
+      source.dark,
+      DAY03_TEST_RESULT_OPTIONS
+    );
+    normalized.bright = normalizeDay02ChoiceValue(
+      source.bright,
+      DAY03_TEST_RESULT_OPTIONS
+    );
+    normalized.summary = normalizeDay02ChoiceValue(
+      source.summary,
+      DAY03_TEST_RESULT_OPTIONS
+    );
+
+    return normalized;
+  }
+
+  function getDay03Activity() {
+    const day = activeDay && activeDay.dayId === "day03"
+      ? activeDay
+      : window.RESEARCH_DAYS.find((item) => item.dayId === "day03");
+    const lesson = day ? getLessonForDay(day) : null;
+    const block = lesson && lesson.lessonBlocks
+      ? lesson.lessonBlocks.find((item) => item.blockId === "block08")
+      : null;
+
+    return block ? block.activity : null;
+  }
+
+  function getDay03ChangeOptions() {
+    return DAY03_CHANGE_OPTIONS;
+  }
+
+  function normalizeDay03ChangeMade(currentDay, value) {
+    const text = String(value || "").trim();
+    const options = getDay03ChangeOptions(currentDay);
+
+    return options.includes(text) ? text : "";
+  }
+
+  function getDay03ChangeMadeText(state = activeDayState) {
+    if (!state || !state.changeMade) {
+      return "";
+    }
+
+    if (state.changeMade === "기타") {
+      const other = String(state.changeMadeOther || "").trim();
+      return other ? `기타: ${other}` : "기타";
+    }
+
+    return state.changeMade;
+  }
+
+  function hasDay03LightMeasurementValues(state = activeDayState) {
+    return Boolean(
+      state && (state.externalLightDarkValue || state.externalLightBrightValue)
+    );
+  }
+
+  function isDay03LightMeasurementComplete(state = activeDayState) {
+    return Boolean(
+      state && state.externalLightDarkValue && state.externalLightBrightValue
+    );
+  }
+
+  function isDay03ThresholdSaved(state = activeDayState) {
+    return Boolean(state && state.day03ThresholdValue);
+  }
+
+  function isDay03ConditionDirectionSaved(state = activeDayState) {
+    return Boolean(state && state.lightDirection);
+  }
+
+  function hasDay03ServoAngles(state = activeDayState) {
+    return Boolean(state && state.servoAngleOne && state.servoAngleTwo);
+  }
+
+  function isDay03ExpectedMovementConfirmed(state = activeDayState) {
+    const testResults = state && state.day03TestResults ? state.day03TestResults : {};
+
+    return testResults.summary === DAY03_EXPECTED_TEST_RESULT;
+  }
+
+  function isDay03MovementConfirmed(state = activeDayState) {
+    const testResults = state && state.day03TestResults ? state.day03TestResults : {};
+
+    return DAY03_MOVEMENT_TEST_RESULTS.has(testResults.summary || "");
+  }
+
+  function hasDay03StateTests(state = activeDayState) {
+    const testResults = state && state.day03TestResults ? state.day03TestResults : {};
+
+    return Boolean(
+      state &&
+        state.day03DarkExpectedPosition &&
+        state.day03DarkActualPosition &&
+        state.day03BrightExpectedPosition &&
+        state.day03BrightActualPosition &&
+        testResults.summary
+    );
+  }
+
+  function isDay03RecordCompleted(state = activeDayState) {
+    const values = state && state.recordValues ? state.recordValues : {};
+
+    return Boolean(
+      isDay03LightMeasurementComplete(state) &&
+        isDay03ThresholdSaved(state) &&
+        hasDay03ServoAngles(state) &&
+        String(values.day03NextUse || "").trim()
+    );
+  }
+
+  function getDay03Activities(state) {
+    const activities = [];
+
+    if (state.servoAngleTested) {
+      activities.push("P2 서보모터 각도 시험");
+    }
+
+    if (hasDay03LightMeasurementValues(state)) {
+      activities.push("P1 외부 조도센서 값 측정");
+    }
+
+    if (isDay03ThresholdSaved(state)) {
+      activities.push("Day03 기준값 정하기");
+    }
+
+    if (isDay03ConditionDirectionSaved(state)) {
+      activities.push("조건 방향 정하기");
+    }
+
+    if (state.conditionTestPassed) {
+      activities.push("P1 조건 변화와 P2 위치 변화 확인");
+    }
+
+    if (hasDay03StateTests(state)) {
+      activities.push("밝음·어두움 두 상태 시험");
+    }
+
+    if (getDay03ChangeMadeText(state)) {
+      activities.push("직접 변경");
+    }
+
+    if (state.makeCodeShareUrl) {
+      activities.push("MakeCode 작품 링크 저장");
+    }
+
+    if (hasVideoEvidence(state)) {
+      activities.push("작동 영상 기록");
+    }
+
+    return activities;
+  }
+
+  function isDay03BasicComplete(state = activeDayState) {
+    return Boolean(
+      state &&
+        isDay03ExpectedMovementConfirmed(state) &&
+        hasDay03ServoAngles(state) &&
+        isDay03LightMeasurementComplete(state) &&
+        isDay03ThresholdSaved(state) &&
+        isDay03ConditionDirectionSaved(state) &&
+        hasDay03StateTests(state)
+    );
+  }
+
+  function getDay03BlockProgress(state) {
+    const hasMinimum = Boolean(state.conditionTestPassed);
+    const hasChange = Boolean(getDay03ChangeMadeText(state));
+    const hasTests = hasDay03StateTests(state);
+    const hasThreshold = isDay03ThresholdSaved(state);
+    const hasDirection = isDay03ConditionDirectionSaved(state);
+    const block07Started = Boolean(
+      state.servoAngleTested ||
+        state.servoAngleOne !== "30" ||
+        state.servoAngleTwo !== "150"
+    );
+    const block08Started = Boolean(
+      hasDay03LightMeasurementValues(state) ||
+        hasThreshold ||
+        hasDirection ||
+        hasTests ||
+        hasMinimum ||
+        hasChange ||
+        state.makeCodeShareUrl ||
+        hasVideoEvidence(state) ||
+        hasAnyQuizAnswer(state)
+    );
+
+    return {
+      block07: getProgressValue(Boolean(state.servoAngleTested), block07Started),
+      block08: getProgressValue(isDay03BasicComplete(state), block08Started),
+    };
+  }
+
+  function updateDay03Progress(state) {
+    const currentDay = getDayForState(state) || activeDay;
+    const lesson = currentDay ? getLessonForDay(currentDay) : null;
+    const hasMinimum = Boolean(state.conditionTestPassed || isDay03MovementConfirmed(state));
+    const hasBasic = isDay03BasicComplete(state);
+    const hasChange = Boolean(getDay03ChangeMadeText(state));
+
+    state.conditionTestPassed = hasMinimum;
+    state.lessonProgress = {
+      block07Completed: Boolean(state.servoAngleTested),
+      block08Completed: hasBasic,
+      videoSaved: hasPersistentVideoReference(state),
+      quizCompleted: isDay01QuizCompleted(state, lesson),
+      recordCompleted: isDay03RecordCompleted(state),
+    };
+    state.minimumCompleted = hasMinimum;
+    state.basicCompleted = hasBasic;
+    state.advancedCompleted = Boolean(hasBasic && hasChange);
+    state.dayCompleted = Boolean(
+      hasBasic &&
+        state.lessonProgress.quizCompleted &&
+        state.lessonProgress.recordCompleted
+    );
+    state.completionLevel = state.advancedCompleted
+      ? "advanced"
+      : state.basicCompleted
+      ? "basic"
+      : state.minimumCompleted
+      ? "minimum"
+      : "in_progress";
+  }
+
   function updateDayProgress(state, currentDay = activeDay) {
     if (!state) {
       return;
     }
 
-    if ((currentDay || getDayForState(state) || {}).dayId === "day02") {
+    const dayId = (currentDay || getDayForState(state) || {}).dayId;
+
+    if (dayId === "day02") {
       updateDay02Progress(state);
+      return;
+    }
+
+    if (dayId === "day03") {
+      updateDay03Progress(state);
       return;
     }
 
@@ -1821,9 +2167,15 @@
   }
 
   function getBlockProgress(currentDay, state) {
-    return currentDay && currentDay.dayId === "day02"
-      ? getDay02BlockProgress(state)
-      : getDay01BlockProgress(state);
+    if (currentDay && currentDay.dayId === "day02") {
+      return getDay02BlockProgress(state);
+    }
+
+    if (currentDay && currentDay.dayId === "day03") {
+      return getDay03BlockProgress(state);
+    }
+
+    return getDay01BlockProgress(state);
   }
 
   function joinKoreanList(items) {
@@ -2080,9 +2432,91 @@
     };
   }
 
+  function getDay03CompletionLevel(state) {
+    if (state.advancedCompleted) {
+      return "advanced";
+    }
+
+    if (state.basicCompleted) {
+      return "basic";
+    }
+
+    return state.minimumCompleted ? "minimum" : "";
+  }
+
+  function getDay03RecordStatus(state) {
+    return state.dayCompleted ? "completed" : "in_progress";
+  }
+
+  function getDay03TodayDecision(state) {
+    const threshold = state.day03ThresholdValue
+      ? `기준값 ${state.day03ThresholdValue}`
+      : "내가 정한 기준값";
+    const firstAngle = state.servoAngleOne ? `${state.servoAngleOne}도` : "첫 번째 각도";
+    const secondAngle = state.servoAngleTwo ? `${state.servoAngleTwo}도` : "두 번째 각도";
+
+    return `P1 외부 조도센서 값을 ${threshold}와 비교해 P2 서보모터가 ${firstAngle}와 ${secondAngle}로 다르게 움직이게 만들었습니다.`;
+  }
+
+  function getDay03NextAction(state) {
+    const nextUse =
+      state && state.recordValues ? String(state.recordValues.day03NextUse || "").trim() : "";
+
+    return nextUse || "다음 연구에서는 AI가 정보를 분류하고 결과를 만드는 과정을 알아봅니다.";
+  }
+
+  function getDay03PersonalEvidenceRefs(student, currentDay, state) {
+    const refs = [];
+
+    if (state.makeCodeShareUrl) {
+      refs.push(getMakeCodeAssetId(student.studentId, currentDay.dayId));
+    }
+
+    if (hasPersistentVideoReference(state)) {
+      refs.push(getVideoAssetId(student.studentId, currentDay.dayId, state));
+    }
+
+    return refs;
+  }
+
+  function createDay03RecordPayload(student, currentDay, state) {
+    return {
+      studentId: student.studentId,
+      workId: student.workId,
+      dayId: currentDay.dayId,
+      date: getConfiguredDayDate(currentDay),
+      blockProgress: getDay03BlockProgress(state),
+      role: "",
+      activities: getDay03Activities(state),
+      todayDecision: state.minimumCompleted || isDay03ThresholdSaved(state)
+        ? getDay03TodayDecision(state)
+        : "",
+      discovery:
+        "Sensor:Edge P1 외부 조도센서 → 0~1023 아날로그 값 → 기준과 비교 → P2 서보 각도",
+      difficulty: "",
+      changeMade: getDay03ChangeMadeText(state),
+      changeReason: "",
+      nextAction: getDay03NextAction(state),
+      personalEvidenceRefs: getDay03PersonalEvidenceRefs(student, currentDay, state),
+      commonEvidenceRefs: [],
+      minimumCompleted: Boolean(state.minimumCompleted),
+      completionLevel: getDay03CompletionLevel(state),
+      status: getDay03RecordStatus(state),
+      studentReflection:
+        state.recordValues && state.recordValues.day03Finding
+          ? state.recordValues.day03Finding
+          : "",
+      dayState: cloneJsonValue(state, {}),
+    };
+  }
+
   function createDayRecordPayload(student, currentDay, state) {
     if (currentDay.dayId === "day02") {
       return createDay02RecordPayload(student, currentDay, state);
+    }
+
+    if (currentDay.dayId === "day03") {
+      return createDay03RecordPayload(student, currentDay, state);
     }
 
     return createDay01RecordPayload(student, currentDay, state);
@@ -2230,10 +2664,59 @@
     return assets;
   }
 
+  function createDay03AssetPayloads(student, currentDay, state) {
+    const assets = [];
+
+    if (state.makeCodeShareUrl) {
+      assets.push({
+        assetId: getMakeCodeAssetId(student.studentId, currentDay.dayId),
+        assetType: "webpage_link",
+        ownerType: "student",
+        ownerId: student.studentId,
+        dayId: currentDay.dayId,
+        blockId: "block08",
+        title: "Day03 MakeCode 코드",
+        description: "외부 조도센서 값으로 서보모터를 움직이는 MakeCode 공유 주소",
+        storageUrl: state.makeCodeShareUrl,
+        thumbnailUrl: "",
+        fileName: "",
+        mimeType: "",
+        capturedAt: "",
+      });
+    }
+
+    if (hasPersistentVideoReference(state)) {
+      assets.push({
+        assetId: getVideoAssetId(student.studentId, currentDay.dayId, state),
+        assetType: "video",
+        ownerType: "student",
+        ownerId: student.studentId,
+        dayId: currentDay.dayId,
+        blockId: getVideoBlockId(currentDay),
+        title: "Day03 연구 모습 영상",
+        description: "외부 조도센서 변화에 따라 서보모터가 움직이는 시험 모습",
+        storageFileId: state.videoStorageFileId || state.videoFileId || "",
+        storageUrl: state.videoStorageUrl || state.videoPlaybackUrl || "",
+        thumbnailUrl: "",
+        fileName: state.videoFileName || "",
+        mimeType: state.videoMimeType || "video/webm",
+        capturedAt: state.videoCapturedAt || "",
+      });
+    }
+
+    return assets;
+  }
+
   function createAssetPayloads(student, currentDay, state) {
-    return currentDay.dayId === "day02"
-      ? createDay02AssetPayloads(student, currentDay, state)
-      : createDay01AssetPayloads(student, currentDay, state);
+    if (currentDay.dayId === "day02") {
+      return createDay02AssetPayloads(student, currentDay, state);
+    }
+
+    if (currentDay.dayId === "day03") {
+      return createDay03AssetPayloads(student, currentDay, state);
+    }
+
+    return createDay01AssetPayloads(student, currentDay, state);
   }
 
   function createDay01ServerSaveRequest(currentDay, state) {
@@ -3678,6 +4161,7 @@
       locator: "lesson-guide-figure--locator",
       "code-example": "lesson-guide-figure--code-example",
       "pairing-guide": "lesson-guide-figure--pairing-guide",
+      wide: "lesson-guide-figure--wide",
     };
     const roleClass = roleClasses[activity.imageRole] || "";
 
@@ -4383,25 +4867,1036 @@
     `;
   }
 
+  function renderDay03InfoGroup(group, className = "") {
+    if (!group) {
+      return "";
+    }
+
+    const classAttribute = className ? ` ${escapeHtml(className)}` : "";
+
+    return `
+      <div class="plain-group day03-info-group${classAttribute}">
+        <h4>${escapeHtml(group.title)}</h4>
+        ${group.lines ? `<div class="day02-copy-stack">${renderParagraphs(group.lines)}</div>` : ""}
+        ${group.figure ? renderLessonGuideFigure(group.figure) : ""}
+      </div>
+    `;
+  }
+
+  function renderDay03Details(group) {
+    if (!group) {
+      return "";
+    }
+
+    return `
+      <details class="lesson-guide-details day03-help-details">
+        <summary>${escapeHtml(group.summary || "도움말 펼치기")}</summary>
+        <div class="day03-help-details__body">
+          ${renderDay03InfoGroup(group)}
+        </div>
+      </details>
+    `;
+  }
+
+  function renderDay03NumberField(field, value, maxValue) {
+    const inputId = `day03-${field.key}`;
+
+    return `
+      <label class="record-field day02-number-field day03-number-field" for="${escapeHtml(inputId)}">
+        <span>${escapeHtml(field.label)}</span>
+        <input
+          id="${escapeHtml(inputId)}"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          max="${escapeHtml(maxValue)}"
+          step="1"
+          value="${escapeHtml(value || "")}"
+          placeholder="${escapeHtml(field.placeholder || "숫자 입력")}"
+          data-day03-number-field="${escapeHtml(field.key)}"
+        >
+      </label>
+    `;
+  }
+
+  function renderDay03ChoiceButtons(field, options, selectedValue) {
+    const values = Array.isArray(options) ? options : [];
+
+    return `
+      <div class="choice-list compact-choice-list day02-choice-row">
+        ${values
+          .map((option) => {
+            const selected = selectedValue === option;
+
+            return `
+              <button
+                class="choice-button${selected ? " is-selected" : ""}"
+                type="button"
+                aria-pressed="${selected ? "true" : "false"}"
+                data-day03-state-field="${escapeHtml(field)}"
+                data-day03-state-value="${escapeHtml(option)}"
+              >
+                ${escapeHtml(option)}
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderDay03TestChoiceButtons(testKey, options, selectedValue) {
+    const values = Array.isArray(options) ? options : [];
+
+    return `
+      <div class="choice-list compact-choice-list day02-choice-row">
+        ${values
+          .map((option) => {
+            const selected = selectedValue === option;
+
+            return `
+              <button
+                class="choice-button${selected ? " is-selected" : ""}"
+                type="button"
+                aria-pressed="${selected ? "true" : "false"}"
+                data-day03-test-result="${escapeHtml(testKey)}"
+                data-day03-test-value="${escapeHtml(option)}"
+              >
+                ${escapeHtml(option)}
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderDay03ServoFields(activity, state) {
+    const fields = activity.angleTest && Array.isArray(activity.angleTest.fields)
+      ? activity.angleTest.fields
+      : [];
+
+    return `
+      <div class="day03-field-grid">
+        ${fields
+          .map((field) => renderDay03NumberField(field, state[field.key] || "", 180))
+          .join("")}
+      </div>
+    `;
+  }
+
+  function renderDay03ServoSetupActivity(activity) {
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day03" });
+    const angleTest = activity.angleTest || {};
+
+    return `
+      <div class="plain-group block-activity day03-activity" data-day03-activity="servo-setup">
+        <h3>${escapeHtml(activity.title)}</h3>
+        ${activity.motorFigure ? renderLessonGuideFigure(activity.motorFigure) : ""}
+        ${renderDay03InfoGroup(activity.sensorEdge)}
+        ${renderDay03InfoGroup(activity.wiring, "day03-wiring-group")}
+        ${renderDay03Details(activity.servoBlockHelp)}
+
+        <div class="plain-group day03-angle-test">
+          <h4>${escapeHtml(angleTest.title || "서보모터 각도 시험")}</h4>
+          ${angleTest.lines ? `<div class="day02-copy-stack">${renderParagraphs(angleTest.lines)}</div>` : ""}
+          ${angleTest.figure ? renderLessonGuideFigure(angleTest.figure) : ""}
+          ${renderDay03ServoFields(activity, state)}
+          <div class="section-action day02-condition-gate">
+            <button
+              class="${state.servoAngleTested ? "secondary-button" : "primary-link"}"
+              type="button"
+              data-day03-servo-test
+              ${state.servoAngleTested ? "disabled" : ""}
+            >
+              ${state.servoAngleTested ? "✓ 서보 각도 시험 완료" : "서보 각도 시험 완료"}
+            </button>
+            <p class="field-help" data-day03-servo-test-status${state.servoAngleTested ? "" : " hidden"}>
+              P2 서보모터가 서로 다른 각도로 움직인 것을 기록했습니다.
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderDay03MakeCodeStart(makeCode) {
+    if (!makeCode) {
+      return "";
+    }
+
+    return `
+      <div class="plain-group day03-makecode-start">
+        <h4>${escapeHtml(makeCode.title)}</h4>
+        <a
+          class="primary-link makecode-open-link day03-makecode-button"
+          href="${escapeHtml(makeCode.url)}"
+          target="_blank"
+          rel="noopener noreferrer"
+          role="button"
+        >
+          ${escapeHtml(makeCode.label)}
+        </a>
+        <p class="field-help">${escapeHtml(makeCode.prompt)}</p>
+      </div>
+    `;
+  }
+
+  function renderDay03MeasurementFields(activity, state) {
+    const measurements = Array.isArray(activity.measurements) ? activity.measurements : [];
+    const threshold = activity.threshold || {};
+
+    return `
+      <div class="plain-group day03-measurement-panel">
+        <h4>외부 조도센서 값 측정</h4>
+        <div class="day03-field-grid">
+          ${measurements
+            .map((field) => renderDay03NumberField(field, state[field.key] || "", 1023))
+            .join("")}
+        </div>
+        ${renderDay03NumberField(threshold, state[threshold.key] || "", 1023)}
+      </div>
+    `;
+  }
+
+  function renderDay03Direction(activity, state) {
+    const direction = activity.direction;
+
+    if (!direction) {
+      return "";
+    }
+
+    return `
+      <div class="plain-group day03-direction-group">
+        <h4>${escapeHtml(direction.title)}</h4>
+        <p>${escapeHtml(direction.prompt)}</p>
+        ${renderDay03ChoiceButtons(
+          "lightDirection",
+          direction.options || DAY03_LIGHT_DIRECTION_OPTIONS,
+          state.lightDirection || ""
+        )}
+        <p class="field-help">${escapeHtml(direction.note || "")}</p>
+      </div>
+    `;
+  }
+
+  function renderDay03Tests(activity, state) {
+    const tests = Array.isArray(activity.tests) ? activity.tests : [];
+    const testResults = state.day03TestResults || createDefaultDay03TestResults();
+
+    return `
+      <div class="plain-group day03-test-lab">
+        <h4>밝음·어두움 두 상태 시험</h4>
+        <div class="day02-test-list">
+          ${tests
+            .map(
+              (test) => `
+                <div class="day02-test-item day03-test-item">
+                  <h5>${escapeHtml(test.title)}</h5>
+                  <p>${escapeHtml(test.guide)}</p>
+                  <p><strong>${escapeHtml(test.prompt)}</strong></p>
+                  ${renderDay03TestChoiceButtons(
+                    test.key,
+                    test.options || DAY03_TEST_RESULT_OPTIONS,
+                    testResults[test.key] || ""
+                  )}
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderDay03ConditionGate(activity, state) {
+    const passed = Boolean(state.conditionTestPassed);
+
+    return `
+      <div class="section-action day02-condition-gate day03-condition-gate">
+        <div class="day02-condition-instructions">
+          ${renderParagraphs(activity.confirmationGuide || [])}
+        </div>
+        <button
+          class="${passed ? "secondary-button" : "primary-link"}"
+          type="button"
+          data-day03-condition-test-complete
+          ${passed ? "disabled" : ""}
+        >
+          ${passed ? "✓ P1 조건 변화로 P2 위치 변화 기록" : escapeHtml(activity.confirmLabel)}
+        </button>
+        <p class="field-help" data-day03-condition-test-status${passed ? "" : " hidden"}>
+          P1 외부 조도센서 조건 변화로 P2 서보모터 위치가 달라졌다고 기록했습니다.
+        </p>
+      </div>
+    `;
+  }
+
+  function renderDay03ChangeOptions(activity, state) {
+    const options = Array.isArray(activity.changeOptions) ? activity.changeOptions : [];
+    const change = state.changeMade || "";
+    const isOther = change === "기타";
+
+    if (!options.length) {
+      return "";
+    }
+
+    return `
+      <div class="plain-group day03-change-group">
+        <h4>학생이 직접 바꾼 항목</h4>
+        <div class="choice-list compact-choice-list" data-day03-change-group>
+          ${options
+            .map((option) => {
+              const selected = change === option;
+
+              return `
+                <button
+                  class="choice-button${selected ? " is-selected" : ""}"
+                  type="button"
+                  aria-pressed="${selected ? "true" : "false"}"
+                  data-day03-change-made="${escapeHtml(option)}"
+                >
+                  ${escapeHtml(option)}
+                </button>
+              `;
+            })
+            .join("")}
+        </div>
+        <label class="record-field day02-change-other day03-change-other" for="day03-change-other"${isOther ? "" : " hidden"}>
+          <span>기타 변경</span>
+          <input
+            id="day03-change-other"
+            type="text"
+            maxlength="80"
+            value="${escapeHtml(state.changeMadeOther || "")}"
+            placeholder="${escapeHtml(activity.changeOtherPlaceholder || "")}"
+            data-day03-change-other
+            ${isOther ? "" : "disabled"}
+          >
+        </label>
+      </div>
+    `;
+  }
+
+  function renderDay03LightServoActivity(activity) {
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day03" });
+
+    return `
+      <div class="plain-group block-activity day03-activity" data-day03-activity="light-servo">
+        <h3>${escapeHtml(activity.title)}</h3>
+        ${renderDay03MakeCodeStart(activity.makeCode)}
+        ${renderDay03Details(activity.analogBlockHelp)}
+        ${renderDay03InfoGroup(activity.p1Reading)}
+        ${renderDay03MeasurementFields(activity, state)}
+        ${renderDay03Direction(activity, state)}
+        ${renderDay03InfoGroup(activity.finalCode, "day03-final-code")}
+        ${renderDay03Tests(activity, state)}
+        ${renderDay03ConditionGate(activity, state)}
+        ${renderDay03InfoGroup(activity.revise, "day03-revise-group")}
+        ${renderDay03ChangeOptions(activity, state)}
+      </div>
+    `;
+  }
+
+  function renderDay03Inline(text) {
+    return escapeHtml(text)
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>");
+  }
+
+  function renderDay03SourceParagraph(text) {
+    return `<p>${renderDay03Inline(text)}</p>`;
+  }
+
+  function renderDay03SourceQuote(lines) {
+    const quoteLines = Array.isArray(lines) ? lines : [lines];
+
+    return `
+      <blockquote class="day03-source-quote">
+        ${quoteLines.map((line) => renderDay03Inline(line)).join("<br>")}
+      </blockquote>
+    `;
+  }
+
+  function renderDay03SourceList(items, ordered = false) {
+    const tag = ordered ? "ol" : "ul";
+
+    return `
+      <${tag} class="day03-source-list">
+        ${items.map((item) => `<li>${renderDay03Inline(item)}</li>`).join("")}
+      </${tag}>
+    `;
+  }
+
+  function renderDay03SourceFigure(image, imageRole, imageAlt, captionLines) {
+    const roleClasses = {
+      locator: "lesson-guide-figure--locator",
+      "code-example": "lesson-guide-figure--code-example",
+      "pairing-guide": "lesson-guide-figure--pairing-guide",
+      wide: "lesson-guide-figure--wide",
+    };
+    const roleClass = roleClasses[imageRole] || "";
+    const captions = Array.isArray(captionLines) ? captionLines : [captionLines];
+
+    return `
+      <figure class="lesson-guide-figure day03-source-figure${roleClass ? ` ${roleClass}` : ""}">
+        <img
+          class="lesson-guide-image"
+          src="${escapeHtml(image)}"
+          alt="${escapeHtml(imageAlt)}"
+        >
+        <figcaption class="lesson-guide-caption">
+          ${captions.map((line) => renderDay03Inline(line)).join("<br>")}
+        </figcaption>
+      </figure>
+    `;
+  }
+
+  function renderDay03SourceNumberInput(fieldKey, value, maxValue, placeholder, label, suffix) {
+    const inputId = `day03-source-${fieldKey}-${suffix}`;
+
+    return `
+      <input
+        id="${escapeHtml(inputId)}"
+        class="day03-source-input"
+        type="number"
+        inputmode="numeric"
+        min="0"
+        max="${escapeHtml(maxValue)}"
+        step="1"
+        value="${escapeHtml(value || "")}"
+        placeholder="${escapeHtml(placeholder)}"
+        aria-label="${escapeHtml(label)}"
+        data-day03-number-field="${escapeHtml(fieldKey)}"
+      >
+    `;
+  }
+
+  function renderDay03SourcePositionInput(fieldKey, value, placeholder, label, suffix) {
+    const inputId = `day03-source-${fieldKey}-${suffix}`;
+
+    return `
+      <input
+        id="${escapeHtml(inputId)}"
+        class="day03-source-input"
+        type="text"
+        maxlength="40"
+        value="${escapeHtml(value || "")}"
+        placeholder="${escapeHtml(placeholder)}"
+        aria-label="${escapeHtml(label)}"
+        data-day03-position-field="${escapeHtml(fieldKey)}"
+      >
+    `;
+  }
+
+  function renderDay03SourceServoTest(state) {
+    return `
+      <div class="section-action day03-source-action">
+        <button
+          class="${state.servoAngleTested ? "secondary-button" : "primary-link"}"
+          type="button"
+          data-day03-servo-test
+          ${state.servoAngleTested ? "disabled" : ""}
+        >
+          ${state.servoAngleTested ? "프로그램의 숫자가 실제 움직임으로 바뀌었습니다!" : "시험해 보기"}
+        </button>
+        <p class="field-help" data-day03-servo-test-status${state.servoAngleTested ? "" : " hidden"}>
+          이제 P1에 연결한 외부 조도센서의 값과 연결해 봅니다.
+        </p>
+      </div>
+    `;
+  }
+
+  function renderDay03SourceChangeOptions(state) {
+    return `
+      <div class="choice-list compact-choice-list" data-day03-change-group>
+        ${DAY03_CHANGE_OPTIONS.map((option) => {
+          const selected = state.changeMade === option;
+
+          return `
+            <button
+              class="choice-button${selected ? " is-selected" : ""}"
+              type="button"
+              aria-pressed="${selected ? "true" : "false"}"
+              data-day03-change-made="${escapeHtml(option)}"
+            >
+              ${escapeHtml(option)}
+            </button>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function renderDay03SourceWebcamEvidence() {
+    const videoState = activeDayState ? activeDayState.videoLocalState : {};
+    const localPlaybackSource = day01RecordedUrl || "";
+    const drivePreviewSource = getPersistentVideoPlaybackSource(activeDayState);
+
+    return `
+      <div class="plain-group block-activity day01-activity webcam-panel webcam-panel--day02" data-day01-activity="webcam-evidence">
+        <div class="webcam-grid">
+          <div class="webcam-preview">
+            <video data-camera-preview autoplay muted playsinline></video>
+            <video
+              data-recorded-video
+              controls
+              playsinline
+              src="${escapeHtml(localPlaybackSource)}"
+              ${localPlaybackSource ? "" : "hidden"}
+            ></video>
+            <iframe
+              data-drive-video-preview
+              src="${escapeHtml(drivePreviewSource)}"
+              title="저장된 연구 영상"
+              allow="autoplay; fullscreen"
+              allowfullscreen
+              ${drivePreviewSource ? "" : "hidden"}
+            ></iframe>
+          </div>
+          <div class="webcam-controls">
+            <p class="webcam-status" data-webcam-status aria-live="polite">${escapeHtml(
+              getVideoStatusText(videoState)
+            )}</p>
+            <p class="webcam-countdown" data-webcam-countdown hidden></p>
+            <div class="webcam-buttons">
+              <button class="secondary-button" type="button" data-camera-start>카메라 켜기</button>
+              <button class="secondary-button" type="button" data-record-start disabled>촬영 시작</button>
+              <button class="secondary-button" type="button" data-record-stop disabled>촬영 중지</button>
+              <button class="secondary-button" type="button" data-use-recording disabled>이 영상 사용</button>
+              <button class="secondary-button" type="button" data-retake-recording disabled>다시 찍기</button>
+            </div>
+          </div>
+        </div>
+        ${renderTeacherVideoIngest()}
+      </div>
+    `;
+  }
+
+  function getDay03PreviousThresholdValue() {
+    const previousRecord = currentStudentRecords ? currentStudentRecords.day02 : null;
+    const previousState =
+      previousRecord && previousRecord.dayState && typeof previousRecord.dayState === "object"
+        ? previousRecord.dayState
+        : {};
+
+    return previousState.finalThreshold || previousState.thresholdValue || "";
+  }
+
+  function renderDay03SourceQuizQuestion(question, index) {
+    return `
+      <div class="quiz-question">
+        <h3>${index + 1}. ${escapeHtml(question.prompt)}</h3>
+        ${renderChoiceGroup(
+          {
+            choices: question.choices,
+            correctFeedback: question.correctFeedback || question.explanation,
+            incorrectFeedback:
+              question.incorrectFeedback || question.correctFeedback || question.explanation,
+          },
+          question.id ? { quizId: question.id } : {}
+        )}
+      </div>
+    `;
+  }
+
+  function renderDay03SourceLesson(lesson) {
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day03" });
+    const testResults = state.day03TestResults || createDefaultDay03TestResults();
+    const previousThreshold = getDay03PreviousThresholdValue() || "{Day02 기준값}";
+
+    updateDay03Progress(state);
+
+    return `
+      <section class="lesson-section day03-source-section day03-source-meta" id="research-bridge" data-section="researchBridge">
+        <h2 class="section-title">Day03 · 움직이는 장치 만들기</h2>
+        <ul class="day03-source-meta-list">
+          <li>수업일: 2026-09-04</li>
+          <li>진행 블록: Block07~08</li>
+          <li>핵심 결과물: 외부 조도센서의 조건에 따라 서보모터가 서로 다른 위치로 움직이는 장치</li>
+          <li>원고 상태: 외부 조도센서 전환 반영 수정안</li>
+        </ul>
+
+        <h2>연구 이어보기</h2>
+        <h3>지난 연구에서 무엇을 알아냈나요?</h3>
+        ${renderDay03SourceParagraph("지난 연구에서는 마이크로비트에 들어 있는 **내장 조도센서**로 빛을 숫자로 읽었습니다. 그리고 내가 정한 기준을 이용해 장치가 다르게 반응하도록 만들었습니다.")}
+        <p><strong>지난 연구의 흐름은 무엇이었나요?</strong></p>
+        ${renderChoiceGroup(
+          {
+            choices: [
+              { text: "센서값 → 기준·조건 → 반응", correct: true },
+              { text: "모터 → AI → 3D 프린터", correct: false },
+              { text: "그림 → 영상 → 소리", correct: false },
+            ],
+            correctFeedback: "정답: 센서값 → 기준·조건 → 반응",
+            incorrectFeedback: "정답: 센서값 → 기준·조건 → 반응",
+          }
+        )}
+        ${renderDay03SourceParagraph("오늘도 이 생각을 그대로 사용합니다.")}
+        ${renderDay03SourceQuote("**주변 상태를 센서로 알아내고 → 프로그램이 판단하면 → 장치가 반응한다.**")}
+
+        <h3>오늘 달라지는 점</h3>
+        ${renderDay03SourceParagraph("지난 연구에서는 **마이크로비트 안에 있는 조도센서**를 사용했습니다.")}
+        ${renderDay03SourceParagraph("오늘은 원하는 위치의 빛을 더 편리하게 살필 수 있도록 **마이크로비트 밖에 연결하는 외부 조도센서**를 사용합니다.")}
+        ${renderDay03SourceParagraph("두 센서 모두 빛을 숫자로 바꾸지만, 센서의 종류와 놓인 위치가 다르기 때문에 같은 장소에서도 숫자가 다르게 나타날 수 있습니다.")}
+        ${renderDay03SourceQuote("지난 연구의 **방법은 이어서 사용하지만, 기준값 숫자는 오늘 다시 측정해 정합니다.**")}
+
+        <h3>지난번 나의 연구 결과</h3>
+        <p><strong>내장 조도센서로 정했던 기준값:</strong> <span class="day03-source-placeholder">${escapeHtml(previousThreshold)}</span></p>
+        ${renderDay03SourceParagraph("이 값은 지난 연구를 떠올리는 자료입니다. 오늘 사용하는 외부 조도센서의 기준값으로 그대로 사용하지 않습니다.")}
+      </section>
+
+      <section class="lesson-section day03-source-section" id="today-research" data-section="todayResearch">
+        <h2 class="section-title">오늘의 연구</h2>
+        <h3>빛을 보고 스스로 움직이는 장치를 만들어 봅시다</h3>
+        ${renderDay03SourceParagraph("오늘은 외부 조도센서와 서보모터를 연결합니다.")}
+        ${renderDay03SourceList([
+          "외부 조도센서는 빛을 숫자로 읽습니다.",
+          "프로그램은 센서값을 기준과 비교합니다.",
+          "서보모터는 판단 결과에 따라 움직입니다.",
+        ])}
+        ${renderDay03SourceQuote("**외부 조도센서 → 조건 판단 → 서보모터 움직임**")}
+        <h3>오늘의 핵심 질문</h3>
+        <p><strong>센서가 읽은 빛의 상태를 어떻게 실제 움직임으로 바꿀 수 있을까요?</strong></p>
+        <h3>오늘 여기까지 성공하면 됩니다</h3>
+        ${renderDay03SourceQuote("**외부 조도센서를 밝게 하거나 어둡게 했을 때 서보모터가 서로 다른 위치로 움직이면 성공!**")}
+      </section>
+
+      <section class="lesson-section day03-source-section" id="block07" data-section="lessonBlock">
+        <p class="section-kicker">Block07</p>
+        <h2 class="section-title">Block07 · 프로그램으로 움직임 만들기</h2>
+
+        <h3>1. 모터와 서보모터는 무엇이 다를까요?</h3>
+        ${renderDay03SourceParagraph("모터는 전기를 이용해 **움직임을 만드는 장치**입니다.")}
+        ${renderDay03SourceParagraph("일반 모터는 주로 계속 빙글빙글 돌리는 데 사용합니다.")}
+        ${renderDay03SourceParagraph("**서보모터**는 조금 다릅니다.")}
+        ${renderDay03SourceQuote("**“이 위치로 움직여!”라고 프로그램에서 각도를 정해 줄 수 있는 모터입니다.**")}
+        ${renderDay03SourceParagraph("예를 들어")}
+        ${renderDay03SourceList(["30° → 한쪽", "90° → 가운데", "150° → 반대쪽"])}
+        ${renderDay03SourceParagraph("처럼 위치를 정할 수 있습니다.")}
+        ${renderDay03SourceFigure(
+          "assets/day03/day03-motor-vs-servo.png",
+          "wide",
+          "일반 모터와 서보모터의 차이와 서보 30도, 90도, 150도 위치",
+          ["일반 모터와 서보모터의 차이 + 서보 30°·90°·150° 위치"]
+        )}
+
+        <h3>2. 외부 장치는 어떻게 마이크로비트와 연결될까요?</h3>
+        ${renderDay03SourceParagraph("오늘은 외부 조도센서와 서보모터를 **Sensor:Edge**에 연결합니다.")}
+        ${renderDay03SourceParagraph("Sensor:Edge는 마이크로비트와 외부 장치를 쉽게 연결할 수 있도록 핀과 전원 자리를 정리해 주는 연결 보드입니다.")}
+        ${renderDay03SourceParagraph("각 연결 자리에는 세 가지 표시가 있습니다.")}
+        <h4>V · 전원</h4>
+        ${renderDay03SourceParagraph("센서와 서보모터가 작동하는 데 필요한 전기를 보냅니다.")}
+        <h4>G · 전기가 돌아오는 길</h4>
+        ${renderDay03SourceParagraph("V와 G가 함께 연결되어야 장치가 전기를 사용할 수 있습니다.")}
+        <h4>S · 신호</h4>
+        ${renderDay03SourceParagraph("장치와 마이크로비트가 정보를 주고받는 길입니다.")}
+        ${renderDay03SourceList([
+          "조도센서의 S선: 측정한 빛의 값을 마이크로비트로 보냅니다.",
+          "서보모터의 S선: 어느 위치로 움직일지 명령을 받습니다.",
+        ])}
+        ${renderDay03SourceParagraph("간단히 기억하세요.")}
+        ${renderDay03SourceQuote([
+          "**V·G = 장치가 작동할 전기의 길**",
+          "**S = 측정값이나 명령이 오가는 길**",
+        ])}
+
+        <h3>3. 외부 조도센서와 서보모터를 연결합니다</h3>
+        <h4>① 먼저 전원을 분리합니다</h4>
+        ${renderDay03SourceParagraph("선을 꽂거나 바꿀 때에는 먼저 마이크로비트의 USB 케이블이나 배터리를 분리합니다.")}
+        <h4>② 외부 조도센서를 P1에 연결합니다</h4>
+        ${renderDay03SourceParagraph("지난 연구의 내장 조도센서는 선을 연결하지 않았지만, 오늘의 외부 조도센서는 Sensor:Edge의 **P1**에 연결해야 합니다.")}
+        ${renderDay03SourceParagraph("센서와 케이블에 표시된 `S`, `V`, `G`가 P1의 같은 글자와 맞는지 확인합니다.")}
+        ${renderDay03SourceList([
+          "센서 신호 → P1의 **S**",
+          "센서 전원 → P1의 **V**",
+          "센서 접지 → P1의 **G**",
+        ])}
+        ${renderDay03SourceParagraph("센서 케이블의 색은 부품에 따라 다를 수 있으므로 색만 보고 연결하지 말고 `S·V·G` 표시를 확인합니다.")}
+        <h4>③ 서보모터를 P2에 연결합니다</h4>
+        ${renderDay03SourceParagraph("서보모터는 외부 조도센서와 다른 핀인 **P2**에 연결합니다.")}
+        ${renderDay03SourceList([
+          "**노란색 → P2의 S**",
+          "**빨간색 → P2의 V**",
+          "**갈색 → P2의 G**",
+        ])}
+        ${renderDay03SourceQuote(["**P1 = 외부 조도센서**", "**P2 = 서보모터**"])}
+        <h4>④ 연결을 확인한 뒤 전원을 다시 연결합니다</h4>
+        ${renderDay03SourceParagraph("다음 세 가지를 확인합니다.")}
+        ${renderDay03SourceList([
+          "P1과 P2가 바뀌지 않았나요?",
+          "S·V·G의 위치가 맞나요?",
+          "커넥터가 비뚤어지거나 억지로 꽂히지 않았나요?",
+        ])}
+        ${renderDay03SourceFigure(
+          "assets/day03/day03-sensor-edge-wiring.png",
+          "wide",
+          "실제 Sensor Edge 중심 배선 안내",
+          [
+            "실제 Sensor:Edge 중심 배선 안내",
+            "왼쪽 외부 조도센서 → P1",
+            "오른쪽 서보모터 → P2",
+            "P1의 S·V·G 표시와 P2의 노랑 S / 빨강 V / 갈색 G 확대",
+          ]
+        )}
+
+        <h3>4. MakeCode에서 서보모터 블록을 찾아봅시다</h3>
+        <h4>먼저 MakeCode를 엽니다</h4>
+        <p>
+          <a class="primary-link makecode-open-link day03-makecode-button" href="https://makecode.microbit.org/" target="_blank" rel="noopener noreferrer">
+            🚀 MakeCode 열기 ↗
+          </a>
+        </p>
+        ${renderDay03SourceParagraph("오늘 사용할 프로젝트를 열거나 새 프로젝트를 시작합니다.")}
+        <h4>서보모터 블록을 직접 찾아봅시다</h4>
+        ${renderDay03SourceParagraph("바로 정답을 보지 말고 먼저 직접 찾아봅시다.")}
+        <p><strong>찾아야 하는 것</strong></p>
+        ${renderDay03SourceQuote("서보모터가 움직일 **핀과 각도**를 정하는 블록")}
+        ${renderDay03SourceParagraph("블록 꾸러미를 살펴보고 서보모터와 관련된 블록을 찾아보세요.")}
+        ${renderDay03SourceParagraph("찾았다면 핀을 **P2**로 정하고 각도를 바꿀 수 있는지 확인합니다.")}
+        <h4>못 찾겠다면</h4>
+        <details class="lesson-guide-details day03-help-details">
+          <summary>블록 도움말 펼치기</summary>
+          <div class="day03-help-details__body">
+            ${renderDay03SourceFigure(
+              "assets/day03/day03-servo-block-location.png",
+              "locator",
+              "실제 MakeCode의 P2 서보 각도 정하기 블록과 블록 꾸러미 위치",
+              ["실제 MakeCode의 `P2 서보 각도 정하기` 블록과 블록 꾸러미 위치"]
+            )}
+          </div>
+        </details>
+
+        <h3>5. 각도를 바꾸면 어떻게 될까요?</h3>
+        ${renderDay03SourceParagraph("먼저 예상해 봅시다.")}
+        ${renderDay03SourceParagraph("서보모터를 **30° → 90° → 150°** 순서로 움직이게 하면 어떤 일이 일어날까요?")}
+        ${renderDay03SourceParagraph("코드를 만들고 직접 확인합니다.")}
+        ${renderDay03SourceFigure(
+          "assets/day03/day03-servo-angle-test.png",
+          "code-example",
+          "시작, P2 서보 30도, 잠시 기다리기, P2 서보 90도, 잠시 기다리기, P2 서보 150도 블록",
+          [
+            "실제 MakeCode 블록",
+            "시작 → P2 서보 30° → 잠시 기다리기 → P2 서보 90° → 잠시 기다리기 → P2 서보 150°",
+          ]
+        )}
+        <h4>시험해 보기</h4>
+        ${renderDay03SourceList([
+          "코드를 마이크로비트에 보냅니다.",
+          "서보모터가 실제로 움직이는지 봅니다.",
+          "예상한 위치와 실제 위치를 비교합니다.",
+        ], true)}
+        <h4>성공했다면</h4>
+        ${renderDay03SourceQuote("**프로그램의 숫자가 실제 움직임으로 바뀌었습니다!**")}
+        ${renderDay03SourceParagraph("이제 P1에 연결한 외부 조도센서의 값과 연결해 봅니다.")}
+        ${renderDay03SourceServoTest(state)}
+      </section>
+
+      <section class="lesson-section day03-source-section" id="block08" data-section="lessonBlock">
+        <p class="section-kicker">Block08</p>
+        <h2 class="section-title">Block08 · 외부 조도센서가 판단하고 서보모터가 움직이게 하기</h2>
+
+        <h3>6. 외부 조도센서의 값을 먼저 확인합니다</h3>
+        ${renderDay03SourceParagraph("서보모터와 합치기 전에 P1의 외부 조도센서가 빛을 제대로 읽는지 먼저 확인합니다.")}
+        ${renderDay03SourceParagraph("MakeCode에서 **P1의 아날로그 값을 읽는 블록**을 찾습니다.")}
+        ${renderDay03SourceParagraph("외부 조도센서의 값은 보통 `0~1023` 범위에서 나타납니다. 지난 시간의 내장 조도센서 값은 `0~255` 범위였기 때문에 두 숫자를 직접 비교하거나 지난 기준값을 그대로 사용할 수 없습니다.")}
+        ${renderDay03SourceFigure(
+          "assets/day03/day03-analog-block-location.png",
+          "locator",
+          "MakeCode의 고급 핀에서 아날로그 입력 값 블록을 찾는 화면",
+          ["MakeCode의 `고급 → 핀`에서 `아날로그 입력 값` 블록을 찾는 화면"]
+        )}
+        ${renderDay03SourceParagraph("찾은 블록의 핀을 **P1**로 바꾸고, 계속 값을 확인하는 코드를 만듭니다.")}
+        ${renderDay03SourceFigure(
+          "assets/day03/day03-p1-light-reading.png",
+          "code-example",
+          "P1 아날로그 값을 계속 읽어 숫자로 확인하는 실제 MakeCode 블록",
+          ["P1 아날로그 값을 계속 읽어 숫자로 확인하는 실제 MakeCode 블록"]
+        )}
+        <h4>두 상태를 측정합니다</h4>
+        <div class="day03-source-table-wrap">
+          <table class="day03-source-table">
+            <thead>
+              <tr>
+                <th>시험 상태</th>
+                <th>측정값</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>외부 조도센서를 손으로 가렸을 때</td>
+                <td>
+                  ${renderDay03SourceNumberInput(
+                    "externalLightDarkValue",
+                    state.externalLightDarkValue,
+                    1023,
+                    "{어두울 때 값}",
+                    "외부 조도센서를 손으로 가렸을 때 측정값",
+                    "dark"
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td>외부 조도센서에 빛이 잘 들어올 때</td>
+                <td>
+                  ${renderDay03SourceNumberInput(
+                    "externalLightBrightValue",
+                    state.externalLightBrightValue,
+                    1023,
+                    "{밝을 때 값}",
+                    "외부 조도센서에 빛이 잘 들어올 때 측정값",
+                    "bright"
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h4>무엇을 발견했나요?</h4>
+        ${renderDay03ChoiceButtons("lightDirection", DAY03_LIGHT_DIRECTION_OPTIONS, state.lightDirection || "")}
+        ${renderDay03SourceParagraph("센서 모듈에 따라 숫자가 커지는 방향이 다를 수 있습니다. 먼저 실제 값을 확인한 뒤 조건의 `크다` 또는 `작다` 방향을 정합니다.")}
+        ${renderDay03SourceParagraph("숫자가 거의 달라지지 않는다면 P1 연결과 센서 방향을 다시 확인합니다.")}
+
+        <h3>7. 오늘 사용할 새 기준값을 정합니다</h3>
+        ${renderDay03SourceParagraph("어두울 때 값과 밝을 때 값의 **사이 숫자**를 기준값으로 정합니다.")}
+        <blockquote class="day03-source-quote">
+          <strong>오늘의 외부 조도센서 기준값:</strong>
+          ${renderDay03SourceNumberInput(
+            "day03ThresholdValue",
+            state.day03ThresholdValue,
+            1023,
+            "{새 기준값}",
+            "오늘의 외부 조도센서 기준값",
+            "threshold"
+          )}
+        </blockquote>
+        ${renderDay03SourceParagraph("예를 들어 어두울 때 300, 밝을 때 700이라면 두 값 사이인 500 정도를 기준으로 시험할 수 있습니다.")}
+        ${renderDay03SourceParagraph("기준값은 한 번에 완벽하게 정하지 않아도 됩니다. 시험 결과가 예상과 다르면 값을 조금 바꾸고 다시 시험합니다.")}
+        ${renderDay03SourceQuote([
+          "지난 연구에서 이어 쓰는 것: **측정하고 기준을 정하는 방법**",
+          "오늘 새로 정하는 것: **P1 외부 조도센서의 기준값**",
+        ])}
+
+        <h3>8. 서보모터가 움직일 두 위치를 정합니다</h3>
+        ${renderDay03SourceParagraph("예를 들어 다음처럼 만들 수 있습니다.")}
+        ${renderDay03SourceList(["한 상태: 30°", "다른 상태: 150°"])}
+        ${renderDay03SourceParagraph("두 각도가 충분히 달라야 움직임을 쉽게 확인할 수 있습니다.")}
+        <div class="day03-source-position-grid">
+          <label class="day03-source-inline-field" for="day03-source-servoAngleOne-first">
+            <strong>첫 번째 위치:</strong>
+            ${renderDay03SourceNumberInput("servoAngleOne", state.servoAngleOne, 180, "{각도}", "첫 번째 위치", "first")}
+            <span>°</span>
+          </label>
+          <label class="day03-source-inline-field" for="day03-source-servoAngleTwo-second">
+            <strong>두 번째 위치:</strong>
+            ${renderDay03SourceNumberInput("servoAngleTwo", state.servoAngleTwo, 180, "{각도}", "두 번째 위치", "second")}
+            <span>°</span>
+          </label>
+        </div>
+
+        <h3>9. 조건에 따라 움직이게 합니다</h3>
+        ${renderDay03SourceParagraph("이제 외부 조도센서와 서보모터를 하나의 코드로 연결합니다.")}
+        ${renderDay03SourceParagraph("코드의 생각은 다음과 같습니다.")}
+        ${renderDay03SourceQuote([
+          "계속 반복하기",
+          "　　P1 외부 조도센서 값을 확인하기",
+          "　　만약 오늘 정한 빛의 조건에 맞으면",
+          "　　　　P2 서보모터를 첫 번째 위치로 움직이기",
+          "　　그렇지 않으면",
+          "　　　　P2 서보모터를 두 번째 위치로 움직이기",
+        ])}
+        ${renderDay03SourceParagraph("`크다` 또는 `작다`의 방향은 6번에서 직접 측정한 결과에 맞게 정합니다.")}
+        ${renderDay03SourceFigure(
+          "assets/day03/day03-light-servo-condition.png",
+          "code-example",
+          "P1 아날로그 값 읽기, 오늘 정한 새 기준과 비교, P2 서보 각도 2개 실제 MakeCode 완성 블록",
+          [
+            "실제 MakeCode 완성 블록",
+            "P1 아날로그 값 읽기 → 오늘 정한 새 기준과 비교 → P2 서보 각도 2개",
+          ]
+        )}
+      </section>
+
+      <section class="lesson-section day03-source-section day03-source-test-lab" id="day03-test-lab" data-section="day03TestLab">
+        <h2 class="section-title">10. 연구실 시험</h2>
+        ${renderDay03SourceParagraph("코드를 만들었다고 끝이 아닙니다.")}
+        <p><strong>실제로 예상한 대로 움직이는지 시험해야 합니다.</strong></p>
+        <h3>시험 1 · 외부 조도센서를 어둡게 만들기</h3>
+        ${renderDay03SourceParagraph("외부 조도센서를 손으로 가립니다.")}
+        <div class="day03-source-position-grid">
+          <label class="day03-source-inline-field" for="day03-source-day03DarkExpectedPosition-dark-expected">
+            <span>내가 예상한 위치:</span>
+            ${renderDay03SourcePositionInput(
+              "day03DarkExpectedPosition",
+              state.day03DarkExpectedPosition,
+              "{선택}",
+              "시험 1 내가 예상한 위치",
+              "dark-expected"
+            )}
+          </label>
+          <label class="day03-source-inline-field" for="day03-source-day03DarkActualPosition-dark-actual">
+            <span>실제 위치:</span>
+            ${renderDay03SourcePositionInput(
+              "day03DarkActualPosition",
+              state.day03DarkActualPosition,
+              "{선택}",
+              "시험 1 실제 위치",
+              "dark-actual"
+            )}
+          </label>
+        </div>
+        <h3>시험 2 · 외부 조도센서를 밝게 만들기</h3>
+        ${renderDay03SourceParagraph("외부 조도센서에 빛이 잘 들어오게 합니다.")}
+        <div class="day03-source-position-grid">
+          <label class="day03-source-inline-field" for="day03-source-day03BrightExpectedPosition-bright-expected">
+            <span>내가 예상한 위치:</span>
+            ${renderDay03SourcePositionInput(
+              "day03BrightExpectedPosition",
+              state.day03BrightExpectedPosition,
+              "{선택}",
+              "시험 2 내가 예상한 위치",
+              "bright-expected"
+            )}
+          </label>
+          <label class="day03-source-inline-field" for="day03-source-day03BrightActualPosition-bright-actual">
+            <span>실제 위치:</span>
+            ${renderDay03SourcePositionInput(
+              "day03BrightActualPosition",
+              state.day03BrightActualPosition,
+              "{선택}",
+              "시험 2 실제 위치",
+              "bright-actual"
+            )}
+          </label>
+        </div>
+        <h3>두 상태에서 서로 다른 위치로 움직였나요?</h3>
+        ${renderDay03TestChoiceButtons("summary", DAY03_TEST_RESULT_OPTIONS, testResults.summary || "")}
+      </section>
+
+      <section class="lesson-section day03-source-section" id="day03-troubleshooting" data-section="day03Troubleshooting">
+        <h2 class="section-title">예상과 다르다면 연구원이 확인할 순서</h2>
+        <h3>① 외부 조도센서 연결 확인</h3>
+        ${renderDay03SourceParagraph("외부 조도센서가 P1에 연결되어 있는지 확인합니다. P1의 S·V·G와 센서의 S·V·G가 맞는지도 봅니다.")}
+        <h3>② 센서값 확인</h3>
+        ${renderDay03SourceParagraph("P1의 값이 밝고 어두울 때 실제로 달라지는지 봅니다.")}
+        <h3>③ 조건 확인</h3>
+        ${renderDay03SourceParagraph("오늘 새로 정한 기준값을 사용했는지, `크다 / 작다`의 방향이 측정 결과와 맞는지 봅니다.")}
+        <h3>④ 서보모터 연결 확인</h3>
+        ${renderDay03SourceParagraph("P2의 선을 다시 봅니다.")}
+        ${renderDay03SourceList(["노랑 → S", "빨강 → V", "갈색 → G"])}
+        <h3>⑤ 각도 확인</h3>
+        ${renderDay03SourceParagraph("두 서보 각도가 서로 다른 숫자인지 봅니다.")}
+        <h3>⑥ 다시 시험</h3>
+        ${renderDay03SourceParagraph("한 곳을 고쳤다면 처음부터 다시 만들지 말고 **바꾼 부분만 다시 시험**합니다.")}
+        ${renderDay03SourceQuote("**확인 → 판단 → 수정 → 다시 시험**")}
+        ${renderDay03SourceParagraph("서보모터가 계속 떨거나 이상한 소리가 난다면 억지로 잡지 말고 전원을 분리한 뒤 강사에게 알려 주세요.")}
+      </section>
+
+      <section class="lesson-section day03-source-section" id="day03-success" data-section="day03Success">
+        <h2 class="section-title">오늘의 성공 확인</h2>
+        <h3>최소 성공</h3>
+        ${renderDay03SourceQuote("**P1 외부 조도센서의 조건이 바뀌었을 때 P2 서보모터의 위치가 실제로 바뀌었다.**")}
+        <h3>기본 완성</h3>
+        ${renderDay03SourceQuote("**외부 조도센서의 밝고 어두운 값을 측정해 새 기준값을 정하고, 두 상태에서 예상한 움직임이 나타나는지 확인했다.**")}
+        <h3>더 해보기</h3>
+        ${renderDay03SourceParagraph("기본 연구를 끝냈다면 하나를 선택합니다.")}
+        ${renderDay03SourceChangeOptions(state)}
+        ${renderDay03SourceParagraph("무선통신은 오늘 반드시 해야 하는 활동이 아닙니다.")}
+      </section>
+
+      <section class="lesson-section day03-source-section" id="video-evidence" data-section="videoEvidence">
+        <h2 class="section-title">내 연구 증거 남기기</h2>
+        ${renderDay03SourceParagraph("외부 조도센서의 상태가 바뀌고 서보모터가 움직이는 모습을 짧게 촬영합니다.")}
+        ${renderDay03SourceParagraph("영상에는 가능하면 다음 세 모습이 모두 보이게 합니다.")}
+        ${renderDay03SourceList([
+          "P1에 연결된 외부 조도센서",
+          "센서를 밝게 하거나 어둡게 바꾸는 모습",
+          "P2 서보모터의 위치가 바뀌는 모습",
+        ], true)}
+        ${renderDay03SourceQuote("완벽하게 꾸민 작품보다 **실제로 조건에 따라 움직인다는 증거**가 중요합니다.")}
+        ${renderDay03SourceWebcamEvidence()}
+      </section>
+
+      <section class="lesson-section today-quiz day03-source-section" id="today-quiz" data-section="todayQuiz">
+        <h2 class="section-title">오늘의 퀴즈</h2>
+        <div class="quiz-list">
+          ${lesson.quiz.questions
+            .map((question, index) => renderDay03SourceQuizQuestion(question, index))
+            .join("")}
+        </div>
+      </section>
+
+      <section class="lesson-section research-record day03-source-section" id="research-record" data-section="researchRecord">
+        <h2 class="section-title">오늘의 연구 기록</h2>
+        <h3>오늘 내가 측정하고 결정한 것</h3>
+        <ul class="day03-source-list day03-record-summary" data-day03-record-summary-list>
+          <li>외부 조도센서가 어두울 때의 값: <span data-day03-record-summary="dark">${escapeHtml(state.externalLightDarkValue || "_____")}</span></li>
+          <li>외부 조도센서가 밝을 때의 값: <span data-day03-record-summary="bright">${escapeHtml(state.externalLightBrightValue || "_____")}</span></li>
+          <li>오늘 정한 새 기준값: <span data-day03-record-summary="threshold">${escapeHtml(state.day03ThresholdValue || "_____")}</span></li>
+          <li>내가 사용한 서보모터 위치: <span data-day03-record-summary="angleOne">${escapeHtml(state.servoAngleOne || "_____")}</span>°와 <span data-day03-record-summary="angleTwo">${escapeHtml(state.servoAngleTwo || "_____")}</span>°</li>
+        </ul>
+        <h3>오늘 알게 된 것</h3>
+        ${renderDay03SourceQuote("같은 빛을 측정해도 센서의 종류와 위치가 달라지면 값이 달라질 수 있습니다. 새로운 센서를 사용할 때에는 먼저 값을 측정하고 기준을 다시 정해야 합니다.")}
+        <h3>이 기술을 나중에 어디에 사용할 수 있을까요?</h3>
+        ${renderDay03SourceParagraph("예:")}
+        ${renderDay03SourceList([
+          "자동문",
+          "움직이는 차광막",
+          "방향을 알려 주는 표시판",
+          "빛에 따라 열리고 닫히는 장치",
+          "내가 생각한 다른 장치",
+        ])}
+        <label class="record-field day03-record-form" for="record-day03-next-use">
+          <span>이 기술을 나중에 어디에 사용할 수 있을까요?</span>
+          <input
+            id="record-day03-next-use"
+            type="text"
+            maxlength="120"
+            value="${escapeHtml(state.recordValues.day03NextUse || "")}"
+            placeholder="내가 생각한 다른 장치"
+            data-day03-record-field="day03NextUse"
+          >
+        </label>
+      </section>
+
+      <section class="lesson-section research-complete day03-source-section" id="research-complete" data-section="researchComplete">
+        <h2 class="section-title">다음 연구</h2>
+        ${renderDay03SourceParagraph("오늘은 외부 조도센서가 읽은 값을 프로그램이 판단하고, 그 결과로 실제 장치를 움직였습니다.")}
+        ${renderDay03SourceParagraph("측정값과 조건을 확인하지 않으면 장치가 예상과 다르게 움직일 수도 있었습니다.")}
+        ${renderDay03SourceParagraph("다음 연구에서는 **AI의 결과도 언제나 맞는지 직접 확인하고 비교**합니다.")}
+        ${renderDay03SourceQuote("다음 연구: **AI는 어떻게 배우는가**")}
+      </section>
+    `;
+  }
+
   function renderDay02MakeCodeEvidence(lesson) {
     if (!lesson.makeCodeEvidence) {
       return "";
     }
 
     const shareUrl = activeDayState ? activeDayState.makeCodeShareUrl : "";
+    const lastBlock = lesson.lessonBlocks[lesson.lessonBlocks.length - 1];
+    const previous =
+      lesson.dayId === "day02"
+        ? { href: "#free-change", label: "마음대로 바꾸기" }
+        : { href: `#${lastBlock.blockId}`, label: lastBlock.shortTitle };
+    const next = lesson.videoEvidence
+      ? { href: "#video-evidence", label: "연구 모습 영상" }
+      : { href: "#today-quiz", label: "오늘의 퀴즈" };
+    const inputId = `${lesson.dayId}-makecode-share-url`;
 
     return `
-      <section class="lesson-section day02-makecode-evidence" id="makecode-evidence" data-section="makeCodeEvidence">
+      <section class="lesson-section ${escapeHtml(lesson.dayId)}-makecode-evidence" id="makecode-evidence" data-section="makeCodeEvidence">
         <p class="section-kicker">작품 링크</p>
         <h2 class="section-title">${escapeHtml(lesson.makeCodeEvidence.title)}</h2>
         <p class="section-description">${escapeHtml(lesson.makeCodeEvidence.prompt)}</p>
 
         <div class="plain-group block-activity day02-activity" data-day02-activity="makecode-link">
           <div class="makecode-link-row">
-            <label class="record-field" for="day02-makecode-share-url">
+            <label class="record-field" for="${escapeHtml(inputId)}">
               <span>URL 입력</span>
               <input
-                id="day02-makecode-share-url"
+                id="${escapeHtml(inputId)}"
                 type="url"
                 inputmode="url"
                 data-makecode-url
@@ -4429,8 +5924,8 @@
         </div>
 
         <nav class="section-nav" aria-label="작품 링크 이동">
-          <a href="#free-change">← 마음대로 바꾸기</a>
-          <a class="section-nav__next" href="#video-evidence">연구 모습 영상 →</a>
+          <a href="${escapeHtml(previous.href)}">← ${escapeHtml(previous.label)}</a>
+          <a class="section-nav__next" href="${escapeHtml(next.href)}">${escapeHtml(next.label)} →</a>
         </nav>
       </section>
     `;
@@ -4441,13 +5936,22 @@
       return "";
     }
 
+    const lastBlock = lesson.lessonBlocks[lesson.lessonBlocks.length - 1];
+    const previous = lesson.makeCodeEvidence
+      ? { href: "#makecode-evidence", label: "작품 링크 남기기" }
+      : { href: `#${lastBlock.blockId}`, label: lastBlock.shortTitle };
+    const day02Note =
+      lesson.dayId === "day02"
+        ? `<p class="field-help day02-adjusted-video-note" data-day02-adjusted-video-note${
+            activeDayState && activeDayState.thresholdAdjusted ? "" : " hidden"
+          }>기준값을 고친 연구원은 마지막으로 잘 작동하는 상태를 확인한 뒤 촬영하세요.</p>`
+        : "";
+
     return `
-      <p class="field-help day02-adjusted-video-note" data-day02-adjusted-video-note${
-        activeDayState && activeDayState.thresholdAdjusted ? "" : " hidden"
-      }>기준값을 고친 연구원은 마지막으로 잘 작동하는 상태를 확인한 뒤 촬영하세요.</p>
+      ${day02Note}
       ${renderWebcamEvidenceActivity(lesson.videoEvidence)}
       <nav class="section-nav day02-video-nav" aria-label="연구 모습 영상 이동">
-        <a href="#makecode-evidence">← 작품 링크 남기기</a>
+        <a href="${escapeHtml(previous.href)}">← ${escapeHtml(previous.label)}</a>
         <a class="section-nav__next" href="#today-quiz">오늘의 퀴즈 →</a>
       </nav>
     `;
@@ -5888,7 +7392,9 @@
     const localPlaybackSource = day01RecordedUrl || "";
     const drivePreviewSource = getPersistentVideoPlaybackSource(activeDayState);
     const dayClass =
-      activeDay && activeDay.dayId === "day02" ? " webcam-panel--day02" : "";
+      activeDay && (activeDay.dayId === "day02" || activeDay.dayId === "day03")
+        ? " webcam-panel--day02"
+        : "";
 
     return `
       <div class="plain-group block-activity day01-activity webcam-panel${dayClass}" id="video-evidence" data-day01-activity="webcam-evidence">
@@ -5951,6 +7457,14 @@
 
     if (activity.type === "sensor-device") {
       return renderSensorDeviceActivity(activity);
+    }
+
+    if (activity.type === "day03-servo-setup") {
+      return renderDay03ServoSetupActivity(activity);
+    }
+
+    if (activity.type === "day03-light-servo") {
+      return renderDay03LightServoActivity(activity);
     }
 
     if (activity.type === "notice") {
@@ -6137,6 +7651,13 @@
       return {
         href: "#research-evidence",
         label: "연구 증거함",
+      };
+    }
+
+    if (lesson.makeCodeEvidence) {
+      return {
+        href: "#makecode-evidence",
+        label: "작품 링크 남기기",
       };
     }
 
@@ -6529,8 +8050,9 @@
           ${renderChoiceGroup(
             {
               choices: question.choices,
-              correctFeedback: `맞아요. ${question.explanation}`,
-              incorrectFeedback: `다시 생각해 보세요. ${question.explanation}`,
+              correctFeedback: question.correctFeedback || `맞아요. ${question.explanation}`,
+              incorrectFeedback:
+                question.incorrectFeedback || `다시 생각해 보세요. ${question.explanation}`,
             },
             question.id
               ? {
@@ -6741,9 +8263,156 @@
     );
   }
 
+  function getDay03TestSummary(state) {
+    const testResults = state && state.day03TestResults ? state.day03TestResults : {};
+    const summary = testResults.summary || "{선택}";
+    const darkExpected = state && state.day03DarkExpectedPosition
+      ? state.day03DarkExpectedPosition
+      : "{선택}";
+    const darkActual = state && state.day03DarkActualPosition
+      ? state.day03DarkActualPosition
+      : "{선택}";
+    const brightExpected = state && state.day03BrightExpectedPosition
+      ? state.day03BrightExpectedPosition
+      : "{선택}";
+    const brightActual = state && state.day03BrightActualPosition
+      ? state.day03BrightActualPosition
+      : "{선택}";
+
+    return `시험 1 ${darkExpected}/${darkActual}, 시험 2 ${brightExpected}/${brightActual}, ${summary}`;
+  }
+
+  function renderDay03RecordSummaryItem(id, label, value, isComplete) {
+    return `
+      <li class="${isComplete ? "is-complete" : ""}">
+        <span aria-hidden="true">${isComplete ? "✓" : "□"}</span>
+        <strong>${escapeHtml(label)}</strong>
+        <em data-day03-record-summary="${escapeHtml(id)}">${escapeHtml(value)}</em>
+      </li>
+    `;
+  }
+
+  function renderDay03RecordField(field, state) {
+    const value = state.recordValues[field.key] || "";
+
+    if (field.type === "textarea") {
+      return `
+        <label class="record-field" for="record-${escapeHtml(field.id)}">
+          <span>${escapeHtml(field.label)}</span>
+          <textarea
+            id="record-${escapeHtml(field.id)}"
+            rows="3"
+            maxlength="180"
+            placeholder="${escapeHtml(field.placeholder || "")}"
+            data-day03-record-field="${escapeHtml(field.key)}"
+          >${escapeHtml(value)}</textarea>
+        </label>
+      `;
+    }
+
+    return `
+      <label class="record-field" for="record-${escapeHtml(field.id)}">
+        <span>${escapeHtml(field.label)}</span>
+        <input
+          id="record-${escapeHtml(field.id)}"
+          type="text"
+          maxlength="120"
+          value="${escapeHtml(value)}"
+          placeholder="${escapeHtml(field.placeholder || "")}"
+          data-day03-record-field="${escapeHtml(field.key)}"
+        >
+      </label>
+    `;
+  }
+
+  function renderDay03ResearchRecord(lesson) {
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day03" });
+    updateDay03Progress(state);
+    const testResults = state.day03TestResults || createDefaultDay03TestResults();
+
+    return `
+      <section class="lesson-section research-record day03-record" id="research-record" data-section="researchRecord">
+        <p class="section-kicker">기록하기</p>
+        <h2 class="section-title">${escapeHtml(lesson.record.title)}</h2>
+
+        <ul class="completion-requirements day02-record-summary day03-record-summary" data-day03-record-summary-list>
+          ${renderDay03RecordSummaryItem(
+            "dark",
+            "어두울 때 값",
+            state.externalLightDarkValue || "아직 없음",
+            Boolean(state.externalLightDarkValue)
+          )}
+          ${renderDay03RecordSummaryItem(
+            "bright",
+            "밝을 때 값",
+            state.externalLightBrightValue || "아직 없음",
+            Boolean(state.externalLightBrightValue)
+          )}
+          ${renderDay03RecordSummaryItem(
+            "threshold",
+            "Day03 기준값",
+            state.day03ThresholdValue || "아직 없음",
+            isDay03ThresholdSaved(state)
+          )}
+          ${renderDay03RecordSummaryItem(
+            "direction",
+            "조건 방향",
+            state.lightDirection || "아직 선택 없음",
+            isDay03ConditionDirectionSaved(state)
+          )}
+          ${renderDay03RecordSummaryItem(
+            "angles",
+            "서보 각도",
+            `${state.servoAngleOne || "?"}도 / ${state.servoAngleTwo || "?"}도`,
+            hasDay03ServoAngles(state)
+          )}
+          ${renderDay03RecordSummaryItem(
+            "tests",
+            "두 상태 시험",
+            getDay03TestSummary(state),
+            Boolean(testResults.dark && testResults.bright)
+          )}
+          ${renderDay03RecordSummaryItem(
+            "minimum",
+            "P1 조건 변화 → P2 위치 변화",
+            state.conditionTestPassed ? "기록 완료" : "확인 전",
+            Boolean(state.conditionTestPassed)
+          )}
+          ${renderDay03RecordSummaryItem(
+            "change",
+            "직접 변경",
+            getDay03ChangeMadeText(state) || "아직 선택 없음",
+            Boolean(getDay03ChangeMadeText(state))
+          )}
+          ${renderDay03RecordSummaryItem(
+            "video",
+            "영상",
+            getDay02VideoRecordText(state),
+            hasPersistentVideoReference(state)
+          )}
+        </ul>
+
+        <form class="record-form day03-record-form">
+          ${lesson.record.fields
+            .map((field) => renderDay03RecordField(field, state))
+            .join("")}
+        </form>
+
+        <nav class="section-nav" aria-label="연구기록 이동">
+          <a href="#today-quiz">← 오늘의 퀴즈</a>
+          <a class="section-nav__next primary-link" href="#research-complete">오늘 연구 정리 보기 →</a>
+        </nav>
+      </section>
+    `;
+  }
+
   function renderResearchRecord(lesson) {
     if (lesson.dayId === "day02") {
       return renderDay02ResearchRecord(lesson);
+    }
+
+    if (lesson.dayId === "day03") {
+      return renderDay03ResearchRecord(lesson);
     }
 
     const renderSequentialNav = shouldRenderSequentialNav(lesson);
@@ -6934,6 +8603,147 @@
     `;
   }
 
+  function getDay03RequirementItems(state) {
+    const progress = state.lessonProgress || {};
+
+    return [
+      {
+        id: "servo",
+        label: "P2 서보모터 각도 시험",
+        done: Boolean(progress.block07Completed),
+        href: "#block07",
+        action: "서보 시험하러 가기",
+      },
+      {
+        id: "measurements",
+        label: "어두울 때 값과 밝을 때 값 측정",
+        done: isDay03LightMeasurementComplete(state),
+        href: "#block08",
+        action: "P1 값 측정하러 가기",
+      },
+      {
+        id: "threshold",
+        label: "Day03 새 기준값 정하기",
+        done: isDay03ThresholdSaved(state),
+        href: "#block08",
+        action: "기준값 정하러 가기",
+      },
+      {
+        id: "direction",
+        label: "크다/작다 조건 방향 선택",
+        done: isDay03ConditionDirectionSaved(state),
+        href: "#block08",
+        action: "조건 방향 고르러 가기",
+      },
+      {
+        id: "minimum",
+        label: "P1 조건 변화로 P2 위치 변화 기록",
+        done: Boolean(state.minimumCompleted),
+        href: "#block08",
+        action: "작동 확인하러 가기",
+      },
+      {
+        id: "tests",
+        label: "어두운 상태와 밝은 상태 시험",
+        done: hasDay03StateTests(state),
+        href: "#block08",
+        action: "두 상태 시험하러 가기",
+      },
+      {
+        id: "quiz",
+        label: "오늘의 퀴즈 완료",
+        done: Boolean(progress.quizCompleted),
+        href: "#today-quiz",
+        action: "퀴즈 하러 가기",
+      },
+      {
+        id: "record",
+        label: "연구기록 작성",
+        done: Boolean(progress.recordCompleted),
+        href: "#research-record",
+        action: "연구기록 작성하러 가기",
+      },
+    ];
+  }
+
+  function renderDay03RequirementList(state) {
+    return `
+      <ul class="completion-requirements" data-day03-requirements>
+        ${getDay03RequirementItems(state)
+          .map(
+            (item) => `
+              <li class="${item.done ? "is-complete" : ""}">
+                <span aria-hidden="true">${item.done ? "✓" : "□"}</span>
+                <strong>${escapeHtml(item.label)}</strong>
+                ${item.done ? "" : `<a href="${escapeHtml(item.href)}">${escapeHtml(item.action)} →</a>`}
+              </li>
+            `
+          )
+          .join("")}
+      </ul>
+    `;
+  }
+
+  function getDay03CompletionTitle(state) {
+    if (state.dayCompleted) {
+      return "오늘 연구 완료 ✓";
+    }
+
+    return state.minimumCompleted
+      ? "움직임 연결 성공 ✓"
+      : "아직 P1과 P2 움직임을 확인하지 못했어요";
+  }
+
+  function renderDay03CompletionBody(state) {
+    if (state.dayCompleted) {
+      return "<p>오늘 연구를 마쳤습니다. 기본 완성과 발전 활동은 연구기록에서 계속 확인할 수 있어요.</p>";
+    }
+
+    const lead = state.minimumCompleted
+      ? "P1 조건 변화로 P2 서보모터 위치가 달라진 것을 기록했습니다. 퀴즈와 연구기록까지 마치면 오늘 연구를 정리할 수 있어요."
+      : "먼저 P1 외부 조도센서의 밝음·어두움 값을 기준과 비교해 P2 서보모터 위치가 달라지는지 확인하세요.";
+
+    return `<p>${escapeHtml(lead)}</p>${renderDay03RequirementList(state)}`;
+  }
+
+  function renderDay03ResearchComplete(lesson) {
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day03" });
+    updateDay03Progress(state);
+    const isComplete = state.dayCompleted;
+
+    return `
+      <section class="lesson-section research-complete day03-complete" id="research-complete" data-section="researchComplete">
+        <p class="section-kicker">마무리</p>
+        <h2 class="section-title" data-day03-complete-title>${escapeHtml(
+          getDay03CompletionTitle(state)
+        )}</h2>
+
+        <div class="plain-group" data-day03-complete-body>
+          ${renderDay03CompletionBody(state)}
+        </div>
+
+        <div class="plain-group" data-day03-complete-gained${isComplete ? "" : " hidden"}>
+          <h3>오늘 연구에서 얻은 것</h3>
+          <p>${escapeHtml(lesson.complete.gained)}</p>
+        </div>
+
+        <div class="section-description" data-day03-complete-summary${isComplete ? "" : " hidden"}>
+          ${renderParagraphs(lesson.complete.summaryLines || [lesson.complete.summary])}
+        </div>
+
+        <div class="plain-group" data-day03-next-research${isComplete ? "" : " hidden"}>
+          <h3>다음 연구</h3>
+          <p>${escapeHtml(lesson.complete.nextTitle)}</p>
+          <p>${escapeHtml(lesson.complete.nextSummary)}</p>
+        </div>
+
+        <div class="section-action">
+          <a class="primary-link" href="#page-title">연구소 지도에서 확인하기 →</a>
+        </div>
+      </section>
+    `;
+  }
+
   function renderResearchComplete(lesson) {
     if (lesson.dayId === "day01") {
       return renderDay01ResearchComplete(lesson);
@@ -6941,6 +8751,10 @@
 
     if (lesson.dayId === "day02") {
       return "";
+    }
+
+    if (lesson.dayId === "day03") {
+      return renderDay03ResearchComplete(lesson);
     }
 
     return `
@@ -6980,6 +8794,11 @@
     }
 
     elements.standardDay.hidden = false;
+    if (lesson.dayId === "day03") {
+      elements.standardDay.innerHTML = renderDay03SourceLesson(lesson);
+      return;
+    }
+
     elements.standardDay.innerHTML = `
       ${
         lesson.dayType === "reload"
@@ -6993,8 +8812,8 @@
         .map((block, index) => renderLessonBlock(block, lesson, index, currentDay))
         .join("")}
       ${lesson.dayId === "day02" ? renderDay02FreeChange(lesson) : ""}
-      ${lesson.dayId === "day02" ? renderDay02MakeCodeEvidence(lesson) : ""}
-      ${lesson.dayId === "day02" ? renderDay02VideoEvidence(lesson) : ""}
+      ${lesson.makeCodeEvidence ? renderDay02MakeCodeEvidence(lesson) : ""}
+      ${lesson.videoEvidence ? renderDay02VideoEvidence(lesson) : ""}
       ${renderResearchEvidence(lesson)}
       ${renderTodayQuiz(lesson)}
       ${renderResearchRecord(lesson)}
@@ -8803,7 +10622,7 @@
     }
 
     const item = value.closest("li");
-    const mark = item ? item.querySelector("span") : null;
+    const mark = item ? item.querySelector('span[aria-hidden="true"]') : null;
 
     value.textContent = text;
 
@@ -9080,9 +10899,272 @@
     syncDay02RecordUi();
   }
 
+  function syncDay03InputValue(selector, value) {
+    const inputs = elements.standardDay.querySelectorAll(selector);
+
+    inputs.forEach((input) => {
+      if (input.value !== value) {
+        input.value = value || "";
+      }
+    });
+  }
+
+  function syncDay03ChoiceButtons() {
+    elements.standardDay.querySelectorAll("[data-day03-state-field]").forEach((button) => {
+      const field = button.dataset.day03StateField;
+      const selected = activeDayState[field] === button.dataset.day03StateValue;
+
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+
+    elements.standardDay.querySelectorAll("[data-day03-test-result]").forEach((button) => {
+      const testKey = button.dataset.day03TestResult;
+      const selected =
+        activeDayState.day03TestResults &&
+        activeDayState.day03TestResults[testKey] === button.dataset.day03TestValue;
+
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+
+    elements.standardDay.querySelectorAll("[data-day03-change-made]").forEach((button) => {
+      const selected = activeDayState.changeMade === button.dataset.day03ChangeMade;
+
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+  }
+
+  function updateDay03RecordSummaryItem(id, isComplete, text) {
+    const value = elements.standardDay.querySelector(
+      `[data-day03-record-summary="${id}"]`
+    );
+
+    if (!value) {
+      return;
+    }
+
+    const item = value.closest("li");
+    const mark = item ? item.querySelector('span[aria-hidden="true"]') : null;
+
+    value.textContent = text;
+
+    if (item) {
+      item.classList.toggle("is-complete", Boolean(isComplete));
+    }
+
+    if (mark) {
+      mark.textContent = isComplete ? "✓" : "□";
+    }
+  }
+
+  function syncDay03RecordUi() {
+    const testResults = activeDayState.day03TestResults || createDefaultDay03TestResults();
+
+    updateDay03RecordSummaryItem(
+      "dark",
+      Boolean(activeDayState.externalLightDarkValue),
+      activeDayState.externalLightDarkValue || "_____"
+    );
+    updateDay03RecordSummaryItem(
+      "bright",
+      Boolean(activeDayState.externalLightBrightValue),
+      activeDayState.externalLightBrightValue || "_____"
+    );
+    updateDay03RecordSummaryItem(
+      "threshold",
+      isDay03ThresholdSaved(activeDayState),
+      activeDayState.day03ThresholdValue || "_____"
+    );
+    updateDay03RecordSummaryItem(
+      "direction",
+      isDay03ConditionDirectionSaved(activeDayState),
+      activeDayState.lightDirection || "아직 선택 없음"
+    );
+    updateDay03RecordSummaryItem(
+      "angles",
+      hasDay03ServoAngles(activeDayState),
+      `${activeDayState.servoAngleOne || "?"}도 / ${activeDayState.servoAngleTwo || "?"}도`
+    );
+    updateDay03RecordSummaryItem(
+      "angleOne",
+      Boolean(activeDayState.servoAngleOne),
+      activeDayState.servoAngleOne || "_____"
+    );
+    updateDay03RecordSummaryItem(
+      "angleTwo",
+      Boolean(activeDayState.servoAngleTwo),
+      activeDayState.servoAngleTwo || "_____"
+    );
+    updateDay03RecordSummaryItem(
+      "tests",
+      Boolean(testResults.dark && testResults.bright),
+      getDay03TestSummary(activeDayState)
+    );
+    updateDay03RecordSummaryItem(
+      "minimum",
+      Boolean(activeDayState.conditionTestPassed),
+      activeDayState.conditionTestPassed ? "기록 완료" : "확인 전"
+    );
+    updateDay03RecordSummaryItem(
+      "change",
+      Boolean(getDay03ChangeMadeText(activeDayState)),
+      getDay03ChangeMadeText(activeDayState) || "아직 선택 없음"
+    );
+    updateDay03RecordSummaryItem(
+      "video",
+      hasPersistentVideoReference(activeDayState),
+      getDay02VideoRecordText(activeDayState)
+    );
+
+    elements.standardDay.querySelectorAll("[data-day03-record-field]").forEach((input) => {
+      const fieldKey = input.dataset.day03RecordField;
+      const value =
+        activeDayState.recordValues && activeDayState.recordValues[fieldKey]
+          ? activeDayState.recordValues[fieldKey]
+          : "";
+
+      if (input.value !== value) {
+        input.value = value;
+      }
+    });
+  }
+
+  function syncDay03CompleteUi() {
+    const title = elements.standardDay.querySelector("[data-day03-complete-title]");
+    const body = elements.standardDay.querySelector("[data-day03-complete-body]");
+    const gained = elements.standardDay.querySelector("[data-day03-complete-gained]");
+    const summary = elements.standardDay.querySelector("[data-day03-complete-summary]");
+    const nextResearch = elements.standardDay.querySelector("[data-day03-next-research]");
+
+    if (!title || !body) {
+      return;
+    }
+
+    title.textContent = getDay03CompletionTitle(activeDayState);
+    body.innerHTML = renderDay03CompletionBody(activeDayState);
+
+    if (gained) gained.hidden = !activeDayState.dayCompleted;
+    if (summary) summary.hidden = !activeDayState.dayCompleted;
+    if (nextResearch) nextResearch.hidden = !activeDayState.dayCompleted;
+  }
+
+  function syncDay03UiFromState() {
+    if (!isDay03Active() || !elements.standardDay) {
+      return;
+    }
+
+    updateDay03Progress(activeDayState);
+
+    [
+      "externalLightDarkValue",
+      "externalLightBrightValue",
+      "day03ThresholdValue",
+      "servoAngleOne",
+      "servoAngleTwo",
+    ].forEach((fieldKey) => {
+      syncDay03InputValue(
+        `[data-day03-number-field="${fieldKey}"]`,
+        activeDayState[fieldKey] || ""
+      );
+    });
+
+    DAY03_POSITION_FIELD_KEYS.forEach((fieldKey) => {
+      syncDay03InputValue(
+        `[data-day03-position-field="${fieldKey}"]`,
+        activeDayState[fieldKey] || ""
+      );
+    });
+
+    const servoButton = elements.standardDay.querySelector("[data-day03-servo-test]");
+    const servoStatus = elements.standardDay.querySelector("[data-day03-servo-test-status]");
+
+    if (servoButton) {
+      servoButton.textContent = activeDayState.servoAngleTested
+        ? "프로그램의 숫자가 실제 움직임으로 바뀌었습니다!"
+        : "시험해 보기";
+      servoButton.disabled = Boolean(activeDayState.servoAngleTested);
+      servoButton.classList.toggle("primary-link", !activeDayState.servoAngleTested);
+      servoButton.classList.toggle("secondary-button", Boolean(activeDayState.servoAngleTested));
+    }
+
+    if (servoStatus) {
+      servoStatus.hidden = !activeDayState.servoAngleTested;
+    }
+
+    const conditionButton = elements.standardDay.querySelector(
+      "[data-day03-condition-test-complete]"
+    );
+    const conditionStatus = elements.standardDay.querySelector("[data-day03-condition-test-status]");
+
+    if (conditionButton) {
+      conditionButton.textContent = activeDayState.conditionTestPassed
+        ? "✓ P1 조건 변화로 P2 위치 변화 기록"
+        : "P1 조건 변화로 P2 위치가 달라졌어요";
+      conditionButton.disabled = Boolean(activeDayState.conditionTestPassed);
+      conditionButton.classList.toggle("primary-link", !activeDayState.conditionTestPassed);
+      conditionButton.classList.toggle("secondary-button", Boolean(activeDayState.conditionTestPassed));
+    }
+
+    if (conditionStatus) {
+      conditionStatus.hidden = !activeDayState.conditionTestPassed;
+    }
+
+    const otherField = elements.standardDay.querySelector(".day03-change-other");
+    const otherInput = elements.standardDay.querySelector("[data-day03-change-other]");
+    const isOther = activeDayState.changeMade === "기타";
+
+    if (otherField) {
+      otherField.hidden = !isOther;
+    }
+
+    if (otherInput) {
+      otherInput.disabled = !isOther;
+      if (otherInput.value !== activeDayState.changeMadeOther) {
+        otherInput.value = activeDayState.changeMadeOther || "";
+      }
+    }
+
+    const makeCodeInput = elements.standardDay.querySelector("[data-makecode-url]");
+    const makeCodeFeedback = elements.standardDay.querySelector("[data-makecode-feedback]");
+    const makeCodeOpen = elements.standardDay.querySelector("[data-makecode-open]");
+    const lesson = activeDay ? getLessonForDay(activeDay) : null;
+    const makeCodeSuccess =
+      lesson && lesson.makeCodeEvidence && lesson.makeCodeEvidence.successFeedback
+        ? lesson.makeCodeEvidence.successFeedback
+        : "MakeCode 작품 링크 저장 완료 ✓";
+
+    if (makeCodeInput && makeCodeInput.value !== activeDayState.makeCodeShareUrl) {
+      makeCodeInput.value = activeDayState.makeCodeShareUrl || "";
+    }
+
+    if (makeCodeFeedback) {
+      makeCodeFeedback.textContent = activeDayState.makeCodeShareUrl ? makeCodeSuccess : "";
+      makeCodeFeedback.classList.add("inline-feedback--correct");
+      makeCodeFeedback.hidden = !activeDayState.makeCodeShareUrl;
+    }
+
+    if (makeCodeOpen) {
+      makeCodeOpen.href = activeDayState.makeCodeShareUrl || "#";
+      makeCodeOpen.hidden = !activeDayState.makeCodeShareUrl;
+    }
+
+    syncDay03ChoiceButtons();
+    syncQuizChoiceUiFromState();
+    syncVideoControlsFromState();
+    syncDay03RecordUi();
+    syncDay03CompleteUi();
+  }
+
   function syncActiveLessonUiFromState() {
     if (isDay02Active()) {
       syncDay02UiFromState();
+      return;
+    }
+
+    if (isDay03Active()) {
+      syncDay03UiFromState();
       return;
     }
 
@@ -9392,6 +11474,97 @@
     }
   }
 
+  function updateDay03StateChoice(field, value) {
+    const normalizedValue = String(value || "").trim();
+
+    updateDay01State((state) => {
+      if (field === "lightDirection") {
+        const next = normalizeDay02ChoiceValue(
+          normalizedValue,
+          DAY03_LIGHT_DIRECTION_OPTIONS
+        );
+        state.lightDirection = state.lightDirection === next ? "" : next;
+      }
+    });
+  }
+
+  function updateDay03TestResult(testKey, value) {
+    updateDay01State((state) => {
+      const current = state.day03TestResults || createDefaultDay03TestResults();
+      const normalized = normalizeDay03TestResults(
+        Object.assign({}, current, {
+          [testKey]: value,
+        })
+      );
+
+      normalized[testKey] = current[testKey] === normalized[testKey] ? "" : normalized[testKey];
+      state.day03TestResults = normalized;
+
+      if (testKey === "summary") {
+        state.conditionTestPassed = isDay03MovementConfirmed(state);
+      }
+    });
+  }
+
+  function handleDay03Click(event) {
+    if (!isDay03Active()) {
+      return;
+    }
+
+    if (event.target.closest("[data-day03-servo-test]")) {
+      updateDay01State(
+        (state) => {
+          state.servoAngleTested = true;
+        },
+        "서보 각도 시험 저장 중..."
+      );
+      return;
+    }
+
+    if (event.target.closest("[data-day03-condition-test-complete]")) {
+      updateDay01State(
+        (state) => {
+          state.conditionTestPassed = true;
+        },
+        "P1 조건 변화 기록 저장 중..."
+      );
+      return;
+    }
+
+    const day03StateButton = event.target.closest("[data-day03-state-field]");
+
+    if (day03StateButton) {
+      updateDay03StateChoice(
+        day03StateButton.dataset.day03StateField,
+        day03StateButton.dataset.day03StateValue
+      );
+      return;
+    }
+
+    const day03TestButton = event.target.closest("[data-day03-test-result]");
+
+    if (day03TestButton) {
+      updateDay03TestResult(
+        day03TestButton.dataset.day03TestResult,
+        day03TestButton.dataset.day03TestValue
+      );
+      return;
+    }
+
+    const day03ChangeButton = event.target.closest("[data-day03-change-made]");
+
+    if (day03ChangeButton) {
+      updateDay01State((state) => {
+        const nextChange = day03ChangeButton.dataset.day03ChangeMade;
+        state.changeMade = state.changeMade === nextChange ? "" : nextChange;
+
+        if (state.changeMade !== "기타") {
+          state.changeMadeOther = "";
+        }
+      });
+    }
+  }
+
   function handleDay01Click(event) {
     if (!isPersistedLessonActive()) {
       return;
@@ -9655,6 +11828,65 @@
     if (event.target.closest("[data-day02-change-other]") && isDay02Active()) {
       updateDay01State((state) => {
         state.changeMadeOther = String(event.target.value || "").trim().slice(0, 80);
+      });
+      return;
+    }
+
+    if (event.target.closest("[data-day03-number-field]") && isDay03Active()) {
+      const fieldKey = event.target.dataset.day03NumberField;
+      const rawValue = String(event.target.value || "").trim().slice(0, 12);
+      const servoFields = new Set(["servoAngleOne", "servoAngleTwo"]);
+      const analogFields = new Set([
+        "externalLightDarkValue",
+        "externalLightBrightValue",
+        "day03ThresholdValue",
+      ]);
+
+      updateDay01State((state) => {
+        if (servoFields.has(fieldKey)) {
+          state[fieldKey] = normalizeDay03ServoAngle(rawValue);
+        }
+
+        if (analogFields.has(fieldKey)) {
+          state[fieldKey] = normalizeDay03AnalogValue(rawValue);
+        }
+      });
+      return;
+    }
+
+    if (event.target.closest("[data-day03-position-field]") && isDay03Active()) {
+      const fieldKey = event.target.dataset.day03PositionField;
+
+      updateDay01State((state) => {
+        if (DAY03_POSITION_FIELD_KEYS.has(fieldKey)) {
+          state[fieldKey] = String(event.target.value || "").trim().slice(0, 40);
+        }
+      });
+      return;
+    }
+
+    if (event.target.closest("[data-day03-change-other]") && isDay03Active()) {
+      updateDay01State((state) => {
+        state.changeMadeOther = String(event.target.value || "").trim().slice(0, 80);
+      });
+      return;
+    }
+
+    if (event.target.closest("[data-day03-record-field]") && isDay03Active()) {
+      const fieldKey = event.target.dataset.day03RecordField;
+
+      updateDay01State((state) => {
+        if (!state.recordValues) {
+          state.recordValues = {};
+        }
+
+        if (fieldKey === "day03Finding") {
+          state.recordValues[fieldKey] = String(event.target.value || "").trim().slice(0, 180);
+        }
+
+        if (fieldKey === "day03NextUse") {
+          state.recordValues[fieldKey] = String(event.target.value || "").trim().slice(0, 120);
+        }
       });
       return;
     }
@@ -9928,6 +12160,7 @@
     elements.standardDay.addEventListener("click", handleChoiceClick);
     elements.standardDay.addEventListener("click", handleProjectReloadReveal);
     elements.standardDay.addEventListener("click", handleDay02Click);
+    elements.standardDay.addEventListener("click", handleDay03Click);
     elements.standardDay.addEventListener("click", handleDay01Click);
     elements.standardDay.addEventListener("input", handleStandardInput);
     elements.standardDay.addEventListener("input", handleDay01Input);
