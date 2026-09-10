@@ -2649,7 +2649,7 @@
         date: getConfiguredDayDate(currentDay),
         blockProgress: getDay04BlockProgress(state),
         role: "",
-        activities: "Teachable Machine 손바닥·주먹 분류 실험",
+        activities: ["Teachable Machine 손바닥·주먹 분류 실험"],
         todayDecision: state.day04FinalJudgment || "",
         discovery: "AI는 보여 준 예시에서 특징을 찾고, 결과는 사람이 확인해야 합니다.",
         difficulty: hasConfusion
