@@ -2068,6 +2068,57 @@
           "선택한 아이디어를 입력 → 조건 → 출력 구조로 설계합니다.",
       },
     },
+    day04: {
+      dayId: "day04",
+      dayType: "standard",
+      todayResearch: {
+        title: "AI는 어떻게 배우는가",
+        coreStatement: "AI는 예시를 보고 배울 수 있습니다.",
+      },
+      lessonBlocks: [{ blockId: "ai-answer", shortTitle: "AI 답 확인하기" }],
+      quiz: {
+        title: "오늘의 퀴즈",
+        description: "오늘 연구에서 확인한 생각을 다시 살펴봅니다.",
+        questions: [
+          {
+            id: "day04-varied-examples",
+            prompt: "AI가 손바닥과 주먹을 더 잘 구분하도록 하려면 어떤 방법이 좋을까요?",
+            choices: [
+              { text: "다양한 각도와 거리의 예시를 보여 준다.", correct: true },
+              { text: "같은 모습 하나만 계속 보여 준다.", correct: false },
+              { text: "한 번만 보여 주고 바로 시험한다.", correct: false },
+            ],
+            explanation: "다양한 각도와 거리의 예시를 보여 주면 새로운 상황에서도 시험할 수 있습니다.",
+          },
+          {
+            id: "day04-retrain",
+            prompt: "AI가 새로운 각도의 손바닥을 잘못 구분했습니다. 가장 좋은 연구 방법은 무엇일까요?",
+            choices: [
+              { text: "AI 사용을 그만둔다.", correct: false },
+              { text: "어떤 상황에서 틀렸는지 확인하고 필요한 예시를 더 보여 준다.", correct: true },
+              { text: "틀린 결과를 없었던 것으로 한다.", correct: false },
+            ],
+            explanation: "틀린 상황을 확인하고 필요한 예시를 더 보여 준 뒤 다시 시험할 수 있습니다.",
+          },
+          {
+            id: "day04-generative-check",
+            prompt: "생성형 AI가 좋은 아이디어처럼 보이는 답을 만들었습니다. 다음에는 무엇을 해야 할까요?",
+            choices: [
+              { text: "바로 그대로 사용한다.", correct: false },
+              { text: "실제 상황과 목적에 맞는지 확인한다.", correct: true },
+              { text: "가장 긴 답을 고른다.", correct: false },
+            ],
+            explanation: "그럴듯한 답이라도 실제 상황과 목적에 맞는지 사람이 확인해야 합니다.",
+          },
+        ],
+      },
+      complete: {
+        title: "연구 완료",
+        gained: "AI는 예시를 보고 배울 수 있지만, 결과가 실제 상황에 맞는지는 사람이 다시 확인해야 합니다.",
+        nextTitle: "불편 발견하기",
+        nextSummary: "다음 연구에서는 우리가 직접 생활 속 불편을 찾아보고, 누구의 어떤 문제를 해결할지 정합니다.",
+      },
+    },
   };
 
   window.RESEARCH_DAYS = RESEARCH_DAYS;

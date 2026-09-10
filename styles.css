@@ -11,6 +11,75 @@
   --font-main: Pretendard, "Noto Sans KR", "Malgun Gothic", sans-serif;
 }
 
+.day04-lesson {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.day04-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin: 0 0 1.5rem;
+  color: var(--muted-text, #667085);
+  font-size: 0.9rem;
+}
+
+.day04-progress span.is-current {
+  color: var(--accent, #246bce);
+  font-weight: 700;
+}
+
+.day04-section,
+.day04-record,
+.day04-final,
+.day04-complete {
+  scroll-margin-top: 5rem;
+}
+
+.day04-section h3,
+.day04-record h3,
+.day04-final h3 {
+  margin-top: 2rem;
+}
+
+.day04-image {
+  display: block;
+  width: min(100%, 760px);
+  height: auto;
+  margin: 1.2rem auto;
+  border-radius: 0.75rem;
+}
+
+.day04-record-form {
+  margin-top: 1.25rem;
+}
+
+.day04-record-form textarea {
+  min-height: 6rem;
+  width: 100%;
+  resize: vertical;
+}
+
+.day04-section blockquote {
+  margin: 1.25rem 0;
+}
+
+@media (max-width: 720px) {
+  .day04-progress {
+    font-size: 0.82rem;
+  }
+
+  .day04-progress > span[aria-hidden="true"] {
+    display: none;
+  }
+
+  .day04-image {
+    border-radius: 0.5rem;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -3041,4 +3110,57 @@ select:focus-visible,
   .research-summary-list strong {
     grid-column: 2;
   }
+}
+
+.day04-progress__title,
+.day04-step-label {
+  color: var(--color-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.day04-progress__title {
+  width: 100%;
+  color: var(--color-text);
+}
+
+.day04-branch-question,
+.day04-ai-request,
+.day04-ai-check,
+.day04-reality-check,
+.day04-example-answer {
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-accent-soft);
+  padding: 1rem 1.2rem;
+}
+
+.day04-ai-answers {
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+  padding: 1.2rem 0;
+}
+
+.day04-ai-answers article {
+  position: relative;
+  margin-top: 1rem;
+  padding-left: 2.4rem;
+}
+
+.day04-answer-badge {
+  position: absolute;
+  left: 0;
+  top: 0.2rem;
+  display: inline-grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: 50%;
+  background: var(--color-field);
+  font-weight: 700;
+}
+
+.day04-example-answer {
+  margin: 1rem 0;
 }

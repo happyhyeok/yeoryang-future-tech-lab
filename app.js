@@ -35,7 +35,7 @@
     workId: "currentWorkId",
   };
   const E2E_TEST_STUDENT_ID = "test01";
-  const PERSISTED_LESSON_DAY_IDS = new Set(["day01", "day02", "day03"]);
+  const PERSISTED_LESSON_DAY_IDS = new Set(["day01", "day02", "day03", "day04"]);
   const DAY01_RECORDING_SECONDS = 10;
   const DAY02_RECORDING_SECONDS = 30;
   const DAY01_MAX_RECORDING_SECONDS = 15;
@@ -103,6 +103,15 @@
     "day03BrightExpectedPosition",
     "day03BrightActualPosition",
   ]);
+  const DAY04_CONFUSION_OPTIONS = ["yes", "no"];
+  const DAY04_HARDEST_TEST_OPTIONS = [
+    "거리를 바꾸어 보았다.",
+    "각도를 바꾸어 보았다.",
+    "배경을 바꾸어 보았다.",
+    "손의 일부를 가려 보았다.",
+  ];
+  const DAY04_FINAL_CORRECT_VALUE =
+    "AI가 그럴듯한 결과를 만들어도 실제 상황과 목적에 맞지 않을 수 있기 때문이다.";
 
   let activeDay = null;
   let activeDayState = null;
@@ -799,7 +808,13 @@
       recordValues: {
         favoriteTool: "",
         nextSensor: "",
+        day04ConfusedSituation: "",
+        day04MoreExamples: "",
       },
+      day04RetestResult: "",
+      day04FinalJudgment: "",
+      day04ConfusionObserved: "",
+      day04HardestTestCondition: "",
       thresholdValue: "",
       lightObservationValues: createDefaultDay02LightObservationValues(),
       lightPrediction: "",
@@ -978,6 +993,33 @@
       state.recordValues.day03NextUse = String(
         state.recordValues.day03NextUse || ""
       ).trim().slice(0, 120);
+    }
+    if (currentDay.dayId === "day04") {
+      const hasLegacyConfusionRecord = Boolean(
+        String(state.recordValues.day04ConfusedSituation || "").trim() ||
+          String(state.recordValues.day04MoreExamples || "").trim() ||
+          String(state.day04RetestResult || "").trim()
+      );
+      state.day04ConfusionObserved = DAY04_CONFUSION_OPTIONS.includes(
+        state.day04ConfusionObserved
+      )
+        ? state.day04ConfusionObserved
+        : hasLegacyConfusionRecord
+        ? "yes"
+        : "";
+      state.recordValues.day04ConfusedSituation = String(
+        state.recordValues.day04ConfusedSituation || ""
+      ).trim().slice(0, 180);
+      state.recordValues.day04MoreExamples = String(
+        state.recordValues.day04MoreExamples || ""
+      ).trim().slice(0, 180);
+      state.day04RetestResult = String(state.day04RetestResult || "").trim().slice(0, 40);
+      state.day04FinalJudgment = String(state.day04FinalJudgment || "").trim().slice(0, 180);
+      state.day04HardestTestCondition = DAY04_HARDEST_TEST_OPTIONS.includes(
+        state.day04HardestTestCondition
+      )
+        ? state.day04HardestTestCondition
+        : "";
     }
     state.supersededVideoEvidence = Array.isArray(state.supersededVideoEvidence)
       ? state.supersededVideoEvidence
@@ -1388,6 +1430,10 @@
     return activeDay && activeDay.dayId === "day03" && activeDayState;
   }
 
+  function isDay04Active() {
+    return activeDay && activeDay.dayId === "day04" && activeDayState;
+  }
+
   function addUnlockedTools(state, tools) {
     state.unlockedTools = uniqueItems([...(state.unlockedTools || []), ...(tools || [])]);
   }
@@ -1448,16 +1494,38 @@
     pendingCameraContext = null;
   }
 
-  function isDay01QuizAnswerComplete(question, answer) {
+  function isQuizAnswerCorrect(question, answer) {
     if (!question || answer === undefined || answer === null) {
       return false;
     }
 
     if (question.type === "matching") {
-      return question.pairs.every((pair) => Boolean(answer[pair.id]));
+      return Boolean(
+        answer &&
+          typeof answer === "object" &&
+          Array.isArray(question.pairs) &&
+          question.pairs.length > 0 &&
+          question.pairs.every((pair) => answer[pair.id] === pair.answer)
+      );
     }
 
-    return String(answer).trim().length > 0;
+    if (Array.isArray(question.choices)) {
+      const selectedChoice = question.choices.find(
+        (choice) => (choice.value || choice.text) === answer
+      );
+
+      return Boolean(selectedChoice && selectedChoice.correct === true);
+    }
+
+    if (isDevelopmentMode()) {
+      console.warn("Quiz question has no supported answer key:", question.id || question.prompt);
+    }
+
+    return false;
+  }
+
+  function isDay01QuizAnswerComplete(question, answer) {
+    return isQuizAnswerCorrect(question, answer);
   }
 
   function isDay01QuizCompleted(state, lesson) {
@@ -2146,6 +2214,45 @@
       : "in_progress";
   }
 
+  function updateDay04Progress(state) {
+    const lesson = activeDay ? getLessonForDay(activeDay) : null;
+    const record = state.recordValues || {};
+    const quizCompleted = isDay01QuizCompleted(state, lesson);
+    const confusionObserved = state.day04ConfusionObserved;
+    const confusionPathCompleted = Boolean(
+      confusionObserved === "yes" &&
+        String(record.day04ConfusedSituation || "").trim() &&
+        String(record.day04MoreExamples || "").trim() &&
+        String(state.day04RetestResult || "").trim()
+    );
+    const noConfusionPathCompleted = Boolean(
+      confusionObserved === "no" && String(state.day04HardestTestCondition || "").trim()
+    );
+    const branchCompleted = confusionPathCompleted || noConfusionPathCompleted;
+    const recordCompleted = Boolean(
+      branchCompleted
+    );
+    const finalJudgmentCompleted = state.day04FinalJudgment === DAY04_FINAL_CORRECT_VALUE;
+
+    state.lessonProgress = {
+      researchStarted: true,
+      block01Completed: Boolean(confusionObserved),
+      block02Completed: branchCompleted,
+      block03Completed: branchCompleted,
+      quizCompleted,
+      recordCompleted,
+      finalJudgmentCompleted,
+    };
+    state.minimumCompleted = Boolean(recordCompleted);
+    state.basicCompleted = Boolean(recordCompleted && quizCompleted && finalJudgmentCompleted);
+    state.dayCompleted = state.basicCompleted;
+    state.completionLevel = state.basicCompleted
+      ? "basic"
+      : state.minimumCompleted
+      ? "minimum"
+      : "in_progress";
+  }
+
   function updateDayProgress(state, currentDay = activeDay) {
     if (!state) {
       return;
@@ -2163,6 +2270,11 @@
       return;
     }
 
+    if (dayId === "day04") {
+      updateDay04Progress(state);
+      return;
+    }
+
     updateDay01Progress(state);
   }
 
@@ -2173,6 +2285,10 @@
 
     if (currentDay && currentDay.dayId === "day03") {
       return getDay03BlockProgress(state);
+    }
+
+    if (currentDay && currentDay.dayId === "day04") {
+      return getDay04BlockProgress(state);
     }
 
     return getDay01BlockProgress(state);
@@ -2319,18 +2435,7 @@
   }
 
   function isQuestionAnswerCorrect(question, answer) {
-    if (!isDay01QuizAnswerComplete(question, answer)) {
-      return false;
-    }
-
-    if (question.type === "matching") {
-      return question.pairs.every((pair) => answer[pair.id] === pair.answer);
-    }
-
-    const choices = question.choices || [];
-    const selectedChoice = choices.find((choice) => (choice.value || choice.text) === answer);
-
-    return Boolean(selectedChoice && selectedChoice.correct);
+    return isQuizAnswerCorrect(question, answer);
   }
 
   function getDay01QuizScore(state, lesson) {
@@ -2510,6 +2615,22 @@
     };
   }
 
+  function getDay04BlockProgress(state) {
+    const progress = state.lessonProgress || {};
+
+    return {
+      research: getProgressValue(Boolean(progress.block01Completed), true),
+      test: getProgressValue(Boolean(progress.block02Completed), true),
+      retest: getProgressValue(Boolean(progress.block03Completed), true),
+      quiz: getProgressValue(Boolean(progress.quizCompleted), hasAnyValue(state.quizAnswers)),
+      record: getProgressValue(Boolean(progress.recordCompleted), hasAnyValue(state.recordValues)),
+      finalJudgment: getProgressValue(
+        Boolean(progress.finalJudgmentCompleted),
+        Boolean(state.day04FinalJudgment)
+      ),
+    };
+  }
+
   function createDayRecordPayload(student, currentDay, state) {
     if (currentDay.dayId === "day02") {
       return createDay02RecordPayload(student, currentDay, state);
@@ -2517,6 +2638,34 @@
 
     if (currentDay.dayId === "day03") {
       return createDay03RecordPayload(student, currentDay, state);
+    }
+
+    if (currentDay.dayId === "day04") {
+      const hasConfusion = state.day04ConfusionObserved === "yes";
+      return {
+        studentId: student.studentId,
+        workId: student.workId,
+        dayId: currentDay.dayId,
+        date: getConfiguredDayDate(currentDay),
+        blockProgress: getDay04BlockProgress(state),
+        role: "",
+        activities: "Teachable Machine 손바닥·주먹 분류 실험",
+        todayDecision: state.day04FinalJudgment || "",
+        discovery: "AI는 보여 준 예시에서 특징을 찾고, 결과는 사람이 확인해야 합니다.",
+        difficulty: hasConfusion
+          ? state.recordValues.day04ConfusedSituation || ""
+          : state.day04HardestTestCondition || "",
+        changeMade: hasConfusion ? state.recordValues.day04MoreExamples || "" : "",
+        changeReason: hasConfusion ? state.day04RetestResult || "" : "",
+        nextAction: "다음 연구에서는 생활 속 불편을 직접 관찰해 문제를 정합니다.",
+        personalEvidenceRefs: [],
+        commonEvidenceRefs: [],
+        minimumCompleted: Boolean(state.minimumCompleted),
+        completionLevel: state.completionLevel,
+        status: state.dayCompleted ? "completed" : "in_progress",
+        studentReflection: state.day04FinalJudgment || "",
+        dayState: cloneJsonValue(state, {}),
+      };
     }
 
     return createDay01RecordPayload(student, currentDay, state);
@@ -3727,9 +3876,9 @@
           .map(
             (choice) => `
               <button
-                class="choice-button"
+                class="choice-button${options.selectedValue === (choice.value || choice.text) ? " is-selected" : ""}"
                 type="button"
-                aria-pressed="false"
+                aria-pressed="${options.selectedValue === (choice.value || choice.text) ? "true" : "false"}"
                 data-choice-button
                 data-correct="${choice.correct ? "true" : "false"}"
                 data-choice-value="${escapeHtml(choice.value || choice.text)}"
@@ -8049,6 +8198,10 @@
             question.id
               ? {
                   quizId: question.id,
+                  selectedValue:
+                    activeDayState && activeDayState.quizAnswers
+                      ? activeDayState.quizAnswers[question.id]
+                      : "",
                 }
               : {}
           )}
@@ -8776,6 +8929,196 @@
     `;
   }
 
+  function renderDay04Image(fileName, alt) {
+    return `<img class="day04-image" src="assets/day04/${escapeHtml(fileName)}" alt="${escapeHtml(alt)}" loading="lazy">`;
+  }
+
+  function renderDay04TestSection(state) {
+    const record = state.recordValues || {};
+    const hasConfusion = state.day04ConfusionObserved === "yes";
+    const hasNoConfusion = state.day04ConfusionObserved === "no";
+
+    return `
+      <section class="lesson-section day04-section" id="ai-test" data-section="aiTest">
+        <p class="section-kicker">두 번째 연구</p>
+        <h2 class="section-title">AI를 조금 더 어렵게 시험해 봅시다</h2>
+        <p>이번에는 같은 손동작을 사용하면서 <strong>한 번에 한 가지 조건만</strong> 바꾸어 시험합니다.</p>
+        ${renderDay04Image("day04-test-change-condition.png", "한 번에 한 가지 조건만 바꾸어 AI를 시험하는 안내")}
+        <ul><li>거리를 바꾸기</li><li>각도를 바꾸기</li><li>배경을 바꾸기</li><li>일부를 가리기</li></ul>
+        <p>AI가 항상 잘 구분하는지 확인해 보세요.</p>
+        <div class="plain-group day04-branch-question">
+          <h3>AI가 헷갈린 적이 있었나요?</h3>
+          <div class="choice-list compact-choice-list" data-day04-confusion-group>
+            <button class="choice-button${hasConfusion ? " is-selected" : ""}" type="button" aria-pressed="${hasConfusion ? "true" : "false"}" data-day04-confusion="yes">있었어요</button>
+            <button class="choice-button${hasNoConfusion ? " is-selected" : ""}" type="button" aria-pressed="${hasNoConfusion ? "true" : "false"}" data-day04-confusion="no">아직 없었어요</button>
+          </div>
+        </div>
+        ${
+          hasConfusion
+            ? `
+              <div class="day04-path day04-path--confusion">
+                <p class="day04-step-label">1. 헷갈린 상황 기록</p>
+                <label class="record-field"><span>AI가 헷갈렸던 상황은 무엇이었나요?</span><textarea data-day04-record="day04ConfusedSituation" maxlength="180" placeholder="예: 손을 옆으로 기울였을 때">${escapeHtml(record.day04ConfusedSituation || "")}</textarea></label>
+                <p class="day04-step-label">2. 생각하기</p>
+                <h3>어떤 예시를 더 보여 주면 좋을까요?</h3>
+                <p>AI가 헷갈린 상황과 비슷한 모습을 더 보여 주도록 생각해 봅니다.</p>
+                <p class="day04-step-label">3. 실제로 예시 추가</p>
+                <h3>예시를 더 추가해 봅시다</h3>
+                <p>티처블 머신으로 돌아가 필요한 예시를 실제로 추가합니다.</p>
+                <p class="day04-step-label">4. 추가한 뒤 기록</p>
+                <label class="record-field"><span>실제로 어떤 예시를 더 보여 주었나요?</span><textarea data-day04-record="day04MoreExamples" maxlength="180" placeholder="예: 옆으로 기울인 손바닥을 더 보여 주었다.">${escapeHtml(record.day04MoreExamples || "")}</textarea></label>
+                <p class="day04-step-label">5. 다시 학습하고 재시험</p>
+                <p>다시 <strong>모델 학습시키기</strong>를 누른 뒤, 처음에 AI가 헷갈렸던 바로 그 상황을 다시 시험해 보세요.</p>
+                <h3>재시험 결과</h3>
+                <div class="choice-list compact-choice-list" data-day04-retest-group>
+                  ${["더 잘 구분했다.", "비슷했다.", "여전히 헷갈렸다."].map((choice) => `<button class="choice-button${state.day04RetestResult === choice ? " is-selected" : ""}" type="button" aria-pressed="${state.day04RetestResult === choice ? "true" : "false"}" data-day04-retest="${escapeHtml(choice)}">${escapeHtml(choice)}</button>`).join("")}
+                </div>
+                <h3>두 번째 연구 정리</h3>
+                <p>헷갈린 상황 확인 → 필요한 예시 추가 → 다시 학습 → 다시 시험</p>
+              </div>
+            `
+            : hasNoConfusion
+            ? `
+              <div class="day04-path day04-path--no-confusion">
+                <p>이번에는 AI가 모두 잘 구분했군요. 없는 실패를 만들어 기록할 필요는 없습니다.</p>
+                <h3>가장 어렵게 시험해 본 조건은 무엇이었나요?</h3>
+                <div class="choice-list compact-choice-list" data-day04-hardest-group>
+                  ${DAY04_HARDEST_TEST_OPTIONS.map((choice) => `<button class="choice-button${state.day04HardestTestCondition === choice ? " is-selected" : ""}" type="button" aria-pressed="${state.day04HardestTestCondition === choice ? "true" : "false"}" data-day04-hardest="${escapeHtml(choice)}">${escapeHtml(choice)}</button>`).join("")}
+                </div>
+                <p>이번 시험에서는 AI가 잘 구분했습니다. 하지만 다른 거리, 각도, 배경에서도 항상 같은 결과가 나오는지는 계속 시험해 보아야 합니다.</p>
+                <h3>두 번째 연구 정리</h3>
+                <p>여러 조건으로 시험했지만 이번에는 잘 구분했습니다. 그래도 새로운 상황에서도 같은 결과가 나오는지 계속 확인해야 합니다.</p>
+              </div>
+            `
+            : `<p class="field-help">먼저 여러 조건으로 시험한 뒤, 결과에 맞는 경로를 선택하세요.</p>`
+        }
+      </section>
+    `;
+  }
+
+  function renderDay04Record(state) {
+    const record = state.recordValues || {};
+
+    if (state.day04ConfusionObserved === "yes") {
+      return `<ul class="completion-requirements"><li><strong>AI가 헷갈렸던 상황</strong> → ${escapeHtml(record.day04ConfusedSituation || "")}</li><li><strong>내가 더 보여 준 예시</strong> → ${escapeHtml(record.day04MoreExamples || "")}</li><li><strong>재시험 결과</strong> → ${escapeHtml(state.day04RetestResult || "")}</li></ul>`;
+    }
+
+    if (state.day04ConfusionObserved === "no") {
+      return `<ul class="completion-requirements"><li><strong>시험 결과</strong> → 이번 시험에서는 잘 구분함</li><li><strong>가장 어렵게 시험한 조건</strong> → ${escapeHtml(state.day04HardestTestCondition || "")}</li></ul>`;
+    }
+
+    return `<p class="field-help">시험 결과에 맞는 경로를 선택하면 연구기록이 여기에 모입니다.</p>`;
+  }
+
+  function renderDay04Lesson(lesson) {
+    const state = activeDayState || createDefaultDayState(activeDay || { dayId: "day04" });
+    updateDay04Progress(state);
+    const record = state.recordValues || {};
+    const finalChoices = [
+      { value: DAY04_FINAL_CORRECT_VALUE, text: DAY04_FINAL_CORRECT_VALUE, correct: true },
+      { value: "AI가 만든 결과는 항상 틀리기 때문이다.", text: "AI가 만든 결과는 항상 틀리기 때문이다.", correct: false },
+      { value: "AI가 답을 만들면 더 이상 시험할 필요가 없기 때문이다.", text: "AI가 답을 만들면 더 이상 시험할 필요가 없기 때문이다.", correct: false },
+    ];
+    const retestChoices = ["더 잘 구분했다.", "비슷했다.", "여전히 헷갈렸다."];
+
+    return `
+      <div class="day04-lesson">
+        <nav class="day04-progress" aria-label="오늘의 연구 순서">
+          <span class="day04-progress__title">오늘의 연구 순서</span>
+          ${["연구 이어보기", "AI 가르치기", "AI 시험하기", "AI 답 확인하기", "퀴즈"]
+            .map((item) => `<span>${escapeHtml(item)}</span>`)
+            .join('<span aria-hidden="true">→</span>')}
+        </nav>
+
+        <section class="lesson-section day04-section" id="research-bridge" data-section="researchBridge">
+          <p class="section-kicker">연구 이어보기</p>
+          <h2 class="section-title">연구 이어보기</h2>
+          <p>지난 연구에서는 사람이 <strong>기준값과 조건</strong>을 정하면 프로그램이 그 규칙대로 움직이는 모습을 살펴보았습니다.</p>
+          <p>조도센서가 밝기를 읽고 → 기준값과 비교하고 → 조건에 따라 서보모터가 움직였습니다.</p>
+          <p><strong>사람이 규칙을 정한다</strong><br>↓<br><strong>프로그램이 규칙대로 판단한다</strong></p>
+          <p>오늘은 사람이 규칙을 하나하나 적어 주는 대신, <strong>AI에게 여러 예시를 보여 주고 특징을 찾게 하는 방법</strong>을 직접 시험해 봅니다.</p>
+          <p>그리고 AI가 만든 결과를 <strong>그대로 믿어도 되는지</strong>도 함께 생각해 봅니다.</p>
+          ${renderDay04Image("day04-concept-rule-vs-ai.png", "사람이 규칙을 정하는 방법과 AI에게 예시를 보여 주는 방법 비교")}
+          <blockquote><strong>오늘의 질문</strong><br>AI는 어떻게 배우며, AI가 만든 결과는 그대로 믿어도 될까요?</blockquote>
+          <h3>잠깐 확인!</h3>
+          <p>지난 연구에서 서보모터가 움직이는 조건은 누가 정했나요?</p>
+          ${renderChoiceGroup({
+            choices: [
+              { text: "사람이 기준값과 조건을 정했다.", correct: true },
+              { text: "서보모터가 스스로 정했다.", correct: false },
+              { text: "조도센서가 마음대로 정했다.", correct: false },
+            ],
+            correctFeedback: "맞아요. 지난 연구에서는 사람이 기준값과 조건을 정했습니다.",
+            incorrectFeedback: "다시 생각해 보세요. 사람이 기준값과 조건을 정했습니다.",
+          })}
+        </section>
+
+        <section class="lesson-section day04-section" id="ai-teach" data-section="aiTeach">
+          <p class="section-kicker">첫 번째 연구</p>
+          <h2 class="section-title">AI를 직접 가르쳐 봅시다</h2>
+          <p>오늘은 <strong>티처블 머신(Teachable Machine)</strong>을 이용합니다.</p>
+          <p>티처블 머신은 여러 예시를 보여 주고, AI가 그 차이를 배우도록 시험해 볼 수 있는 도구입니다.</p>
+          <p>오늘은 모두 같은 두 종류를 사용합니다.</p>
+          <ul><li><strong>손바닥</strong></li><li><strong>주먹</strong></li></ul>
+          <p><a class="primary-link" href="https://teachablemachine.withgoogle.com/train/image" target="_blank" rel="noopener noreferrer">티처블 머신 열기 ↗</a></p>
+          <p class="field-help">이 연구 페이지는 닫지 마세요. 티처블 머신은 새 창에서 열고, 실험한 뒤 다시 이 페이지로 돌아옵니다.</p>
+          <h3>1. 손바닥과 주먹 준비하기</h3>
+          <p>티처블 머신 화면에는 두 개의 칸이 있습니다.</p><p>첫 번째 칸의 이름을 <strong>손바닥</strong>, 두 번째 칸의 이름을 <strong>주먹</strong>으로 바꿉니다.</p>
+          ${renderDay04Image("day04-tm-01-classes.png", "티처블 머신에서 두 클래스 이름을 손바닥과 주먹으로 바꾸는 화면")}
+          <p>얼굴은 화면에 나오지 않게 하고, <strong>손이 잘 보이도록</strong> 카메라를 맞춰 주세요.</p>
+          <h3>2. 웹캠 열기</h3><p>먼저 <strong>손바닥</strong> 칸의 웹캠 버튼을 누릅니다. 주먹을 모을 때도 같은 방법으로 웹캠 버튼을 누릅니다.</p>
+          ${renderDay04Image("day04-tm-02-webcam.png", "손바닥 클래스의 웹캠 버튼 위치")}
+          <h3>3. 여러 모습의 예시 모으기</h3><p>길게 눌러 녹화하기를 누른 채 손을 보여 주면 여러 장의 예시가 모입니다.</p>
+          ${renderDay04Image("day04-tm-03-record.png", "길게 눌러 녹화하기 버튼으로 손 예시를 모으는 화면")}
+          <p>한 가지 모습만 반복하지 말고 조금씩 다르게 보여 주세요.</p><ul><li>정면</li><li>약간 왼쪽</li><li>약간 오른쪽</li><li>조금 가까이</li><li>조금 멀리</li></ul>
+          <p>손바닥과 주먹 모두 여러 모습으로 예시를 모읍니다.</p>
+          ${renderDay04Image("day04-tm-04-samples.png", "여러 장의 손 예시 이미지가 모인 화면")}
+          <h3>4. AI 학습시키기</h3><p>손바닥과 주먹 예시를 충분히 모았다면 <strong>모델 학습시키기</strong>를 누릅니다.</p>
+          ${renderDay04Image("day04-tm-05-train.png", "모델 학습시키기 버튼 위치")}
+          <p>AI는 여러분이 보여 준 예시를 보고 손바닥과 주먹의 특징을 찾습니다.</p>
+          <h3>5. 미리보기에서 시험하기</h3><p>학습이 끝나면 오른쪽 <strong>미리보기</strong>에서 시험합니다.</p><p>손바닥을 보여 주고, 주먹도 보여 주세요. AI가 어떻게 판단하는지 확인합니다.</p>
+          ${renderDay04Image("day04-tm-06-preview.png", "미리보기에서 손바닥과 주먹을 시험하는 화면")}
+        </section>
+
+        ${renderDay04TestSection(state)}
+        <section class="lesson-section day04-section" id="ai-test-legacy" data-section="aiTest" hidden>
+          <p class="section-kicker">두 번째 연구</p><h2 class="section-title">AI를 조금 더 어렵게 시험해 봅시다</h2>
+          <p>이번에는 같은 손동작을 사용하면서 <strong>한 번에 한 가지 조건만</strong> 바꾸어 시험합니다.</p>
+          ${renderDay04Image("day04-test-change-condition.png", "한 번에 한 가지 조건만 바꾸어 AI를 시험하는 안내")}
+          <ul><li>거리를 바꾸기</li><li>각도를 바꾸기</li><li>배경을 바꾸기</li><li>일부를 가리기</li></ul>
+          <p>AI가 항상 잘 구분하는지 확인해 보세요.</p>
+          <div class="plain-group day04-record-form"><h3>연구기록 1</h3><label class="record-field"><span>AI가 헷갈렸던 상황은 무엇이었나요?</span><textarea data-day04-record="day04ConfusedSituation" maxlength="180" placeholder="예: 손을 옆으로 기울였을 때">${escapeHtml(record.day04ConfusedSituation || "")}</textarea></label></div>
+          <h3>왜 헷갈렸을까요?</h3><p>AI는 우리가 보여 준 예시를 보고 특징을 찾았습니다.</p><p>그런데 비슷한 모습만 많이 보여 주었다면 처음 보는 거리나 각도에서는 잘 구분하지 못할 수도 있습니다.</p><blockquote><strong>어떤 예시를 더 보여 주면 좋을까?</strong></blockquote>
+          <div class="plain-group day04-record-form"><h3>연구기록 2</h3><label class="record-field"><span>AI에게 어떤 예시를 더 보여 주었나요?</span><textarea data-day04-record="day04MoreExamples" maxlength="180" placeholder="예: 옆으로 기울인 손바닥을 더 보여 주었다.">${escapeHtml(record.day04MoreExamples || "")}</textarea></label></div>
+          <h3>다시 학습하고 재시험하기</h3><p>티처블 머신으로 돌아가 부족했던 예시를 더 추가합니다.</p><p>다시 <strong>모델 학습시키기</strong>를 누른 뒤, 처음에 AI가 헷갈렸던 바로 그 상황을 다시 시험해 보세요.</p>
+          <h3>재시험 결과</h3>
+          <div class="choice-list compact-choice-list" data-day04-retest-group>${retestChoices.map((choice) => `<button class="choice-button${state.day04RetestResult === choice ? " is-selected" : ""}" type="button" aria-pressed="${state.day04RetestResult === choice ? "true" : "false"}" data-day04-retest="${escapeHtml(choice)}">${escapeHtml(choice)}</button>`).join("")}<p class="inline-feedback" data-day04-retest-feedback hidden></p></div>
+          <h3>첫 번째 연구 정리</h3><blockquote><strong>AI는 사람이 보여 준 예시에서 특징을 찾습니다.</strong></blockquote><p>하지만 어떤 예시를 보여 주었는지에 따라 결과가 달라질 수 있습니다.</p><p>그래서 AI가 이상한 결과를 만들었다면 <strong>“어떤 예시가 부족했을까?”</strong>를 다시 확인할 수 있습니다.</p>
+        </section>
+
+        <section class="lesson-section day04-section" id="ai-answer" data-section="aiAnswer">
+          <p class="section-kicker">세 번째 연구</p><h2 class="section-title">AI의 말을 그대로 믿어도 될까요?</h2>
+          <p>방금 우리는 <strong>분류 AI의 결과도 직접 시험해 보고 확인해야 한다</strong>는 것을 알았습니다.</p><p>그렇다면 질문을 받고 답을 만들어 주는 <strong>생성형 AI</strong>는 어떨까요?</p><p>생성형 AI의 답도 <strong>그대로 사용하기 전에 사람이 다시 확인해야 합니다.</strong></p>
+          <div class="day04-ai-structured">
+            <div class="day04-ai-request"><p class="day04-step-label">① AI에게 한 부탁</p><blockquote>교실에서 불편한 일을 줄여 주는 미래기술 아이디어를 하나 알려줘.</blockquote></div>
+            <div class="day04-ai-answers"><p class="day04-step-label">② AI가 만든 답</p><article><span class="day04-answer-badge">A</span><h3>교실 소음 알림 장치</h3><p>교실이 너무 시끄러워지면 소리를 감지해서 알려 주는 장치입니다.</p></article><article><span class="day04-answer-badge">B</span><h3>자동 교실 정리 로봇</h3><p>교실의 물건을 찾아서 스스로 정리하는 로봇입니다.</p></article></div>
+            <div class="day04-ai-check"><p class="day04-step-label">③ 내가 확인하기</p><p class="day04-step-label">확인 질문</p><p><strong>두 답은 AI에게 부탁한 내용에 맞는 답일까요?</strong></p>${renderChoiceGroup({choices:[{text:"결과 A",correct:false},{text:"결과 B",correct:false},{text:"둘 다",correct:true},{text:"잘 모르겠어요",correct:false}],correctFeedback:"맞습니다. 두 답 모두 처음 부탁한 내용에는 맞아 보입니다.",incorrectFeedback:"처음 부탁에는 해결 방법이나 사용할 기술을 자세히 제한하지 않았습니다. A와 B가 모두 부탁한 내용에 맞는지 다시 살펴보세요."})}</div>
+          </div>
+          <div class="day04-reality-check"><p class="day04-step-label">④ 현실과 비교하기</p><h3>그런데 이것만으로 충분할까요?</h3><p><strong>우리 교실에 정말 그런 불편이 있나요?</strong></p><p>두 답 모두 AI에게 부탁한 내용에는 맞을 수 있습니다. 하지만 실제 문제인지, 누구의 불편인지, 정말 필요한지는 AI의 답만 보고 알 수 없습니다.</p><p><strong>부탁에 맞는 답</strong> ≠ <strong>현실에서 필요한 답</strong></p></div>
+          ${renderDay04Image("day04-generative-ai-check.png", "생성형 AI의 답을 실제 문제와 비교해 확인하는 안내")}
+          <ul><li><strong>실제 문제인가?</strong></li><li><strong>누구의 불편인가?</strong></li><li><strong>정말 필요한가?</strong></li></ul>
+          <h3>부탁을 더 자세히 하면 어떻게 될까요?</h3><p>처음 부탁은 꽤 넓었습니다.</p><blockquote>교실에서 불편한 일을 줄여 주는 미래기술 아이디어를 하나 알려줘.</blockquote><p>↓ 간단한 AI 답 예시</p><p>교실을 편리하게 만드는 여러 아이디어를 생각해 볼 수 있습니다.</p><p>이번에는 조건을 조금 더 자세히 알려 줍니다.</p><blockquote><strong>초등학생이 교실에서 겪는 실제 불편 한 가지를 해결하는 아이디어를 제안해 줘. 센서 입력 1개와 움직임 또는 빛 출력 1개를 사용할 수 있어야 하고, 왜 필요한지도 설명해 줘.</strong></blockquote><p>↓ 더 자세한 부탁에 대한 AI 답 예시</p><div class="day04-example-answer"><strong>교실 밝기 알림 장치</strong><br>입력: 조도센서가 교실 밝기를 확인합니다.<br>출력: 너무 어두우면 LED가 켜집니다.<br>필요한 이유: 교실이 어두워진 것을 바로 알아차릴 수 있습니다.</div><p>부탁을 자세히 하면 답도 더 구체적으로 만들 수 있습니다. 하지만 답이 자세해졌다고 해서 그 문제가 우리 교실에 실제로 있는지 확인된 것은 아닙니다.</p>
+          <h3>오늘 우리가 찾은 AI 사용 방법</h3><p><strong>예시를 보여 주거나 부탁하기</strong> → <strong>결과 확인하기</strong> → <strong>이상하거나 부족한 점 찾기</strong> → <strong>필요하면 다시 가르치거나 다시 부탁하기</strong> → <strong>현실과 맞는지 확인하기</strong> → <strong>사람이 최종 판단하기</strong></p>
+        </section>
+
+        ${renderTodayQuiz(lesson)}
+        <section class="lesson-section research-record day04-record" id="research-record" data-section="researchRecord"><p class="section-kicker">기록하기</p><h2 class="section-title">오늘의 연구기록</h2><p>오늘 활동 중 기록한 내용이 여기에 모입니다.</p>${renderDay04Record(state)}<p class="field-help">따로 다시 작성할 필요는 없습니다.</p></section>
+        <section class="lesson-section day04-final" id="final-judgment" data-section="finalJudgment"><p class="section-kicker">마지막 질문</p><h2 class="section-title">AI의 결과를 사람이 다시 확인해야 하는 가장 중요한 이유는 무엇일까요?</h2><div class="choice-list compact-choice-list" data-day04-final-group>${finalChoices.map((choice) => `<button class="choice-button${state.day04FinalJudgment === choice.value ? " is-selected" : ""}" type="button" aria-pressed="${state.day04FinalJudgment === choice.value ? "true" : "false"}" data-day04-final-choice="${escapeHtml(choice.value)}" data-day04-final-correct="${choice.correct ? "true" : "false"}">${escapeHtml(choice.text)}</button>`).join("")}<p class="inline-feedback" data-day04-final-feedback hidden></p></div></section>
+        <section class="lesson-section research-complete day04-complete" id="research-complete" data-section="researchComplete"><p class="section-kicker">마무리</p><h2 class="section-title">${state.dayCompleted ? escapeHtml(lesson.complete.title) : "아직 연구를 완료하지 않았어요"}</h2><p>${state.dayCompleted ? escapeHtml(lesson.complete.gained) : "두 번째 연구 활동, 오늘의 퀴즈, 마지막 질문의 정답을 모두 확인해 주세요."}</p>${state.dayCompleted ? `<h3>다음 연구</h3><p>${escapeHtml(lesson.complete.nextTitle)}</p><p>${escapeHtml(lesson.complete.nextSummary)}</p>` : ""}<div class="section-action"><a class="primary-link" href="#page-title">연구소 지도에서 확인하기 →</a></div></section>
+      </div>
+    `;
+  }
+
   function renderStandardDay(currentDay) {
     const lesson = getLessonForDay(currentDay);
 
@@ -8786,6 +9129,10 @@
     }
 
     elements.standardDay.hidden = false;
+    if (lesson.dayId === "day04") {
+      elements.standardDay.innerHTML = renderDay04Lesson(lesson);
+      return;
+    }
     if (lesson.dayId === "day03") {
       elements.standardDay.innerHTML = renderDay03SourceLesson(lesson);
       return;
@@ -11557,6 +11904,69 @@
     }
   }
 
+  function handleDay04Click(event) {
+    if (!isDay04Active()) {
+      return;
+    }
+
+    const retest = event.target.closest("[data-day04-retest]");
+    if (retest) {
+      updateDay01State((state) => {
+        state.day04RetestResult = retest.dataset.day04Retest;
+      });
+      renderStandardDay(activeDay);
+      initializeDynamicLessonState();
+      return;
+    }
+
+    const confusion = event.target.closest("[data-day04-confusion]");
+    if (confusion) {
+      updateDay01State((state) => {
+        state.day04ConfusionObserved = confusion.dataset.day04Confusion;
+        if (state.day04ConfusionObserved === "no") {
+          state.recordValues.day04ConfusedSituation = "";
+          state.recordValues.day04MoreExamples = "";
+          state.day04RetestResult = "";
+        }
+      });
+      renderStandardDay(activeDay);
+      initializeDynamicLessonState();
+      return;
+    }
+
+    const hardest = event.target.closest("[data-day04-hardest]");
+    if (hardest) {
+      updateDay01State((state) => {
+        state.day04HardestTestCondition = hardest.dataset.day04Hardest;
+      });
+      renderStandardDay(activeDay);
+      initializeDynamicLessonState();
+      return;
+    }
+
+    const finalChoice = event.target.closest("[data-day04-final-choice]");
+    if (finalChoice) {
+      const group = finalChoice.closest("[data-day04-final-group]");
+      group.querySelectorAll("[data-day04-final-choice]").forEach((button) => {
+        const selected = button === finalChoice;
+        button.classList.toggle("is-selected", selected);
+        button.setAttribute("aria-pressed", selected ? "true" : "false");
+      });
+      updateDay01State((state) => {
+        state.day04FinalJudgment = finalChoice.dataset.day04FinalChoice;
+      });
+      const feedback = group.querySelector("[data-day04-final-feedback]");
+      const isCorrect = finalChoice.dataset.day04FinalCorrect === "true";
+      if (feedback) {
+        feedback.textContent = isCorrect
+          ? "맞아요. AI의 결과가 실제 상황과 목적에 맞는지 사람이 확인해야 합니다."
+          : "다시 생각해 보세요. AI가 그럴듯한 결과를 만들어도 실제 상황과 목적에 맞지 않을 수 있습니다.";
+        feedback.hidden = false;
+        feedback.classList.toggle("inline-feedback--correct", isCorrect);
+      }
+    }
+  }
+
   function handleDay01Click(event) {
     if (!isPersistedLessonActive()) {
       return;
@@ -11760,6 +12170,17 @@
 
   function handleDay01Input(event) {
     if (!isPersistedLessonActive()) {
+      return;
+    }
+
+    if (event.target.closest("[data-day04-record]") && isDay04Active()) {
+      const fieldKey = event.target.dataset.day04Record;
+      updateDay01State((state) => {
+        if (!state.recordValues) {
+          state.recordValues = {};
+        }
+        state.recordValues[fieldKey] = String(event.target.value || "").trim().slice(0, 180);
+      });
       return;
     }
 
@@ -12153,6 +12574,7 @@
     elements.standardDay.addEventListener("click", handleProjectReloadReveal);
     elements.standardDay.addEventListener("click", handleDay02Click);
     elements.standardDay.addEventListener("click", handleDay03Click);
+    elements.standardDay.addEventListener("click", handleDay04Click);
     elements.standardDay.addEventListener("click", handleDay01Click);
     elements.standardDay.addEventListener("input", handleStandardInput);
     elements.standardDay.addEventListener("input", handleDay01Input);
