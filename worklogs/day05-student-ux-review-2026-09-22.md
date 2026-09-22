@@ -16,5 +16,8 @@
 ## 검수
 - `node --check app.js`, `node --check research-days.js`, `git diff --check`: PASS
 - 순수 JS helper 검사: 기존 레거시 객체 무변경 fallback, 문장 조사(받침/모음), 수동 문장 보존, A1 질문 1회 및 구 선택 보존, A2 질문-버튼 순서, A3 코드 비노출, 현실 확인 tri-state: PASS
-- Production 배포/브라우저/반응형 검수: 배포 후 기록
-- Apps Script 학생별 저장·새로고침 복원 및 Day06 실제 기록 연결: 배포 후 승인된 검수 계정에서 확인
+- Production 커밋 `2227747` / Cloudflare Pages check `106583026924`: success. 공개 `app.js`·`styles.css` 응답과 UX 마커 확인.
+- 브라우저 Production: 연구원 선택 상태, 연구지도, “오늘 연구 시작” 후 `연구 이어보기`, A1/A2 질문·버튼 배치, A3/A4 단계, B 장면, 문제 정의 입력 UI 확인. 테스트 중 답변은 입력/선택하지 않아 학생 기록을 변경하지 않음.
+- 반응형 `1440×900`, `1024×768`, `768×1024`, `390×844`: 가로 넘침 없음; 첫 세 크기에서 연습 카드 2열, 390px에서 1열. 데스크톱·태블릿·모바일 스크린샷도 확인.
+- 콘솔: Day05/앱 관련 ReferenceError·TypeError 없음. Chrome의 비동기 메시지 리스너 오류만 반복되어 앱 오류와 구분함.
+- Apps Script 실제 저장·새로고침 복원과 Day06 실데이터 확인은 미검수. 열려 있는 Production 세션의 테스트 전용 학생 여부를 식별할 수 없어 실제 학생 데이터를 쓰지 않음. 새 상태 및 payload/Day06 fallback은 정적·순수 함수 검사로만 확인.
