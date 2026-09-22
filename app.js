@@ -10,7 +10,7 @@
       appsScriptApiUrl: "",
       dayDates: {
         day01: "2026-08-21",
-        day05: "2026-09-23",
+        day05: "2026-09-18",
       },
       teacherMode: false,
       devMode: false,
