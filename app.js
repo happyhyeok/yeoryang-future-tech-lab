@@ -836,7 +836,9 @@
       day05OtherReason: "",
       day05FriendCheck: "",
       targetUser: "",
+      inconvenience: "",
       problemDefinition: "",
+      problemDefinitionEdited: false,
       day05RecordLocation: "",
       thresholdValue: "",
       lightObservationValues: createDefaultDay02LightObservationValues(),
@@ -965,6 +967,9 @@
     state.day05ProblemSolutionAnswer = ["problem", "solution"].includes(state.day05ProblemSolutionAnswer)
       ? state.day05ProblemSolutionAnswer
       : "";
+    state.inconvenience = String(state.inconvenience || "");
+    state.problemDefinition = String(state.problemDefinition || "");
+    state.problemDefinitionEdited = Boolean(state.problemDefinitionEdited);
     if (currentDay.dayId === "day02") {
       state.thresholdValue = normalizeDay02ThresholdValue(state.thresholdValue);
       state.lightObservationValues = normalizeDay02LightObservationValues(
@@ -2340,15 +2345,52 @@
       : [];
   }
 
-  function setDay05RealityCheck(state, sourceId, checkIndex) {
+  function setDay05RealityCheck(state, sourceId, checkIndex, value) {
     if (!state.day05RealityChecksBySource || typeof state.day05RealityChecksBySource !== "object") {
       state.day05RealityChecksBySource = {};
     }
     const checks = Array.isArray(state.day05RealityChecksBySource[sourceId])
       ? state.day05RealityChecksBySource[sourceId].slice(0, 3)
-      : [false, false, false];
-    checks[checkIndex] = !checks[checkIndex];
+      : getDay05RealityChecks(state, sourceId).slice(0, 3);
+    while (checks.length < 3) checks.push(null);
+    checks[checkIndex] = value;
     state.day05RealityChecksBySource[sourceId] = checks;
+  }
+
+  function isDay05CompleteProblemDefinition(value) {
+    return /(?:해결하고 싶습니다|해결하고 싶어요)\.?$/.test(String(value || "").trim());
+  }
+
+  function getDay05Inconvenience(state) {
+    const inconvenience = String(state.inconvenience || "").trim();
+    if (inconvenience) return inconvenience;
+    const legacyProblemDefinition = String(state.problemDefinition || "").trim();
+    return !state.problemDefinitionEdited && !isDay05CompleteProblemDefinition(legacyProblemDefinition)
+      ? legacyProblemDefinition
+      : "";
+  }
+
+  function getDay05SubjectParticle(targetUser) {
+    const finalCharacter = String(targetUser || "").trim().slice(-1);
+    const codePoint = finalCharacter.charCodeAt(0);
+    if (codePoint >= 0xac00 && codePoint <= 0xd7a3) {
+      return (codePoint - 0xac00) % 28 === 0 ? "가" : "이";
+    }
+    return "이(가)";
+  }
+
+  function buildDay05ProblemDefinition(targetUser, inconvenience) {
+    const person = String(targetUser || "").trim();
+    const problem = String(inconvenience || "").trim();
+    return person && problem
+      ? `나는 ${person}${getDay05SubjectParticle(person)} 겪는 “${problem}”라는 불편을 해결하고 싶습니다.`
+      : "";
+  }
+
+  function getDay05ProblemDefinition(state) {
+    const saved = String(state.problemDefinition || "").trim();
+    if (state.problemDefinitionEdited || isDay05CompleteProblemDefinition(saved)) return saved;
+    return buildDay05ProblemDefinition(state.targetUser, getDay05Inconvenience(state));
   }
 
   function isDay05QuizCompleted(state, lesson) {
@@ -2375,7 +2417,11 @@
     const selected = selectedSource === "direct"
       ? state.day05DirectObservation
       : getDay05CandidateBySource(state, selectedSource);
-    const hasDefinition = Boolean(String(state.targetUser || "").trim() && String(state.problemDefinition || "").trim());
+    const hasDefinition = Boolean(
+      String(state.targetUser || "").trim() &&
+      getDay05Inconvenience(state) &&
+      isDay05CompleteProblemDefinition(getDay05ProblemDefinition(state))
+    );
     const quizCompleted = isDay05QuizCompleted(state, activeDay ? getLessonForDay(activeDay) : null);
     const selectedRealityCheckComplete = Boolean(
       selectedSource && getDay05RealityChecks(state, selectedSource).length >= 3 &&
@@ -2781,9 +2827,9 @@
     const progress = state.lessonProgress || {};
     return {
       block11: getProgressValue(Boolean(progress.block11Completed), Boolean(state.day05A3Observation || state.day05A4Observation || state.day05SelectedScenes.length)),
-      block12: getProgressValue(Boolean(progress.block12Completed), Boolean(state.targetUser || state.problemDefinition)),
+      block12: getProgressValue(Boolean(progress.block12Completed), Boolean(state.targetUser || getDay05Inconvenience(state) || getDay05ProblemDefinition(state))),
       quiz: getProgressValue(Boolean(progress.quizCompleted), hasAnyQuizAnswer(state)),
-      record: getProgressValue(Boolean(progress.recordCompleted), Boolean(state.targetUser || state.problemDefinition)),
+      record: getProgressValue(Boolean(progress.recordCompleted), Boolean(state.targetUser || getDay05Inconvenience(state) || getDay05ProblemDefinition(state))),
     };
   }
 
@@ -2825,6 +2871,7 @@
     }
 
     if (currentDay.dayId === "day05") {
+      const problemDefinition = getDay05ProblemDefinition(state);
       return {
         studentId: student.studentId,
         workId: student.workId,
@@ -2833,14 +2880,14 @@
         blockProgress: getDay05BlockProgress(state),
         role: "",
         activities: ["불편 관찰", "문제 후보 비교", "문제 정의문 작성"],
-        todayDecision: state.problemDefinition || "",
+        todayDecision: problemDefinition,
         discovery: state.day05DirectObservation.problem || "",
-        difficulty: state.problemDefinition || "",
+        difficulty: getDay05Inconvenience(state),
         changeMade: "",
         changeReason: state.day05SelectionReasons.join(", "),
         nextAction: "해결방법을 여러 개 생각해 보기",
         targetUser: state.targetUser || "",
-        problemDefinition: state.problemDefinition || "",
+        problemDefinition,
         personalEvidenceRefs: [],
         commonEvidenceRefs: [],
         minimumCompleted: Boolean(state.minimumCompleted),
@@ -4108,7 +4155,12 @@
     const evidence = lesson.projectReload.evidence;
     const previousRecord = recordSource[previous.previousDayId] || {};
     const previousState = previousRecord.dayStateJson || previousRecord.dayState || {};
-    const problemDefinition = String(previousRecord[previous.problemDefinitionField] || previousState.problemDefinition || "").trim();
+    let problemDefinition = String(previousRecord[previous.problemDefinitionField] || previousState.problemDefinition || "").trim();
+    if (previous.previousDayId === "day05" && !isDay05CompleteProblemDefinition(problemDefinition)) {
+      const targetUser = previousState.targetUser || previousRecord.targetUser || "";
+      const inconvenience = previousState.inconvenience || previousRecord.inconvenience || previousRecord.difficulty || problemDefinition;
+      problemDefinition = buildDay05ProblemDefinition(targetUser, inconvenience) || problemDefinition;
+    }
     const nextAction = String(previousRecord[previous.nextActionField] || previousState.nextAction || "").trim();
     const memo = String(previousRecord[evidence.memoField] || (Array.isArray(previousState.day05SelectionReasons) ? previousState.day05SelectionReasons.join(", ") : "")).trim();
     const hasProblemDefinition = Boolean(problemDefinition);
@@ -9314,14 +9366,14 @@
     { id: "B4", file: "day05-stuffy-classroom.png", alt: "환기가 필요한 교실" },
   ];
   const DAY05_A_SCENES = [
-    { id: "A1", file: "day05-classroom-sun-glare.png", alt: "햇빛 때문에 화면이 잘 보이지 않는 교실", questions: ["누가 가장 불편해 보이나요?", "무엇 때문에 불편할까요?", "창가 학생과 다른 자리 학생은 똑같이 불편할까요?"] },
-    { id: "A2", file: "day05-carrying-supplies-door.png", alt: "양손에 준비물을 들고 문을 여는 학생", questions: ["이 학생은 왜 문을 열기 어려울까요?", "손에 아무것도 들고 있지 않았다면 어땠을까요?"] },
+    { id: "A1", file: "day05-classroom-sun-glare.png", alt: "햇빛 때문에 화면이 잘 보이지 않는 교실" },
+    { id: "A2", file: "day05-carrying-supplies-door.png", alt: "양손에 준비물을 들고 문을 여는 학생" },
     { id: "A3", file: "day05-height-and-reach-shelf.png", alt: "높은 선반의 물건을 꺼내려는 학생" },
     { id: "A4", file: "day05-finding-under-desk.png", alt: "어두운 곳에서 떨어진 물건을 찾는 학생" },
   ];
 
   function renderDay05Scene(scene, extra = "") {
-    return `<figure class="day05-scene ${extra}"><img src="assets/day05/${escapeHtml(scene.file)}" alt="${escapeHtml(scene.alt)}" loading="lazy"><figcaption>${escapeHtml(scene.id)}</figcaption></figure>`;
+    return `<figure class="day05-scene ${extra}"><img src="assets/day05/${escapeHtml(scene.file)}" alt="${escapeHtml(scene.alt)}" loading="lazy"></figure>`;
   }
 
   function renderDay05Quiz(state) {
@@ -9335,39 +9387,64 @@
 
   function renderDay05AResponse(scene, state) {
     if (scene.id === "A1") {
-      return `<div class="day05-a-response"><label class="record-field"><span>누가 가장 불편해 보이나요?</span><input data-day05-a="A1Target" value="${escapeHtml(state.day05A1Target || "")}"></label><label class="record-field"><span>무엇 때문에 불편할까요?</span><input data-day05-a="A1Problem" value="${escapeHtml(state.day05A1Problem || "")}"></label><div class="choice-list compact-choice-list">${["똑같을 것 같다.", "다를 수 있다.", "잘 모르겠다."].map((choice) => `<button type="button" class="choice-button${state.day05A1SituationCompare === choice ? " is-selected" : ""}" data-day05-a-choice="day05A1SituationCompare" data-day05-a-value="${escapeHtml(choice)}" aria-pressed="${state.day05A1SituationCompare === choice ? "true" : "false"}">${escapeHtml(choice)}</button>`).join("")}</div></div>`;
+      const targetOptions = ["창가의 학생", "다른 자리의 학생", "여러 학생", "잘 모르겠다"];
+      const targets = state.day05A1Target && !targetOptions.includes(state.day05A1Target)
+        ? [...targetOptions, state.day05A1Target]
+        : targetOptions;
+      return `<div class="day05-a-response"><p class="day05-question">누가 가장 불편해 보이나요?</p><div class="choice-list compact-choice-list">${targets.map((choice) => `<button type="button" class="choice-button${state.day05A1Target === choice ? " is-selected" : ""}" data-day05-a-choice="day05A1Target" data-day05-a-value="${escapeHtml(choice)}" aria-pressed="${state.day05A1Target === choice ? "true" : "false"}">${escapeHtml(choice)}</button>`).join("")}</div><label class="record-field"><span>무엇 때문에 불편할까요?</span><input data-day05-a="A1Problem" value="${escapeHtml(state.day05A1Problem || "")}"></label><p class="day05-question">창가 학생과 다른 자리 학생은 똑같이 불편할까요?</p><div class="choice-list compact-choice-list">${["똑같을 것 같다.", "다를 수 있다.", "잘 모르겠다."].map((choice) => `<button type="button" class="choice-button${state.day05A1SituationCompare === choice ? " is-selected" : ""}" data-day05-a-choice="day05A1SituationCompare" data-day05-a-value="${escapeHtml(choice)}" aria-pressed="${state.day05A1SituationCompare === choice ? "true" : "false"}">${escapeHtml(choice)}</button>`).join("")}</div></div>`;
     }
     if (scene.id === "A2") {
-      return `<div class="day05-a-response"><label class="record-field"><span>이 학생은 왜 문을 열기 어려울까요?</span><input data-day05-a="A2Problem" value="${escapeHtml(state.day05A2Problem || "")}"></label><div class="choice-list compact-choice-list">${["지금과 똑같다.", "지금보다 덜 불편할 수 있다.", "더 불편하다."].map((choice) => `<button type="button" class="choice-button${state.day05A2SituationChange === choice ? " is-selected" : ""}" data-day05-a-choice="day05A2SituationChange" data-day05-a-value="${escapeHtml(choice)}" aria-pressed="${state.day05A2SituationChange === choice ? "true" : "false"}">${escapeHtml(choice)}</button>`).join("")}</div></div>`;
+      return `<div class="day05-a-response"><label class="record-field"><span>이 학생은 왜 문을 열기 어려울까요?</span><input data-day05-a="A2Problem" value="${escapeHtml(state.day05A2Problem || "")}"></label><p class="day05-question">손에 아무것도 들고 있지 않았다면 어땠을까요?</p><div class="choice-list compact-choice-list">${["지금과 똑같다.", "지금보다 덜 불편할 수 있다.", "더 불편하다."].map((choice) => `<button type="button" class="choice-button${state.day05A2SituationChange === choice ? " is-selected" : ""}" data-day05-a-choice="day05A2SituationChange" data-day05-a-value="${escapeHtml(choice)}" aria-pressed="${state.day05A2SituationChange === choice ? "true" : "false"}">${escapeHtml(choice)}</button>`).join("")}</div></div>`;
     }
     const field = scene.id === "A3" ? "day05A3Observation" : "day05A4Observation";
-    return `<label class="record-field"><span>${scene.id}에서 발견한 불편</span><textarea data-day05-a="${scene.id}" maxlength="180">${escapeHtml(state[field] || "")}</textarea></label>`;
+    return `<label class="record-field"><span>이 장면에서 발견한 불편은 무엇인가요?</span><textarea data-day05-a="${scene.id}" maxlength="180">${escapeHtml(state[field] || "")}</textarea></label>`;
+  }
+
+  function renderDay05RealityChecks(sourceId, checks) {
+    const questions = [
+      "누가 불편한지 설명할 수 있나요?",
+      "언제·어디서 생기는지 설명할 수 있나요?",
+      "실제로 일어날 수 있는 상황인가요?",
+    ];
+    return questions.map((question, index) => `<div class="day05-reality-check"><p>${question}</p><div class="choice-list compact-choice-list">${[{ value: true, label: "예" }, { value: false, label: "아직" }].map(({ value, label }) => `<button type="button" class="choice-button${checks[index] === value ? " is-selected" : ""}" data-day05-check="${sourceId}:${index}:${value}" aria-pressed="${checks[index] === value ? "true" : "false"}">${label}</button>`).join("")}</div></div>`).join("");
   }
 
   function renderDay05Lesson() {
     const state = activeDayState || createDefaultDayState({ dayId: "day05" });
     updateDay05Progress(state);
     const selected = state.day05SelectedScenes || [];
-    const candidates = getDay05Candidates(state);
-    const selectedProblemSource = state.day05SelectedProblemSource || (selected[state.day05SelectedProblemCandidate] || "");
+    const selectedProblemSource = state.day05SelectedProblemSource || selected[state.day05SelectedProblemCandidate] || "";
     const selectedCandidate = selectedProblemSource === "direct"
       ? state.day05DirectObservation
       : getDay05CandidateBySource(state, selectedProblemSource) || {};
+    const targetUser = state.targetUser || selectedCandidate.targetUser || "";
+    const inconvenience = getDay05Inconvenience(state) || selectedCandidate.problem || "";
+    const problemDefinition = getDay05ProblemDefinition(state) || buildDay05ProblemDefinition(targetUser, inconvenience);
     const reasons = ["내가 직접 겪어 본 적이 있다.", "주변 사람이 겪는 것을 본 적이 있다.", "자주 일어나는 것 같다.", "해결되면 도움이 될 것 같다.", "더 자세히 알아보고 싶다.", "다른 이유가 있다."];
+    const candidateCards = selected.map((sceneId) => {
+      const candidate = getDay05CandidateBySource(state, sceneId) || {};
+      const checks = getDay05RealityChecks(state, sceneId);
+      return `<article class="day05-final-card"><h3>장면 ${sceneId.slice(1)}</h3><p><strong>누가:</strong> ${escapeHtml(candidate.targetUser || "아직 적지 않았어요")}</p><p><strong>언제·어디서:</strong> ${escapeHtml(candidate.situation || "아직 적지 않았어요")}</p><p><strong>어떤 불편:</strong> ${escapeHtml(candidate.problem || "아직 적지 않았어요")}</p>${renderDay05RealityChecks(sceneId, checks)}<button type="button" class="secondary-button" data-day05-final="${escapeHtml(sceneId)}">이 문제를 더 알아보기</button></article>`;
+    }).join("");
+    const directCard = state.day05DirectObservation.problem
+      ? `<article class="day05-final-card"><h3>직접 발견한 문제</h3><p><strong>어디에서:</strong> ${escapeHtml(state.day05DirectObservation.location || "아직 선택하지 않았어요")}</p><p><strong>어떤 불편:</strong> ${escapeHtml(state.day05DirectObservation.problem)}</p>${renderDay05RealityChecks("direct", getDay05RealityChecks(state, "direct"))}<button type="button" class="secondary-button" data-day05-final="direct">이 문제를 더 알아보기</button></article>`
+      : "";
+
     return `<div class="day05-lesson"><nav class="day05-progress" aria-label="오늘의 연구 순서"><span>연구 이어보기</span><span>→</span><span>불편 찾기</span><span>→</span><span>문제 선택</span><span>→</span><span>문제 정의문</span><span>→</span><span>퀴즈</span></nav>
       <section class="lesson-section day05-section" id="research-bridge"><p class="section-kicker">연구 이어보기</p><h2 class="section-title">연구 이어보기</h2><p>AI가 “우리 학교에는 이런 문제가 있어요.”라고 말했습니다. 그다음에 가장 먼저 해야 할 일은 무엇일까요?</p><div class="choice-list compact-choice-list">${["바로 발명품을 만든다.", "실제로 그런 불편이 있는지 살펴본다.", "가장 멋진 센서를 고른다.", "AI에게 정답을 다시 물어본다."].map(choice => `<button type="button" class="choice-button${state.day05BridgeAnswer === choice ? " is-selected" : ""}" data-day05-bridge="${escapeHtml(choice)}" aria-pressed="${state.day05BridgeAnswer === choice ? "true" : "false"}">${escapeHtml(choice)}</button>`).join("")}</div>${state.day05BridgeAnswer ? `<p class="inline-feedback inline-feedback--correct">실제로 그런 불편이 있는지 살펴본 뒤 문제를 정합니다. 오답이어도 계속 진행할 수 있어요.</p>` : ""}</section>
       <section class="lesson-section day05-section" id="today-research"><p class="section-kicker">오늘의 연구</p><h2 class="section-title">누가, 언제, 무엇 때문에 불편할까요?</h2><p>사람 보기<br>↓<br>상황 보기<br>↓<br>불편 찾기</p></section>
-      <section class="lesson-section day05-section" id="day05-a"><p class="section-kicker">불편 찾는 연습</p><h2 class="section-title">장면을 보고 불편을 찾아보세요</h2><div class="day05-a-grid">${DAY05_A_SCENES.map(scene => `${renderDay05Scene(scene)}<div class="day05-a-prompt"><p>${(scene.questions || ["이 장면에서 발견한 불편은?"]).map(escapeHtml).join("<br>")}</p>${renderDay05AResponse(scene, state)}</div>`).join("")}</div><p class="inline-feedback inline-feedback--correct">같은 상황도 사람에 따라 다르게 불편할 수 있습니다. 사람뿐 아니라 그때의 상황도 살펴봅니다.</p></section>
+      <section class="lesson-section day05-section" id="day05-a"><h2 class="section-title">함께 연습해요</h2><p class="day05-instruction">사진에서 사람과 상황을 함께 살펴봅시다.</p><div class="day05-a-grid">${DAY05_A_SCENES.slice(0, 2).map((scene, index) => `<article class="day05-practice-card"><p class="section-kicker">함께 연습 ${index + 1}</p>${renderDay05Scene(scene)}${renderDay05AResponse(scene, state)}</article>`).join("")}</div><p class="inline-feedback inline-feedback--correct">같은 상황도 사람에 따라 다르게 불편할 수 있습니다. 사람뿐 아니라 그때의 상황도 살펴봅니다.</p></section>
+      <section class="lesson-section day05-section" id="day05-independent"><h2 class="section-title">이제 내가 찾아봐요</h2><p class="day05-instruction">두 장면에서 불편을 직접 찾아보세요.</p><div class="day05-a-grid">${DAY05_A_SCENES.slice(2).map((scene, index) => `<article class="day05-practice-card"><p class="section-kicker">내가 찾아보기 ${index + 1}</p>${renderDay05Scene(scene)}${renderDay05AResponse(scene, state)}</article>`).join("")}</div></section>
       <section class="lesson-section day05-section" id="problem-vs-solution"><p class="section-kicker">문제와 해결 방법</p><h2 class="section-title">어느 쪽이 문제일까요?</h2><div class="choice-list compact-choice-list">${[{ value: "problem", text: "양손에 물건을 든 학생이 문을 열기 어렵다." }, { value: "solution", text: "사람이 다가오면 자동으로 문을 열어 주는 장치를 만든다." }].map((choice) => `<button type="button" class="choice-button${state.day05ProblemSolutionAnswer === choice.value ? " is-selected" : ""}" data-day05-problem-solution="${choice.value}" aria-pressed="${state.day05ProblemSolutionAnswer === choice.value ? "true" : "false"}">${escapeHtml(choice.text)}</button>`).join("")}</div>${state.day05ProblemSolutionAnswer ? `<p class="inline-feedback${state.day05ProblemSolutionAnswer === "problem" ? " inline-feedback--correct" : ""}">${state.day05ProblemSolutionAnswer === "problem" ? "맞아요. 오늘은 해결 방법보다 문제를 먼저 찾습니다." : "다시 살펴보세요. 해결 장치를 생각하기 전에 어떤 불편이 있는지 먼저 찾습니다."}</p>` : ""}</section>
-      <section class="lesson-section day05-section" id="day05-b"><p class="section-kicker">자유 관찰</p><h2 class="section-title">장면을 먼저 살펴보세요</h2><div class="day05-b-grid">${DAY05_SCENES.map(scene => `<button type="button" class="day05-scene-card${selected.includes(scene.id) ? " is-selected" : ""}" data-day05-scene="${scene.id}" aria-pressed="${selected.includes(scene.id) ? "true" : "false"}">${renderDay05Scene(scene)}<span>장면 ${scene.id.slice(1)}</span>${selected.includes(scene.id) ? "<b aria-hidden=\"true\">✓</b>" : ""}</button>`).join("")}</div><p class="field-help">“여기에는 어떤 불편이 숨어 있을까?”라는 생각이 드는 장면을 골라보세요. 3개를 선택합니다.</p></section>
-      <section class="lesson-section day05-section" id="day05-candidates"><p class="section-kicker">불편 후보 3개</p><h2 class="section-title">선택한 장면에서 문제를 적어 보세요</h2>${selected.map((sceneId) => { const candidate = getDay05CandidateBySource(state, sceneId) || { source: sceneId }; return `<div class="day05-candidate"><h3>장면 ${sceneId.slice(1)}</h3><div class="day05-field-grid"><label class="record-field"><span>누가?</span><input data-day05-candidate="${escapeHtml(sceneId)}:targetUser" value="${escapeHtml(candidate.targetUser || "")}"></label><label class="record-field"><span>언제·어디서?</span><input data-day05-candidate="${escapeHtml(sceneId)}:situation" value="${escapeHtml(candidate.situation || "")}"></label><label class="record-field"><span>어떤 불편?</span><textarea data-day05-candidate="${escapeHtml(sceneId)}:problem">${escapeHtml(candidate.problem || "")}</textarea></label></div></div>`; }).join("")}</section>
-      <section class="lesson-section day05-section" id="day05-direct"><p class="section-kicker">3분 불편 탐정</p><h2 class="section-title">3분 불편 탐정</h2><ul><li>찾기 어려운 것</li><li>하기 귀찮은 것</li><li>자꾸 기다려야 하는 것</li><li>위험해서 조심해야 하는 것</li><li>사람마다 하기 어려운 것</li></ul><label class="record-field"><span>내가 직접 발견한 불편</span><textarea data-day05-direct="problem">${escapeHtml(state.day05DirectObservation.problem || "")}</textarea></label><div class="choice-list compact-choice-list">${["교실", "복도", "학교 다른 공간", "내가 겪은 경험", "다른 곳"].map(value => `<button type="button" class="choice-button${state.day05DirectObservation.location === value ? " is-selected" : ""}" data-day05-location="${value}">${value}</button>`).join("")}</div></section>
-      <section class="lesson-section day05-section" id="day05-final"><p class="section-kicker">실제 문제인지 확인</p><h2 class="section-title">더 알아볼 문제를 골라보세요</h2>${selected.map((sceneId) => { const c=getDay05CandidateBySource(state, sceneId)||{}; const checks=getDay05RealityChecks(state, sceneId); return `<article class="day05-final-card"><h3>누가: ${escapeHtml(c.targetUser || "아직 없음")}</h3><p>언제·어디서: ${escapeHtml(c.situation || "아직 없음")}</p><p>어떤 불편: ${escapeHtml(c.problem || "아직 없음")}</p><div class="choice-list compact-choice-list">${["누가 불편한지 설명할 수 있다.", "언제·어디서 생기는지 설명할 수 있다.", "실제로 일어날 수 있는 상황이다."].map((label, checkIndex) => `<button type="button" class="choice-button${checks[checkIndex] ? " is-selected" : ""}" data-day05-check="${sceneId}:${checkIndex}">${label} ${checks[checkIndex] ? "예" : "아직"}</button>`).join("")}</div><button type="button" class="secondary-button" data-day05-final="${escapeHtml(sceneId)}">이 문제를 더 알아보기</button></article>`; }).join("")}${state.day05DirectObservation.problem ? (() => { const checks = getDay05RealityChecks(state, "direct"); return `<article class="day05-final-card"><h3>직접 발견한 문제</h3><p>어디에서: ${escapeHtml(state.day05DirectObservation.location || "아직 선택하지 않음")}</p><p>어떤 불편: ${escapeHtml(state.day05DirectObservation.problem)}</p><div class="choice-list compact-choice-list">${["누가 불편한지 설명할 수 있다.", "언제·어디서 생기는지 설명할 수 있다.", "실제로 일어날 수 있는 상황이다."].map((label, checkIndex) => `<button type="button" class="choice-button${checks[checkIndex] ? " is-selected" : ""}" data-day05-check="direct:${checkIndex}">${label} ${checks[checkIndex] ? "예" : "아직"}</button>`).join("")}</div><button type="button" class="secondary-button" data-day05-final="direct">이 문제를 더 알아보기</button></article>`; })() : ""}</section>
-      <section class="lesson-section day05-section" id="day05-definition"><p class="section-kicker">내가 해결하고 싶은 문제</p><h2 class="section-title">내가 해결하고 싶은 문제</h2><label class="record-field"><span>도움을 주고 싶은 사람</span><input data-day05-definition="targetUser" value="${escapeHtml(state.targetUser || selectedCandidate.targetUser || "")}"></label><label class="record-field"><span>그 사람이 겪는 불편</span><textarea data-day05-definition="problemDefinition">${escapeHtml(state.problemDefinition || selectedCandidate.problem || "")}</textarea></label><p class="day05-definition-sentence">나는 <strong>${escapeHtml(state.targetUser || "[도움을 주고 싶은 사람]")}</strong>이(가) 겪는 <strong>${escapeHtml(state.problemDefinition || "[불편]")}</strong>을 해결하고 싶습니다.</p><p class="field-help">이런 문장을 연구에서는 <strong>문제 정의문</strong>이라고 합니다.</p><div class="choice-list compact-choice-list">${reasons.map(reason => `<button type="button" class="choice-button${state.day05SelectionReasons.includes(reason) ? " is-selected" : ""}" data-day05-reason="${escapeHtml(reason)}">${escapeHtml(reason)}</button>`).join("")}</div></section>
-      <section class="lesson-section day05-section" id="day05-friend"><p class="section-kicker">친구 확인</p><h2 class="section-title">친구에게 설명해 보세요</h2><p class="day05-definition-sentence">${escapeHtml(state.problemDefinition || "문제 정의문을 먼저 작성해 주세요.")}</p><p>친구는 둘 중 하나를 질문합니다. “언제 그런 일이 생겨?” 또는 “왜 그게 불편해?”</p><div class="choice-list compact-choice-list">${["바로 설명할 수 있었다.", "조금 더 생각해야 했다.", "문제를 조금 고치고 싶다."].map(value => `<button type="button" class="choice-button${state.day05FriendCheck === value ? " is-selected" : ""}" data-day05-friend="${value}">${value}</button>`).join("")}</div></section>
+      <section class="lesson-section day05-section" id="day05-b"><h2 class="section-title">장면 고르기</h2><p class="day05-instruction">불편이 숨어 있다고 생각되는 장면 3개를 고르세요.</p><div class="day05-b-grid">${DAY05_SCENES.map(scene => `<button type="button" class="day05-scene-card${selected.includes(scene.id) ? " is-selected" : ""}" data-day05-scene="${scene.id}" aria-pressed="${selected.includes(scene.id) ? "true" : "false"}">${renderDay05Scene(scene)}<span>장면 ${scene.id.slice(1)}</span>${selected.includes(scene.id) ? "<b aria-hidden=\"true\">✓</b>" : ""}</button>`).join("")}</div></section>
+      <section class="lesson-section day05-section" id="day05-candidates"><h2 class="section-title">불편 후보 만들기</h2><p class="day05-instruction">선택한 장면마다 누가, 언제, 무엇이 불편한지 적어보세요.</p>${selected.map((sceneId, index) => { const candidate = getDay05CandidateBySource(state, sceneId) || { source: sceneId }; return `<div class="day05-candidate"><h3>후보 ${index + 1}</h3><div class="day05-field-grid"><label class="record-field"><span>누가?</span><input data-day05-candidate="${escapeHtml(sceneId)}:targetUser" value="${escapeHtml(candidate.targetUser || "")}"></label><label class="record-field"><span>언제·어디서?</span><input data-day05-candidate="${escapeHtml(sceneId)}:situation" value="${escapeHtml(candidate.situation || "")}"></label><label class="record-field"><span>어떤 불편?</span><textarea data-day05-candidate="${escapeHtml(sceneId)}:problem">${escapeHtml(candidate.problem || "")}</textarea></label></div></div>`; }).join("")}</section>
+      <section class="lesson-section day05-section" id="day05-direct"><h2 class="section-title">교실 불편 탐정</h2><p class="day05-instruction">3분 동안 교실이나 주변을 살펴보세요.</p><ul><li>찾기 어려운 것</li><li>하기 귀찮은 것</li><li>자꾸 기다려야 하는 것</li><li>위험해서 조심해야 하는 것</li><li>사람마다 하기 어려운 것</li></ul><label class="record-field"><span>주변에서 찾은 불편 하나</span><textarea data-day05-direct="problem">${escapeHtml(state.day05DirectObservation.problem || "")}</textarea></label><div class="choice-list compact-choice-list">${["교실", "복도", "학교 다른 공간", "내가 겪은 경험", "다른 곳"].map(value => `<button type="button" class="choice-button${state.day05DirectObservation.location === value ? " is-selected" : ""}" data-day05-location="${value}">${value}</button>`).join("")}</div></section>
+      <section class="lesson-section day05-section" id="day05-final"><h2 class="section-title">실제 문제인지 확인해요</h2><p class="day05-instruction">더 알아볼 문제를 골라 세 가지를 확인해 보세요.</p>${candidateCards}${directCard}</section>
+      <section class="lesson-section day05-section" id="day05-definition"><h2 class="section-title">내가 해결하고 싶은 문제</h2><label class="record-field"><span>도움을 주고 싶은 사람</span><input data-day05-definition="targetUser" value="${escapeHtml(targetUser)}"></label><label class="record-field"><span>그 사람이 겪는 불편</span><textarea data-day05-definition="inconvenience">${escapeHtml(inconvenience)}</textarea></label><label class="record-field"><span>나의 문제 정의문 (직접 고칠 수 있어요)</span><textarea class="day05-definition-sentence day05-definition-input" data-day05-definition="problemDefinition" maxlength="500">${escapeHtml(problemDefinition)}</textarea></label><p class="field-help">이 문장을 연구에서는 <strong>문제 정의문</strong>이라고 합니다.</p><div class="choice-list compact-choice-list">${reasons.map(reason => `<button type="button" class="choice-button${state.day05SelectionReasons.includes(reason) ? " is-selected" : ""}" data-day05-reason="${escapeHtml(reason)}">${escapeHtml(reason)}</button>`).join("")}</div></section>
+      <section class="lesson-section day05-section" id="day05-friend"><h2 class="section-title">친구에게 설명해 보세요</h2><p class="day05-definition-sentence" data-day05-problem-definition-display data-empty-text="문제 정의문을 먼저 작성해 주세요.">${escapeHtml(problemDefinition || "문제 정의문을 먼저 작성해 주세요.")}</p><p>친구는 둘 중 하나를 물어봅니다.</p><ul><li>언제 그런 일이 생겨?</li><li>왜 그게 불편해?</li></ul><div class="choice-list compact-choice-list">${["바로 설명할 수 있었다.", "조금 더 생각해야 했다.", "문제를 조금 고치고 싶다."].map(value => `<button type="button" class="choice-button${state.day05FriendCheck === value ? " is-selected" : ""}" data-day05-friend="${value}">${value}</button>`).join("")}</div></section>
       ${renderDay05Quiz(state)}
-      <section class="lesson-section day05-section" id="day05-record"><p class="section-kicker">연구기록</p><h2 class="section-title">오늘의 연구기록</h2><ul class="completion-requirements">${selected.map((sourceId, index) => `<li>불편 후보 ${index + 1}: ${escapeHtml((getDay05CandidateBySource(state, sourceId) || {}).problem || "아직 없음")}</li>`).join("")}<li>내가 선택한 문제: ${escapeHtml(selectedCandidate.problem || state.day05DirectObservation.problem || "아직 없음")}</li><li>나의 문제 정의문: ${escapeHtml(state.problemDefinition || "아직 없음")}</li></ul><label class="record-field"><span>이 문제를 떠올리게 한 곳</span><div class="choice-list compact-choice-list">${["교실", "복도", "학교 다른 공간", "내가 겪은 경험", "다른 곳"].map(value => `<button type="button" class="choice-button${state.day05RecordLocation === value ? " is-selected" : ""}" data-day05-record-location="${value}">${value}</button>`).join("")}</div></label></section>
-      <section class="lesson-section research-complete day05-complete" id="research-complete"><h2 class="section-title">${state.basicCompleted ? "오늘의 문제 발견 연구 완료 ✓" : state.minimumCompleted ? "내가 연구할 문제를 찾았어요 ✓" : "아직 해결할 문제를 정하지 못했어요"}</h2><p>${state.basicCompleted ? "이 문장은 다음 연구의 출발점입니다." : "누구의 어떤 불편을 해결하고 싶은지 한 문장으로 만들어 주세요."}</p><p class="day05-definition-sentence">${escapeHtml(state.problemDefinition || "")}</p><a class="primary-link" href="?day=6">Day06 아이디어 비교하기 →</a></section></div>`;
+      <section class="lesson-section day05-section" id="day05-record"><h2 class="section-title">오늘의 연구기록</h2><ul class="completion-requirements">${selected.map((sourceId, index) => `<li>불편 후보 ${index + 1}: ${escapeHtml((getDay05CandidateBySource(state, sourceId) || {}).problem || "아직 없음")}</li>`).join("")}<li>내가 선택한 문제: ${escapeHtml(selectedCandidate.problem || state.day05DirectObservation.problem || "아직 없음")}</li><li>나의 문제 정의문: <span data-day05-problem-definition-display data-empty-text="아직 없음">${escapeHtml(problemDefinition || "아직 없음")}</span></li></ul><label class="record-field"><span>이 문제를 떠올리게 한 곳</span><div class="choice-list compact-choice-list">${["교실", "복도", "학교 다른 공간", "내가 겪은 경험", "다른 곳"].map(value => `<button type="button" class="choice-button${state.day05RecordLocation === value ? " is-selected" : ""}" data-day05-record-location="${value}">${value}</button>`).join("")}</div></label></section>
+      <section class="lesson-section research-complete day05-complete" id="research-complete"><h2 class="section-title">${state.basicCompleted ? "오늘의 문제 발견 연구 완료 ✓" : state.minimumCompleted ? "내가 연구할 문제를 찾았어요 ✓" : "아직 해결할 문제를 정하지 못했어요"}</h2><p>${state.basicCompleted ? "이 문장은 다음 연구의 출발점입니다." : "누구의 어떤 불편을 해결하고 싶은지 한 문장으로 만들어 주세요."}</p><p class="day05-definition-sentence" data-day05-problem-definition-display>${escapeHtml(problemDefinition)}</p><a class="primary-link" href="?day=6">Day06 아이디어 비교하기 →</a></section></div>`;
   }
 
   function renderStandardDay(currentDay) {
@@ -12227,6 +12304,16 @@
     initializeDynamicLessonState();
   }
 
+  function syncDay05ProblemDefinitionDisplay() {
+    if (!activeDayState || !elements.standardDay) return;
+    const problemDefinition = getDay05ProblemDefinition(activeDayState);
+    const input = elements.standardDay.querySelector('[data-day05-definition="problemDefinition"]');
+    if (input && document.activeElement !== input) input.value = problemDefinition;
+    elements.standardDay.querySelectorAll("[data-day05-problem-definition-display]").forEach((element) => {
+      element.textContent = problemDefinition || element.dataset.emptyText || "";
+    });
+  }
+
   function handleDay05Click(event) {
     if (!isDay05Active()) return;
     const bridge = event.target.closest("[data-day05-bridge]");
@@ -12256,8 +12343,21 @@
       }
     });
     else if (location) updateDay01State(state => { state.day05DirectObservation.location = location.dataset.day05Location; });
-    else if (check) updateDay01State(state => { const [sourceId, checkIndex] = check.dataset.day05Check.split(":"); setDay05RealityCheck(state, sourceId, Number(checkIndex)); });
-    else if (final) updateDay01State(state => { const sourceId = final.dataset.day05Final; state.day05SelectedProblemSource = sourceId; state.day05SelectedProblemCandidate = state.day05SelectedScenes.indexOf(sourceId); const candidate = sourceId === "direct" ? state.day05DirectObservation : ensureDay05CandidateForSource(state, sourceId); state.targetUser = sourceId === "direct" ? "" : candidate.targetUser || state.targetUser; state.problemDefinition = candidate.problem || state.problemDefinition; });
+    else if (check) updateDay01State(state => {
+      const [sourceId, checkIndex, value] = check.dataset.day05Check.split(":");
+      setDay05RealityCheck(state, sourceId, Number(checkIndex), value === "true");
+    });
+    else if (final) updateDay01State(state => {
+      const sourceId = final.dataset.day05Final;
+      const candidate = sourceId === "direct" ? state.day05DirectObservation : ensureDay05CandidateForSource(state, sourceId);
+      state.day05SelectedProblemSource = sourceId;
+      state.day05SelectedProblemCandidate = state.day05SelectedScenes.indexOf(sourceId);
+      state.targetUser = sourceId === "direct" ? "" : candidate.targetUser || "";
+      state.inconvenience = candidate.problem || "";
+      if (!state.problemDefinitionEdited) {
+        state.problemDefinition = buildDay05ProblemDefinition(state.targetUser, state.inconvenience);
+      }
+    });
     else if (reason) updateDay01State(state => { const value = reason.dataset.day05Reason; state.day05SelectionReasons = state.day05SelectionReasons.includes(value) ? state.day05SelectionReasons.filter(x => x !== value) : [...state.day05SelectionReasons, value]; });
     else if (friend) updateDay01State(state => { state.day05FriendCheck = friend.dataset.day05Friend; });
     else if (recordLocation) updateDay01State(state => { state.day05RecordLocation = recordLocation.dataset.day05RecordLocation; });
@@ -12298,8 +12398,25 @@
       }
     });
     else if (candidate) { const [sourceId, key] = candidate.dataset.day05Candidate.split(":"); updateDay01State(state => { ensureDay05CandidateForSource(state, sourceId)[key] = candidate.value; }); }
-    else if (definition) updateDay01State(state => { state[definition.dataset.day05Definition] = definition.value; });
+    else if (definition) updateDay01State(state => {
+      const field = definition.dataset.day05Definition;
+      if (field === "problemDefinition") {
+        state.problemDefinition = definition.value;
+        state.problemDefinitionEdited = true;
+        return;
+      }
+      if (field === "targetUser") {
+        const legacyInconvenience = getDay05Inconvenience(state);
+        state.targetUser = definition.value;
+        if (!state.inconvenience && legacyInconvenience) state.inconvenience = legacyInconvenience;
+      }
+      if (field === "inconvenience") state.inconvenience = definition.value;
+      if (!state.problemDefinitionEdited) {
+        state.problemDefinition = buildDay05ProblemDefinition(state.targetUser, getDay05Inconvenience(state));
+      }
+    });
     else return;
+    if (definition) syncDay05ProblemDefinitionDisplay();
   }
 
   function handleDay01Click(event) {
