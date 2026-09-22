@@ -90,7 +90,7 @@ Day05 및 Day06을 localhost에서 확인했다. 네 viewport 모두 가로 over
 - Cloudflare Pages: push 뒤 공개 Production이 갱신된 앱을 제공하는 것을 확인
 - Production 공개 검수: 5개 bootstrap 카드가 즉시 나타났고 15초 뒤 비차단 fallback 안내로 전환. `test01`은 일반 URL에서 표시되지 않음
 - Production 앱 콘솔: `getStudents` 15초 timeout 경고 1건. bootstrap 목록은 유지됨
-- 검수 기록 커밋: 아래 문서 커밋에서 기록 예정
+- 검수 기록 커밋: `e2fb36d` (`docs: record bootstrap stability verification`), `origin/main` push 완료
 - Apps Script 재배포: 없음
 
 ## 10. 최종 판정 및 남은 점
