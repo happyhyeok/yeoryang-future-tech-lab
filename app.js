@@ -33,6 +33,9 @@
   const CONFIGURED_STUDENT_SOURCE = CONFIG.students || window.FUTURE_LAB_STUDENTS || [];
   const STUDENT_LOAD_ERROR_MESSAGE =
     "연구원 정보를 불러오지 못했습니다. 강사에게 알려 주세요.";
+  const STUDENT_DIRECTORY_REFRESHING_MESSAGE = "최신 연구원 정보를 확인하고 있습니다.";
+  const STUDENT_DIRECTORY_FALLBACK_MESSAGE =
+    "최신 연구원 정보를 확인하지 못했습니다. 현재 저장된 연구원 정보로 시작할 수 있습니다.";
   const SESSION_KEYS = {
     studentId: "currentStudentId",
     studentName: "currentStudentName",
@@ -46,6 +49,7 @@
   const DAY02_MAX_RECORDING_SECONDS = 30;
   const DAY01_UPLOAD_TIMEOUT_MS = 45000;
   const READ_TIMEOUT_MS = 8000;
+  const STUDENT_DIRECTORY_TIMEOUT_MS = 15000;
   const SAVE_TIMEOUT_MS = 8000;
   const DAY01_MAX_VIDEO_BYTES = 6 * 1024 * 1024;
   const DAY01_RECORDER_BITS_PER_SECOND = 900000;
@@ -448,6 +452,14 @@
       return true;
     }
 
+    if (
+      registeredStudentSource === "bootstrap" &&
+      isTestStudentMode() &&
+      readSessionValue(SESSION_KEYS.studentId) === E2E_TEST_STUDENT_ID
+    ) {
+      return false;
+    }
+
     clearCurrentStudent();
     return false;
   }
@@ -730,6 +742,18 @@
     }
 
     if (!getAppsScriptApiUrl()) {
+      const configuredStudents = normalizeStudentList(getConfiguredStudentSource());
+
+      if (configuredStudents.length) {
+        registeredStudents = configuredStudents;
+        registeredStudentSource = isDevelopmentMode() ? "config" : "bootstrap";
+        registeredStudentsMessage = isDevelopmentMode()
+          ? ""
+          : STUDENT_DIRECTORY_FALLBACK_MESSAGE;
+        renderIdentityGate();
+        return true;
+      }
+
       if (!isDevelopmentMode()) {
         registeredStudents = [];
         registeredStudentSource = "server-error";
@@ -750,7 +774,7 @@
       try {
         const data = await callAppsScriptApi("getStudents", {
           method: "GET",
-          timeoutMs: READ_TIMEOUT_MS,
+          timeoutMs: STUDENT_DIRECTORY_TIMEOUT_MS,
         });
         const serverStudents = data && Array.isArray(data.students) ? data.students : [];
         const normalizedStudents = normalizeStudentList(serverStudents);
@@ -765,6 +789,12 @@
         writeCachedStudentDirectory(normalizedStudents);
         const selectedStudentRemainsActive = reconcileSelectedStudentWithServer();
 
+        if (!isStudentSelected() && readSessionValue(SESSION_KEYS.studentId)) {
+          if (restoreStudentContext()) {
+            renderPage();
+          }
+        }
+
         if (!isStudentSelected() || elements.identityGate.hidden === false) {
           renderIdentityGate();
         }
@@ -775,14 +805,17 @@
         return selectedStudentRemainsActive;
       } catch (error) {
         console.warn("student list load failed", error);
-        if (registeredStudentSource !== "cache") {
+        const canKeepCurrentDirectory =
+          registeredStudents.length > 0 &&
+          ["cache", "bootstrap", "config", "server"].includes(registeredStudentSource);
+
+        if (!canKeepCurrentDirectory) {
           registeredStudents = [];
           registeredStudentSource = "server-error";
         }
-        registeredStudentsMessage =
-          registeredStudentSource === "cache"
-            ? "최신 연구원 정보를 확인하지 못했습니다. 저장된 목록을 보여 줍니다."
-            : STUDENT_LOAD_ERROR_MESSAGE;
+        registeredStudentsMessage = canKeepCurrentDirectory
+          ? STUDENT_DIRECTORY_FALLBACK_MESSAGE
+          : STUDENT_LOAD_ERROR_MESSAGE;
         if (!isStudentSelected() || elements.identityGate.hidden === false) {
           renderIdentityGate();
         }
@@ -4043,6 +4076,9 @@
 
   function renderIdentityGate(message = "") {
     const displayMessage = message || registeredStudentsMessage;
+    const isDirectoryStatusMessage =
+      displayMessage === STUDENT_DIRECTORY_REFRESHING_MESSAGE ||
+      displayMessage === STUDENT_DIRECTORY_FALLBACK_MESSAGE;
 
     activeDay = null;
     activeDayState = null;
@@ -4066,7 +4102,11 @@
         <p class="identity-gate__confirmation" data-identity-confirmation hidden></p>
         ${
           displayMessage
-            ? `<p class="identity-gate__message" role="alert">${escapeHtml(displayMessage)}</p>`
+            ? `<p class="identity-gate__message${
+                isDirectoryStatusMessage ? " identity-gate__message--notice" : ""
+              }" role="${isDirectoryStatusMessage ? "status" : "alert"}">${escapeHtml(
+                displayMessage
+              )}</p>`
             : ""
         }
         ${
@@ -13528,12 +13568,28 @@
       if (cachedStudents) {
         registeredStudents = cachedStudents;
         registeredStudentSource = "cache";
-        registeredStudentsMessage = "저장된 연구원 목록을 먼저 보여 주고 최신 목록을 확인합니다.";
+        registeredStudentsMessage = STUDENT_DIRECTORY_REFRESHING_MESSAGE;
         renderIdentityGate();
         logPerformanceMetric("student-directory-visible", performance.now() - appStartedAt, {
           source: "browser-cache",
           count: cachedStudents.length,
         });
+
+        if (restoreStudentContext()) {
+          renderPage();
+        }
+
+        refreshRegisteredStudents();
+        return;
+      }
+
+      const bootstrapStudents = normalizeStudentList(getConfiguredStudentSource());
+
+      if (bootstrapStudents.length) {
+        registeredStudents = bootstrapStudents;
+        registeredStudentSource = "bootstrap";
+        registeredStudentsMessage = STUDENT_DIRECTORY_REFRESHING_MESSAGE;
+        renderIdentityGate();
 
         if (restoreStudentContext()) {
           renderPage();

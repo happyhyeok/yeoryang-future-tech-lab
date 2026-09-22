@@ -353,6 +353,10 @@ select:focus-visible,
   font-weight: 700;
 }
 
+.identity-gate__message--notice {
+  color: var(--color-muted);
+}
+
 .identity-gate__enter {
   border: 0;
 }

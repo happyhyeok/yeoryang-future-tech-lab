@@ -51,7 +51,7 @@
 그 과정은 나만의 프로젝트 북에 남습니다.
 ```
 
-학생에게는 이름 선택 버튼만 보입니다. 운영환경에서는 Apps Script `getStudents`가 Google Sheets `01_학생`과 `02_작품`을 읽어 active 학생만 반환하고, 연구원 확인 화면은 이 서버 응답을 단일 기준으로 사용합니다. 실제 학생명은 `app.js`에 직접 넣지 않습니다. `window.FUTURE_LAB_STUDENTS` 또는 `FUTURE_LAB_CONFIG.students`는 Apps Script API가 없는 로컬 개발 fallback 용도입니다. 데이터 연결은 화면의 이름 텍스트가 아니라 확정된 현재 학생 컨텍스트의 `studentId`와 `workId`를 사용합니다.
+학생에게는 이름 선택 버튼만 보입니다. `runtime-config.js`의 `FUTURE_LAB_CONFIG.students`에는 캐시가 없거나 Apps Script 응답이 늦을 때 바로 시작하도록 승인된 운영 연구원 5명의 bootstrap 목록을 둡니다. 이 목록은 최신 기준 원본이 아니며, Apps Script `getStudents`가 성공하면 Google Sheets `01_학생`과 `02_작품`에서 확인한 active 목록으로 교체합니다. 네트워크 실패만으로 bootstrap/캐시 목록을 비우거나 현재 선택을 해제하지 않습니다. 정적 설정에는 지정된 네 필드만 두고 추가 개인정보를 넣지 않습니다. 데이터 연결은 화면의 이름 텍스트가 아니라 확정된 현재 학생 컨텍스트의 `studentId`와 `workId`를 사용합니다.
 
 이전 연구기록은 `window.STUDENT_DAY_RECORDS_BY_STUDENT[studentId]` 또는 `[workId]`를 우선 사용합니다. 공통 `window.STUDENT_DAY_RECORDS`는 `STUDENT_DAY_RECORDS_STUDENT_ID` 또는 `STUDENT_DAY_RECORDS_WORK_ID`가 현재 학생과 일치할 때만 사용합니다.
 
@@ -86,7 +86,7 @@ window.FUTURE_LAB_STUDENTS = [
 <script src="app.js" defer></script>
 ```
 
-`runtime-config.js`에는 공개 Apps Script `/exec` URL, `teacherMode`, `devMode`만 둡니다. 실제 학생명, `studentId`, `workId`, 비밀번호, 토큰, 인증키, Spreadsheet ID는 넣지 않습니다. 운영용 학생 기준정보는 Google Sheets `01_학생`, `02_작품`과 `getStudents` 응답으로 확인합니다.
+`runtime-config.js`에는 공개 Apps Script `/exec` URL, `teacherMode`, `devMode`, bootstrap 학생의 `studentId`, `studentName`, `workId`, `active`만 둡니다. bootstrap 항목은 브라우저가 읽을 수 있는 정적 파일에 포함되므로 지정된 운영 연구원 5명 외의 학생이나 추가 개인정보는 넣지 않습니다. 서버 응답은 매번 최신 authoritative 목록으로 사용합니다. 비밀번호, 토큰, 인증키, Spreadsheet ID는 넣지 않습니다.
 
 현재 학생 컨텍스트는 다음 세 값만 `sessionStorage`에 유지합니다.
 
