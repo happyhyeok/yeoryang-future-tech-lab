@@ -1292,6 +1292,28 @@
         ],
       },
     ],
+    day05: [
+      {
+        blockId: "block11",
+        number: "11",
+        shortTitle: "불편 발견하기",
+        title: "사람과 상황을 살펴 문제를 찾습니다.",
+        position: { current: "불편 발견하기", next: "문제 정의문 만들기" },
+        explanation: ["사람 보기 → 상황 보기 → 불편 찾기"],
+        thinkingQuestion: "누가, 언제, 무엇 때문에 불편할까요?",
+        activity: { type: "day05-observation" },
+      },
+      {
+        blockId: "block12",
+        number: "12",
+        shortTitle: "문제 정의문 만들기",
+        title: "내가 해결하고 싶은 문제를 정합니다.",
+        position: { current: "문제 정의문", next: "아이디어 비교하기" },
+        explanation: ["누구의 어떤 불편을 해결하고 싶은지 한 문장으로 정리합니다."],
+        thinkingQuestion: "내가 해결하고 싶은 문제는 무엇일까요?",
+        activity: { type: "day05-definition" },
+      },
+    ],
     day06: [
       {
         blockId: "block13",
@@ -1865,6 +1887,28 @@
           "다음 연구에서는 AI가 정보를 분류하고 결과를 만드는 과정을 살펴봅니다.",
       },
     },
+    day05: {
+      dayId: "day05",
+      dayType: "standard",
+      flowStartId: "research-bridge",
+      todayResearch: {
+        label: "연구 05",
+        title: "불편 발견하기",
+        coreStatement: "사람을 보고, 상황을 보고, 실제 불편을 찾아 문제를 정합니다.",
+        question: "누가, 언제, 무엇 때문에 불편할까요?",
+        blocks: [{ number: "11", title: "불편 발견하기" }, { number: "12", title: "문제 정의문 만들기" }],
+        outcome: "학생 개인 문제 정의문",
+        nextConnection: "다음 연구에서는 같은 문제를 해결하는 여러 방법을 비교합니다.",
+      },
+      lessonBlocks: LESSON_BLOCKS.day05,
+      quiz: { title: "오늘의 퀴즈", description: "모든 문항에 답하면 오늘의 퀴즈를 마칩니다.", questions: [
+        { id: "q1", choices: [{ text: "양손에 물건을 든 학생이 문을 열기 어렵다.", correct: true }, { text: "자동으로 문을 열어 주는 장치를 만든다.", correct: false }, { text: "가장 멋진 센서를 고른다.", correct: false }] },
+        { id: "q2", choices: [{ text: "직접 관찰하거나 실제 상황을 확인한다.", correct: true }, { text: "가장 멋진 해결 방법을 고른다.", correct: false }, { text: "AI에게 정답을 다시 물어본다.", correct: false }] },
+        { id: "q3", choices: [{ text: "내가 정한 사람과 그 사람이 겪는 불편", correct: true }, { text: "오늘 본 이미지 파일 이름", correct: false }, { text: "가장 신기한 센서 이름", correct: false }] },
+      ] },
+      record: { title: "오늘의 연구기록", fields: [] },
+      complete: { title: "오늘의 문제 발견 연구 완료 ✓", gained: "누구의 어떤 불편을 해결할지 정한 문제 정의문", summaryLines: ["이미지를 관찰하고 실제 주변을 살펴 문제를 정했습니다."], nextTitle: "아이디어 비교하기", nextSummary: "다음 연구에서는 같은 문제를 해결하는 여러 방법을 비교합니다." },
+    },
     day06: {
       dayId: "day06",
       dayType: "reload",
@@ -1873,8 +1917,7 @@
         recall: {
           title: "나의 프로젝트 다시 불러오기",
           lead: [
-            "약 한 달 전,",
-            "나는 누구의 어떤 불편을 해결하려고 했을까요?",
+            "지난 연구에서 나는 누구의 어떤 불편을 해결하려고 했을까요?",
           ],
           fields: [
             {
