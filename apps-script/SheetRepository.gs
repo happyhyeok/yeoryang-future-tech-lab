@@ -1,11 +1,47 @@
 function getSpreadsheet_() {
-  return SpreadsheetApp.openById(getSpreadsheetId_());
+  if (ACTIVE_REQUEST_METRICS && ACTIVE_REQUEST_METRICS.spreadsheet) {
+    return ACTIVE_REQUEST_METRICS.spreadsheet;
+  }
+
+  const startedAt = Date.now();
+  const spreadsheet = SpreadsheetApp.openById(getSpreadsheetId_());
+  recordRequestMetricDuration_("spreadsheetOpenMs", Date.now() - startedAt);
+
+  if (ACTIVE_REQUEST_METRICS) {
+    ACTIVE_REQUEST_METRICS.spreadsheet = spreadsheet;
+  }
+
+  return spreadsheet;
 }
 
 function getSheet_(sheetName) {
-  const sheet = getSpreadsheet_().getSheetByName(sheetName);
+  if (ACTIVE_REQUEST_METRICS && ACTIVE_REQUEST_METRICS.sheets[sheetName]) {
+    return ACTIVE_REQUEST_METRICS.sheets[sheetName];
+  }
+
+  const spreadsheet = getSpreadsheet_();
+  const startedAt = Date.now();
+  const sheet = spreadsheet.getSheetByName(sheetName);
+  recordRequestMetricDuration_("sheetLookupMs", Date.now() - startedAt);
   assertApi_(sheet, "SERVER_ERROR", "시트를 찾을 수 없습니다: " + sheetName);
+
+  if (ACTIVE_REQUEST_METRICS) {
+    ACTIVE_REQUEST_METRICS.sheets[sheetName] = sheet;
+  }
+
   return sheet;
+}
+
+function getValuesTimed_(range) {
+  const startedAt = Date.now();
+  const values = range.getValues();
+  recordRequestMetricDuration_("getValuesMs", Date.now() - startedAt);
+
+  if (ACTIVE_REQUEST_METRICS) {
+    ACTIVE_REQUEST_METRICS.getValuesCalls += 1;
+  }
+
+  return values;
 }
 
 function getHeaderRow_(sheet) {
@@ -15,9 +51,7 @@ function getHeaderRow_(sheet) {
     return [];
   }
 
-  return sheet
-    .getRange(1, 1, 1, lastColumn)
-    .getValues()[0]
+  return getValuesTimed_(sheet.getRange(1, 1, 1, lastColumn))[0]
     .map((value) => String(value || "").trim());
 }
 
@@ -32,21 +66,39 @@ function buildHeaderMap_(headers) {
 }
 
 function readSheetTable_(sheetName) {
-  const sheet = getSheet_(sheetName);
-  const headers = getHeaderRow_(sheet);
-  const headerMap = buildHeaderMap_(headers);
-  const lastRow = sheet.getLastRow();
-  const rowCount = Math.max(0, lastRow - 1);
-  const rows = rowCount
-    ? sheet.getRange(2, 1, rowCount, headers.length).getValues()
-    : [];
+  if (ACTIVE_REQUEST_METRICS && ACTIVE_REQUEST_METRICS.sheetTables[sheetName]) {
+    ACTIVE_REQUEST_METRICS.cachedTableReads += 1;
+    return ACTIVE_REQUEST_METRICS.sheetTables[sheetName];
+  }
 
-  return {
+  if (ACTIVE_REQUEST_METRICS) {
+    ACTIVE_REQUEST_METRICS.tableReads += 1;
+  }
+
+  const sheet = getSheet_(sheetName);
+  const lastColumn = sheet.getLastColumn();
+  const lastRow = sheet.getLastRow();
+  const values = lastColumn > 0 && lastRow > 0
+    ? getValuesTimed_(sheet.getRange(1, 1, lastRow, lastColumn))
+    : [];
+  const headers = values.length
+    ? values[0].map((value) => String(value || "").trim())
+    : [];
+  const headerMap = buildHeaderMap_(headers);
+  const rows = values.length > 1 ? values.slice(1) : [];
+
+  const table = {
     sheet: sheet,
     headers: headers,
     headerMap: headerMap,
     rows: rows,
   };
+
+  if (ACTIVE_REQUEST_METRICS) {
+    ACTIVE_REQUEST_METRICS.sheetTables[sheetName] = table;
+  }
+
+  return table;
 }
 
 function rowObjectFromValues_(headers, rowValues) {
@@ -61,11 +113,17 @@ function rowObjectFromValues_(headers, rowValues) {
 
 function findRowByColumn_(sheetName, idColumn, idValue) {
   const table = readSheetTable_(sheetName);
+  const startedAt = Date.now();
   const columnIndex = table.headerMap[idColumn];
   assertApi_(columnIndex !== undefined, "SERVER_ERROR", sheetName + " 시트에 " + idColumn + " 헤더가 없습니다.");
 
   for (let index = 0; index < table.rows.length; index += 1) {
+    if (ACTIVE_REQUEST_METRICS) {
+      ACTIVE_REQUEST_METRICS.searchedRows += 1;
+    }
+
     if (String(table.rows[index][columnIndex] || "").trim() === idValue) {
+      recordRequestMetricDuration_("rowSearchMs", Date.now() - startedAt);
       return {
         sheet: table.sheet,
         headers: table.headers,
@@ -77,6 +135,7 @@ function findRowByColumn_(sheetName, idColumn, idValue) {
     }
   }
 
+  recordRequestMetricDuration_("rowSearchMs", Date.now() - startedAt);
   return {
     sheet: table.sheet,
     headers: table.headers,
@@ -111,7 +170,7 @@ function findFirstEmptyIdRow_(sheet, headerMap, idColumn) {
   const rowCount = Math.max(0, lastRow - 1);
 
   if (rowCount) {
-    const idValues = sheet.getRange(2, columnIndex + 1, rowCount, 1).getValues();
+    const idValues = getValuesTimed_(sheet.getRange(2, columnIndex + 1, rowCount, 1));
 
     for (let index = 0; index < idValues.length; index += 1) {
       if (!normalizeIdCellValue_(idValues[index][0])) {
@@ -141,6 +200,10 @@ function upsertById_(sheetName, idColumn, idValue, values) {
     const insertRowNumber = findFirstEmptyIdRow_(found.sheet, found.headerMap, idColumn);
     ensureSheetRowExists_(found.sheet, insertRowNumber);
     found.sheet.getRange(insertRowNumber, 1, 1, found.headers.length).setValues([rowValues]);
+  }
+
+  if (ACTIVE_REQUEST_METRICS) {
+    delete ACTIVE_REQUEST_METRICS.sheetTables[sheetName];
   }
 
   return rowObjectFromValues_(found.headers, rowValues);

@@ -5,6 +5,35 @@ function getDayRecord_(params) {
   validateStudent_(studentId);
   validateResearchDay_(dayId);
 
+  return getDayRecordById_(studentId, dayId, true);
+}
+
+function getLessonContext_(params) {
+  const studentId = assertId_(params.studentId, "STUDENT_NOT_FOUND", "studentId");
+  const dayId = assertId_(params.dayId, "DAY_NOT_FOUND", "dayId");
+  const previousDayId = String(params.previousDayId || "").trim();
+  const includeCurrent = String(params.includeCurrent || "true") !== "false";
+
+  validateStudent_(studentId);
+  validateResearchDay_(dayId);
+
+  if (previousDayId) {
+    assertId_(previousDayId, "DAY_NOT_FOUND", "previousDayId");
+    validateResearchDay_(previousDayId);
+  }
+
+  const current = includeCurrent ? getDayRecordById_(studentId, dayId, true) : null;
+  const previous = previousDayId ? getDayRecordById_(studentId, previousDayId, false) : null;
+
+  return {
+    currentDayRecord: current ? current.dayRecord : null,
+    previousDayRecord: previous ? previous.dayRecord : null,
+    currentAssets: current ? current.assets : [],
+    serverTime: formatServerDateTime_(new Date()),
+  };
+}
+
+function getDayRecordById_(studentId, dayId, includeAssets) {
   const dayRecordId = makeDayRecordId_(studentId, dayId);
   const found = findRowByColumn_(
     FUTURELAB_CONFIG.SHEETS.DAY_RECORDS,
@@ -16,7 +45,7 @@ function getDayRecord_(params) {
 
   return {
     dayRecord: dayRecord,
-    assets: dayRecord ? getDayRecordAssets_(dayRecord, studentId, dayId) : [],
+    assets: includeAssets && dayRecord ? getDayRecordAssets_(dayRecord, studentId, dayId) : [],
   };
 }
 

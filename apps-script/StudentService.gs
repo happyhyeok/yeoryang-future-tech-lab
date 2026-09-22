@@ -1,4 +1,33 @@
+const STUDENT_DIRECTORY_CACHE_KEY = "futurelab2026:student-directory:v1";
+const STUDENT_DIRECTORY_CACHE_TTL_SECONDS = 300;
+
 function getStudents_() {
+  let cache = null;
+
+  try {
+    cache = CacheService.getScriptCache();
+    const cached = cache.get(STUDENT_DIRECTORY_CACHE_KEY);
+
+    if (cached) {
+      const result = JSON.parse(cached);
+
+      if (result && Array.isArray(result.students) && result.count === result.students.length) {
+        if (ACTIVE_REQUEST_METRICS) {
+          ACTIVE_REQUEST_METRICS.studentDirectoryCache = "hit";
+        }
+        return result;
+      }
+
+      cache.remove(STUDENT_DIRECTORY_CACHE_KEY);
+    }
+  } catch (error) {
+    console.warn("student directory cache read failed; using Spreadsheet source");
+  }
+
+  if (ACTIVE_REQUEST_METRICS) {
+    ACTIVE_REQUEST_METRICS.studentDirectoryCache = "miss";
+  }
+
   const studentsTable = readSheetTable_(FUTURELAB_CONFIG.SHEETS.STUDENTS);
   const worksTable = readSheetTable_(FUTURELAB_CONFIG.SHEETS.WORKS);
 
@@ -53,10 +82,24 @@ function getStudents_() {
     });
   });
 
-  return {
+  const result = {
     students: students,
     count: students.length,
   };
+
+  try {
+    if (cache) {
+      cache.put(
+        STUDENT_DIRECTORY_CACHE_KEY,
+        JSON.stringify(result),
+        STUDENT_DIRECTORY_CACHE_TTL_SECONDS
+      );
+    }
+  } catch (error) {
+    console.warn("student directory cache write failed; returning Spreadsheet source");
+  }
+
+  return result;
 }
 
 function validateStudentDataIntegrity_(studentsTable) {

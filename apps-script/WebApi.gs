@@ -7,11 +7,61 @@ function doPost(e) {
 }
 
 function handleApiRequest_(method, e) {
+  const startedAt = Date.now();
+  const previousMetrics = ACTIVE_REQUEST_METRICS;
+  const metrics = {
+    spreadsheetOpenMs: 0,
+    sheetLookupMs: 0,
+    getValuesMs: 0,
+    getValuesCalls: 0,
+    responseBuildMs: 0,
+    tableReads: 0,
+    cachedTableReads: 0,
+    searchedRows: 0,
+    rowSearchMs: 0,
+    sheetTables: {},
+    sheets: {},
+  };
+  ACTIVE_REQUEST_METRICS = metrics;
+  let action = "";
+
   try {
     const request = parseRequest_(method, e);
-    return successResponse_(dispatchAction_(request.action, request.payload, request.params));
+    action = request.action;
+    metrics.action = action;
+    const data = dispatchAction_(request.action, request.payload, request.params);
+    const responseStartedAt = Date.now();
+    const response = successResponse_(data);
+    metrics.responseBuildMs = Date.now() - responseStartedAt;
+    return response;
   } catch (error) {
     return handleApiError_(error);
+  } finally {
+    if (["getStudents", "getDayRecord", "getLessonContext"].includes(action)) {
+      console.log("[read-performance] " + JSON.stringify({
+        action: action,
+        totalMs: Date.now() - startedAt,
+        spreadsheetOpenMs: metrics.spreadsheetOpenMs,
+        sheetLookupMs: metrics.sheetLookupMs,
+        getValuesMs: metrics.getValuesMs,
+        getValuesCalls: metrics.getValuesCalls,
+        responseBuildMs: metrics.responseBuildMs,
+        tableReads: metrics.tableReads,
+        cachedTableReads: metrics.cachedTableReads,
+        searchedRows: metrics.searchedRows,
+        rowSearchMs: metrics.rowSearchMs,
+        studentDirectoryCache: metrics.studentDirectoryCache || "not-applicable",
+      }));
+    }
+    ACTIVE_REQUEST_METRICS = previousMetrics;
+  }
+}
+
+var ACTIVE_REQUEST_METRICS = null;
+
+function recordRequestMetricDuration_(name, elapsedMs) {
+  if (ACTIVE_REQUEST_METRICS) {
+    ACTIVE_REQUEST_METRICS[name] = (ACTIVE_REQUEST_METRICS[name] || 0) + elapsedMs;
   }
 }
 
@@ -71,6 +121,8 @@ function dispatchAction_(action, payload, params) {
       return getStudents_();
     case "getDayRecord":
       return getDayRecord_(params || {});
+    case "getLessonContext":
+      return getLessonContext_(params || {});
     case "saveDayRecord":
       return saveDayRecord_(payload || {});
     case "saveQuizResult":

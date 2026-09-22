@@ -1,8 +1,11 @@
 (function () {
   "use strict";
 
+  const appStartedAt = performance.now();
   const TOTAL_DAYS = window.RESEARCH_DAYS.length;
   const STORAGE_PREFIX = "futurelab2026";
+  const STUDENT_DIRECTORY_CACHE_KEY = `${STORAGE_PREFIX}:student-directory`;
+  const STUDENT_DIRECTORY_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
   const CONFIG = Object.assign(
     {
       videoUploadEndpoint: "",
@@ -42,9 +45,10 @@
   const DAY01_MAX_RECORDING_SECONDS = 15;
   const DAY02_MAX_RECORDING_SECONDS = 30;
   const DAY01_UPLOAD_TIMEOUT_MS = 45000;
+  const READ_TIMEOUT_MS = 8000;
+  const SAVE_TIMEOUT_MS = 8000;
   const DAY01_MAX_VIDEO_BYTES = 6 * 1024 * 1024;
   const DAY01_RECORDER_BITS_PER_SECOND = 900000;
-  const DAY01_SERVER_TIMEOUT_MS = 8000;
   const DAY01_SERVER_SAVE_DEBOUNCE_MS = 1200;
   const SAVE_STATUS = {
     saving: "⟳ 저장 중...",
@@ -118,10 +122,13 @@
   let activeDayState = null;
   let currentStudent = null;
   let currentStudentRecords = {};
+  let currentStudentRecordLoadStatuses = {};
   let pendingStudentId = "";
   let registeredStudents = [];
   let registeredStudentSource = "unloaded";
   let registeredStudentsMessage = "";
+  let registeredStudentRefreshPromise = null;
+  let studentSelectionStartedAt = 0;
   let day01CameraStream = null;
   let day01Recorder = null;
   let day01RecordedChunks = [];
@@ -368,6 +375,7 @@
   function clearCurrentStudent() {
     currentStudent = null;
     currentStudentRecords = {};
+    currentStudentRecordLoadStatuses = {};
     removeSessionValue(SESSION_KEYS.studentId);
     removeSessionValue(SESSION_KEYS.studentName);
     removeSessionValue(SESSION_KEYS.workId);
@@ -446,6 +454,7 @@
 
   function loadCurrentStudentRecords() {
     const student = getCurrentStudent();
+    currentStudentRecordLoadStatuses = {};
 
     if (!student) {
       currentStudentRecords = {};
@@ -465,6 +474,12 @@
       (sharedRecordsStudentId === student.studentId || sharedRecordsWorkId === student.workId
         ? sharedRecords
         : {});
+
+    Object.keys(currentStudentRecords).forEach((dayId) => {
+      if (currentStudentRecords[dayId]) {
+        currentStudentRecordLoadStatuses[dayId] = "record";
+      }
+    });
   }
 
   function getCurrentDay() {
@@ -569,9 +584,28 @@
     return apiUrl.href;
   }
 
+  function isPerformanceDiagnosticsEnabled() {
+    return new URLSearchParams(window.location.search).get("perf") === "1";
+  }
+
+  function logPerformanceMetric(name, elapsedMs, details = {}) {
+    if (!isPerformanceDiagnosticsEnabled()) {
+      return;
+    }
+
+    console.info("[performance] " + JSON.stringify({
+      name,
+      elapsedMs: Math.round(elapsedMs),
+      ...details,
+    }));
+  }
+
   async function callAppsScriptApi(action, options = {}) {
-    const timeout = createTimeoutSignal(options.timeoutMs || DAY01_SERVER_TIMEOUT_MS);
+    const timeout = createTimeoutSignal(
+      options.timeoutMs || (options.method === "GET" ? READ_TIMEOUT_MS : SAVE_TIMEOUT_MS)
+    );
     const method = options.method || "POST";
+    const startedAt = performance.now();
 
     try {
       const response =
@@ -607,15 +641,116 @@
       return result.data;
     } finally {
       timeout.clear();
+      logPerformanceMetric("apps-script-request", performance.now() - startedAt, { action });
     }
   }
 
-  async function loadRegisteredStudents() {
-    if (getAppsScriptApiUrl()) {
+  function readCachedStudentDirectory() {
+    try {
+      const cachedValue = window.localStorage.getItem(STUDENT_DIRECTORY_CACHE_KEY);
+
+      if (!cachedValue) {
+        return null;
+      }
+
+      const cached = JSON.parse(cachedValue);
+      const fetchedAt = Date.parse(cached && cached.fetchedAt);
+      const rawStudents = cached && Array.isArray(cached.students) ? cached.students : [];
+      const students = normalizeStudentList(rawStudents);
+
+      if (
+        !Number.isFinite(fetchedAt) ||
+        Date.now() - fetchedAt > STUDENT_DIRECTORY_CACHE_MAX_AGE_MS ||
+        !rawStudents.length ||
+        rawStudents.length !== students.length
+      ) {
+        return null;
+      }
+
+      return students;
+    } catch (error) {
+      console.warn("student directory browser cache read failed");
+      return null;
+    }
+  }
+
+  function writeCachedStudentDirectory(students) {
+    try {
+      window.localStorage.setItem(
+        STUDENT_DIRECTORY_CACHE_KEY,
+        JSON.stringify({
+          version: 1,
+          fetchedAt: new Date().toISOString(),
+          students: students.map(({ studentId, studentName, workId }) => ({
+            studentId,
+            studentName,
+            workId,
+            active: true,
+          })),
+        })
+      );
+    } catch (error) {
+      console.warn("student directory browser cache write failed");
+    }
+  }
+
+  function reconcileSelectedStudentWithServer() {
+    if (!isStudentSelected()) {
+      return true;
+    }
+
+    const current = getCurrentStudent();
+    const verified = findStudentById(current.studentId);
+
+    if (!verified || verified.workId !== current.workId) {
+      if (activeDay && activeDayState && isPersistedLessonDay(activeDay)) {
+        writeDayStateToLocalStorage(activeDay, activeDayState);
+      }
+      resetRuntimeForStudentChange();
+      clearCurrentStudent();
+      pendingStudentId = "";
+      registeredStudentsMessage = "현재 선택한 연구원을 서버에서 확인할 수 없어 선택 화면으로 돌아왔습니다.";
+      renderIdentityGate();
+      return false;
+    }
+
+    currentStudent = verified;
+    writeSessionValue(SESSION_KEYS.studentId, verified.studentId);
+    writeSessionValue(SESSION_KEYS.studentName, verified.studentName);
+    writeSessionValue(SESSION_KEYS.workId, verified.workId);
+    if (elements.studentName) {
+      elements.studentName.textContent = formatResearcherName(verified);
+    }
+    return true;
+  }
+
+  async function refreshRegisteredStudents() {
+    if (registeredStudentRefreshPromise) {
+      return registeredStudentRefreshPromise;
+    }
+
+    if (!getAppsScriptApiUrl()) {
+      if (!isDevelopmentMode()) {
+        registeredStudents = [];
+        registeredStudentSource = "server-error";
+        registeredStudentsMessage = STUDENT_LOAD_ERROR_MESSAGE;
+        renderIdentityGate();
+        return false;
+      }
+
+      setRegisteredStudents(
+        HAS_CONFIGURED_STUDENTS ? getConfiguredStudentSource() : DEFAULT_STUDENTS,
+        HAS_CONFIGURED_STUDENTS ? "config" : "default"
+      );
+      renderIdentityGate();
+      return true;
+    }
+
+    registeredStudentRefreshPromise = (async () => {
       try {
         const data = await callAppsScriptApi("getStudents", {
           method: "GET",
-          timeoutMs: DAY01_SERVER_TIMEOUT_MS,
+          timeoutMs: READ_TIMEOUT_MS,
         });
         const serverStudents = data && Array.isArray(data.students) ? data.students : [];
         const normalizedStudents = normalizeStudentList(serverStudents);
@@ -627,33 +762,44 @@
         registeredStudents = normalizedStudents;
         registeredStudentSource = "server";
         registeredStudentsMessage = registeredStudents.length ? "" : STUDENT_LOAD_ERROR_MESSAGE;
-        return true;
+        writeCachedStudentDirectory(normalizedStudents);
+        const selectedStudentRemainsActive = reconcileSelectedStudentWithServer();
+
+        if (!isStudentSelected() || elements.identityGate.hidden === false) {
+          renderIdentityGate();
+        }
+        logPerformanceMetric("student-directory-visible", performance.now() - appStartedAt, {
+          source: "server",
+          count: normalizedStudents.length,
+        });
+        return selectedStudentRemainsActive;
       } catch (error) {
         console.warn("student list load failed", error);
-        registeredStudents = [];
-        registeredStudentSource = "server-error";
-        registeredStudentsMessage = STUDENT_LOAD_ERROR_MESSAGE;
+        if (registeredStudentSource !== "cache") {
+          registeredStudents = [];
+          registeredStudentSource = "server-error";
+        }
+        registeredStudentsMessage =
+          registeredStudentSource === "cache"
+            ? "최신 연구원 정보를 확인하지 못했습니다. 저장된 목록을 보여 줍니다."
+            : STUDENT_LOAD_ERROR_MESSAGE;
+        if (!isStudentSelected() || elements.identityGate.hidden === false) {
+          renderIdentityGate();
+        }
         return false;
+      } finally {
+        registeredStudentRefreshPromise = null;
+        if (!isStudentSelected() || elements.identityGate.hidden === false) {
+          renderIdentityGate();
+        }
       }
+    })();
+
+    if (!isStudentSelected() && elements.identityGate.hidden === false) {
+      renderIdentityGate(registeredStudentsMessage || "연구원 정보를 불러오고 있습니다.");
     }
 
-    if (!isDevelopmentMode()) {
-      registeredStudents = [];
-      registeredStudentSource = "server-error";
-      registeredStudentsMessage = STUDENT_LOAD_ERROR_MESSAGE;
-      return false;
-    }
-
-    setRegisteredStudents(
-      HAS_CONFIGURED_STUDENTS ? getConfiguredStudentSource() : DEFAULT_STUDENTS,
-      HAS_CONFIGURED_STUDENTS ? "config" : "default"
-    );
-
-    if (!registeredStudents.length) {
-      registeredStudentsMessage = STUDENT_LOAD_ERROR_MESSAGE;
-    }
-
-    return true;
+    return registeredStudentRefreshPromise;
   }
 
   function uniqueItems(items) {
@@ -1256,7 +1402,115 @@
     return restored;
   }
 
-  async function loadServerDayState(currentDay) {
+  async function fetchLessonContext(currentDay, student) {
+    const includeCurrent = isPersistedLessonDay(currentDay);
+    const previousDayId = getBridgePreviousDayId(currentDay);
+    const includePrevious = Boolean(
+      previousDayId && !(currentStudentRecords && currentStudentRecords[previousDayId])
+    );
+
+    if (!includeCurrent && !includePrevious) {
+      return {
+        current: { ok: true, data: { dayRecord: null, assets: [] } },
+        previous: {
+          ok: true,
+          dayRecord: previousDayId ? currentStudentRecords[previousDayId] || null : null,
+          status: previousDayId && currentStudentRecords[previousDayId] ? "record" : "not-requested",
+        },
+      };
+    }
+
+    if (!getAppsScriptApiUrl()) {
+      return {
+        current: { ok: !includeCurrent, data: { dayRecord: null, assets: [] } },
+        previous: {
+          ok: false,
+          dayRecord: null,
+          status: includePrevious ? "unavailable" : "not-requested",
+        },
+      };
+    }
+
+    try {
+      const data = await callAppsScriptApi("getLessonContext", {
+        method: "GET",
+        params: {
+          studentId: student.studentId,
+          dayId: currentDay.dayId,
+          includeCurrent: String(includeCurrent),
+          previousDayId: includePrevious ? previousDayId : "",
+        },
+      });
+
+      return {
+        current: {
+          ok: true,
+          data: {
+            dayRecord: data.currentDayRecord || null,
+            assets: Array.isArray(data.currentAssets) ? data.currentAssets : [],
+          },
+        },
+        previous: {
+          ok: true,
+          dayRecord: includePrevious ? data.previousDayRecord || null : null,
+          status: includePrevious
+            ? data.previousDayRecord ? "record" : "missing"
+            : "not-requested",
+        },
+      };
+    } catch (error) {
+      if (error.code !== "INVALID_ACTION") {
+        return {
+          current: { ok: !includeCurrent, data: { dayRecord: null, assets: [] } },
+          previous: {
+            ok: false,
+            dayRecord: null,
+            status: includePrevious ? "error" : "not-requested",
+            error,
+          },
+        };
+      }
+
+      const requests = await Promise.allSettled([
+        includeCurrent
+          ? callAppsScriptApi("getDayRecord", {
+              method: "GET",
+              params: { studentId: student.studentId, dayId: currentDay.dayId },
+            })
+          : Promise.resolve({ dayRecord: null, assets: [] }),
+        includePrevious
+          ? callAppsScriptApi("getDayRecord", {
+              method: "GET",
+              params: { studentId: student.studentId, dayId: previousDayId },
+            })
+          : Promise.resolve({ dayRecord: null, assets: [] }),
+      ]);
+      const currentResult = requests[0];
+      const previousResult = requests[1];
+
+      return {
+        current: currentResult.status === "fulfilled"
+          ? { ok: true, data: currentResult.value }
+          : { ok: false, data: { dayRecord: null, assets: [] }, error: currentResult.reason },
+        previous: previousResult.status === "fulfilled"
+          ? {
+              ok: true,
+              dayRecord: includePrevious ? previousResult.value.dayRecord || null : null,
+              status: includePrevious
+                ? previousResult.value.dayRecord ? "record" : "missing"
+                : "not-requested",
+            }
+          : {
+              ok: false,
+              dayRecord: null,
+              status: includePrevious ? "error" : "not-requested",
+              error: previousResult.reason,
+            },
+      };
+    }
+  }
+
+  async function loadServerDayState(currentDay, lessonContextPromise) {
     if (!isDay01ServerSyncEnabled() || !isStudentSelected() || !isPersistedLessonDay(currentDay)) {
       return {
         state: null,
@@ -1267,13 +1521,16 @@
     const requestStudent = getCurrentStudent();
 
     try {
-      const data = await callAppsScriptApi("getDayRecord", {
-        method: "GET",
-        params: {
-          studentId: requestStudent.studentId,
-          dayId: currentDay.dayId,
-        },
-      });
+      const lessonContext = await lessonContextPromise;
+
+      if (!lessonContext.current.ok) {
+        return {
+          state: null,
+          status: "서버 연결 실패, 브라우저 임시기록 사용",
+        };
+      }
+
+      const data = lessonContext.current.data;
       const current = getCurrentStudent();
 
       if (
@@ -1337,6 +1594,7 @@
         state: serverState,
         dayRecord: data.dayRecord || null,
         assets: Array.isArray(data.assets) ? data.assets : [],
+        readSucceeded: true,
         status: serverState ? SAVE_STATUS.saved : "",
       };
     } catch (error) {
@@ -1359,39 +1617,60 @@
       : "";
   }
 
-  async function loadBridgePreviousRecord(currentDay) {
+  async function loadBridgePreviousRecord(currentDay, lessonContextPromise) {
     const previousDayId = getBridgePreviousDayId(currentDay);
     const student = getCurrentStudent();
 
     if (
       !previousDayId ||
       !student ||
-      !getAppsScriptApiUrl() ||
       (currentStudentRecords && currentStudentRecords[previousDayId])
     ) {
+      if (previousDayId && currentStudentRecords && currentStudentRecords[previousDayId]) {
+        currentStudentRecordLoadStatuses[previousDayId] = "record";
+      }
       return;
     }
 
     try {
-      const data = await callAppsScriptApi("getDayRecord", {
-        method: "GET",
-        params: {
-          studentId: student.studentId,
-          dayId: previousDayId,
-        },
-      });
+      const lessonContext = await lessonContextPromise;
+      if (
+        getStudentId() !== student.studentId ||
+        !activeDay ||
+        activeDay.dayId !== currentDay.dayId
+      ) {
+        return;
+      }
+      const previous = lessonContext.previous;
+
+      if (!previous || !previous.ok) {
+        currentStudentRecordLoadStatuses[previousDayId] = "error";
+        updateProjectReloadRecord();
+        return;
+      }
 
       if (
-        data.dayRecord &&
-        data.dayRecord.studentId === student.studentId &&
+        previous.dayRecord &&
+        previous.dayRecord.studentId === student.studentId &&
         getStudentId() === student.studentId
       ) {
         currentStudentRecords = Object.assign({}, currentStudentRecords, {
-          [previousDayId]: data.dayRecord,
+          [previousDayId]: previous.dayRecord,
         });
+      } else if (previous.dayRecord) {
+        currentStudentRecordLoadStatuses[previousDayId] = "error";
+        updateProjectReloadRecord();
+        return;
       }
+      currentStudentRecordLoadStatuses[previousDayId] = previous.status ||
+        (previous.dayRecord ? "record" : "missing");
+      updateProjectReloadRecord();
     } catch (error) {
       console.warn("bridge previous record load failed", error);
+      if (getStudentId() === student.studentId && activeDay && activeDay.dayId === currentDay.dayId) {
+        currentStudentRecordLoadStatuses[previousDayId] = "error";
+        updateProjectReloadRecord();
+      }
     }
   }
 
@@ -3790,6 +4069,14 @@
             ? `<p class="identity-gate__message" role="alert">${escapeHtml(displayMessage)}</p>`
             : ""
         }
+        ${
+          getAppsScriptApiUrl() &&
+          (registeredStudentSource !== "server" || !registeredStudents.length || registeredStudentsMessage)
+            ? `<button class="secondary-button identity-gate__retry" type="button" data-retry-students ${
+                registeredStudentRefreshPromise ? "disabled" : ""
+              }>${registeredStudentRefreshPromise ? "연구원 정보를 확인하고 있어요…" : "연구원 정보 다시 불러오기"}</button>`
+            : ""
+        }
         <button class="primary-link identity-gate__enter" type="button" data-enter-lab disabled>
           내 연구소 들어가기
         </button>
@@ -3811,6 +4098,7 @@
       return;
     }
 
+    studentSelectionStartedAt = performance.now();
     if (!setCurrentStudent(selectedStudent)) {
       renderIdentityGate("연구원 정보를 확인하지 못했습니다. 다시 이름을 선택해 주세요.");
       return;
@@ -3832,9 +4120,39 @@
       return;
     }
 
+    if (event.target.closest("[data-retry-students]")) {
+      registeredStudentsMessage = "연구원 정보를 다시 확인하고 있습니다.";
+      renderIdentityGate();
+      refreshRegisteredStudents();
+      return;
+    }
+
     if (event.target.closest("[data-enter-lab]")) {
       enterSelectedStudent();
     }
+  }
+
+  function handleProjectReloadRetry(event) {
+    if (!event.target.closest("[data-retry-lesson-context]")) {
+      return;
+    }
+
+    if (!activeDay || !isStudentSelected()) {
+      return;
+    }
+
+    const previousDayId = getBridgePreviousDayId(activeDay);
+    if (!previousDayId) {
+      return;
+    }
+
+    currentStudentRecordLoadStatuses[previousDayId] = "loading";
+    updateProjectReloadRecord();
+    const revision = activeDayState ? Number(activeDayState.localRevision || 0) : 0;
+    const contextPromise = fetchLessonContext(activeDay, getCurrentStudent());
+    synchronizeLessonContext(activeDay, getStudentId(), revision, contextPromise, false).catch((error) => {
+      console.error("lesson context retry failed", error);
+    });
   }
 
   function hasSavedVideoReference(state) {
@@ -3876,6 +4194,7 @@
     activeDay = null;
     activeDayState = null;
     currentStudentRecords = {};
+    currentStudentRecordLoadStatuses = {};
     clearRenderedLabSurfaces();
   }
 
@@ -4155,6 +4474,9 @@
     const evidence = lesson.projectReload.evidence;
     const previousRecord = recordSource[previous.previousDayId] || {};
     const previousState = extractDayStateFromDayRecord(previousRecord) || {};
+    const hasRecord = Object.keys(previousRecord).length > 0;
+    const loadStatus = currentStudentRecordLoadStatuses[previous.previousDayId] ||
+      (hasRecord ? "record" : "loading");
     let problemDefinition = String(previousRecord[previous.problemDefinitionField] || previousState.problemDefinition || "").trim();
     if (
       previous.previousDayId === "day05" &&
@@ -4172,7 +4494,9 @@
     const hasSelectionReason = Boolean(memo);
 
     return {
+      hasRecord,
       hasAnyRealRecord: hasProblemDefinition || hasNextAction || hasSelectionReason,
+      loadStatus,
       hasProblemDefinition,
       hasNextAction,
       hasSelectionReason,
@@ -4186,17 +4510,36 @@
   }
 
   function getReloadRecordTitle(reload, record) {
+    if (record.hasRecord) {
+      return reload.previousRecord.title;
+    }
+    if (record.loadStatus === "loading") {
+      return "지난 연구 기록을 불러오는 중입니다.";
+    }
+    if (record.loadStatus === "error" || record.loadStatus === "unavailable") {
+      return "지난 연구 기록을 불러오지 못했습니다.";
+    }
     return record.hasAnyRealRecord ? reload.previousRecord.title : "지난 연구 기록 예시";
   }
 
   function getReloadRecordNote(record) {
-    return record.hasAnyRealRecord
-      ? ""
-      : "아직 불러올 지난 연구기록이 없습니다. 아래 내용은 화면 확인을 위한 예시입니다.";
+    if (record.loadStatus === "loading") {
+      return "지난 연구 기록을 불러오는 중입니다.";
+    }
+    if (record.loadStatus === "error") {
+      return "지난 연구 기록을 불러오지 못했습니다. 다시 불러와 주세요.";
+    }
+    if (record.loadStatus === "unavailable") {
+      return "서버에 연결되지 않아 지난 연구 기록을 확인할 수 없습니다.";
+    }
+    if (record.hasRecord) {
+      return "";
+    }
+    return "아직 불러올 지난 연구기록이 없습니다. 아래 내용은 화면 확인을 위한 예시입니다.";
   }
 
   function getReloadMemoLabel(reload, record) {
-    return record.hasAnyRealRecord ? reload.evidence.memoLabel : "예시 메모";
+    return record.hasRecord || record.hasAnyRealRecord ? reload.evidence.memoLabel : "예시 메모";
   }
 
   function renderResearchBridge(lesson) {
@@ -4279,7 +4622,7 @@
         class="lesson-section project-reload"
         id="project-reload"
         data-section="projectReload"
-        data-has-saved-record="${record.hasAnyRealRecord ? "true" : "false"}"
+        data-has-saved-record="${record.hasRecord ? "true" : "false"}"
         data-example-problem="${escapeHtml(record.exampleProblemDefinition)}"
         data-example-next="${escapeHtml(record.exampleNextAction)}"
         data-example-memo="${escapeHtml(record.exampleMemo)}"
@@ -4304,21 +4647,34 @@
         </div>
 
         <div class="story-step" id="project-reload-record" data-section="projectReloadRecord" data-reload-hidden hidden>
-          <h3 class="step-label" tabindex="-1" data-reload-record-title>${escapeHtml(
+        <h3 class="step-label" tabindex="-1" data-reload-record-title>${escapeHtml(
             getReloadRecordTitle(reload, record)
           )}</h3>
           <p class="section-description project-reload__notice" data-reload-record-note${
             recordNote ? "" : " hidden"
-          }>${escapeHtml(recordNote)}</p>
+        }>${escapeHtml(recordNote)}</p>
+          <button class="secondary-button project-reload__retry" type="button" data-retry-lesson-context hidden>지난 연구 기록 다시 불러오기</button>
           <p class="carried-result" data-reload-problem>${escapeHtml(
-            record.hasAnyRealRecord
+            record.hasRecord
               ? record.problemDefinition || "기록이 없습니다."
+              : record.loadStatus === "loading"
+              ? "지난 연구 기록을 불러오는 중입니다."
+              : record.loadStatus === "error" || record.loadStatus === "unavailable"
+              ? "기록을 불러오지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요."
+              : record.hasAnyRealRecord
+              ? record.problemDefinition
               : record.exampleProblemDefinition
           )}</p>
           <div class="plain-group">
             <h3>그때 적어 둔 다음 연구</h3>
             <p data-reload-next>${escapeHtml(
-              record.hasAnyRealRecord ? record.nextAction || "기록이 없습니다." : record.exampleNextAction
+              record.hasRecord
+                ? record.nextAction || "기록이 없습니다."
+                : record.loadStatus === "loading" || record.loadStatus === "error" || record.loadStatus === "unavailable"
+                ? "기록을 확인할 수 없습니다."
+                : record.hasAnyRealRecord
+                ? record.nextAction || "기록이 없습니다."
+                : record.exampleNextAction
             )}</p>
           </div>
         </div>
@@ -4328,7 +4684,13 @@
           <div class="plain-group">
             <h3 data-reload-memo-label>${escapeHtml(getReloadMemoLabel(reload, record))}</h3>
             <p data-reload-memo>${escapeHtml(
-              record.hasAnyRealRecord ? record.memo || "기록이 없습니다." : record.exampleMemo
+              record.hasRecord
+                ? record.memo || "기록이 없습니다."
+                : record.loadStatus === "loading" || record.loadStatus === "error" || record.loadStatus === "unavailable"
+                ? "기록을 확인할 수 없습니다."
+                : record.hasAnyRealRecord
+                ? record.memo || "기록이 없습니다."
+                : record.exampleMemo
             )}</p>
           </div>
           <details class="help-toggle">
@@ -9611,10 +9973,17 @@
   function updateProjectReloadRecord() {
     const section = elements.standardDay.querySelector("[data-section='projectReload']");
 
-    if (!section || section.dataset.hasSavedRecord === "true") {
+    if (!section) {
       return;
     }
 
+    const lesson = getLessonForDay(activeDay);
+    if (!lesson || !lesson.projectReload) {
+      return;
+    }
+
+    const reload = lesson.projectReload;
+    const record = getProjectReloadRecord(lesson);
     const recalled = getRecalledProjectText();
     const title = section.querySelector("[data-reload-record-title]");
     const note = section.querySelector("[data-reload-record-note]");
@@ -9622,26 +9991,59 @@
     const next = section.querySelector("[data-reload-next]");
     const memoLabel = section.querySelector("[data-reload-memo-label]");
     const memo = section.querySelector("[data-reload-memo]");
+    const retry = section.querySelector("[data-retry-lesson-context]");
+    const hasRecord = record.hasRecord;
+    const failed = record.loadStatus === "error" || record.loadStatus === "unavailable";
+    const hasRecalledText = !hasRecord && record.loadStatus === "missing" && recalled.hasRecalledText;
 
-    if (recalled.hasRecalledText) {
+    section.dataset.hasSavedRecord = hasRecord ? "true" : "false";
+    title.textContent = getReloadRecordTitle(reload, record);
+    note.textContent = getReloadRecordNote(record);
+    note.hidden = !note.textContent;
+    retry.hidden = record.loadStatus !== "error";
+
+    if (hasRecord) {
+      problem.textContent = record.problemDefinition || "기록이 없습니다.";
+      next.textContent = record.nextAction || "기록이 없습니다.";
+      memoLabel.textContent = getReloadMemoLabel(reload, record);
+      memo.textContent = record.memo || "기록이 없습니다.";
+    } else if (record.loadStatus === "loading") {
+      problem.textContent = "지난 연구 기록을 불러오는 중입니다.";
+      next.textContent = "기록을 확인하고 있습니다.";
+      memoLabel.textContent = reload.evidence.memoLabel;
+      memo.textContent = "기록을 확인하고 있습니다.";
+    } else if (failed) {
+      problem.textContent = "기록을 불러오지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.";
+      next.textContent = "기록을 확인할 수 없습니다.";
+      memoLabel.textContent = reload.evidence.memoLabel;
+      memo.textContent = "기록을 확인할 수 없습니다.";
+    } else if (hasRecalledText) {
       title.textContent = "내가 다시 떠올린 문제";
-      note.textContent =
-        "지난 연구기록을 불러올 수 없어, 방금 떠올린 내용을 바탕으로 임시로 정리했습니다.";
+      note.textContent = "지난 연구 기록이 없음을 확인했습니다. 방금 떠올린 내용을 임시로 정리했습니다.";
       problem.textContent = recalled.problemDefinition;
       next.textContent = "기록이 없습니다.";
       memoLabel.textContent = "그때 남긴 메모";
       memo.textContent = "기록이 없습니다.";
     } else {
+      problem.textContent = record.problemDefinition || record.exampleProblemDefinition;
+      next.textContent = record.nextAction || record.exampleNextAction;
+      memoLabel.textContent = getReloadMemoLabel(reload, record);
+      memo.textContent = record.memo || record.exampleMemo;
+    }
+
+    if (!record.hasRecord && record.loadStatus === "missing" && !hasRecalledText) {
       title.textContent = "지난 연구 기록 예시";
-      note.textContent =
-        "아직 불러올 지난 연구기록이 없습니다. 아래 내용은 화면 확인을 위한 예시입니다.";
+      note.textContent = "아직 불러올 지난 연구기록이 없습니다. 아래 내용은 화면 확인을 위한 예시입니다.";
+    }
+
+    if (!hasRecord && !failed && record.loadStatus !== "loading" && !hasRecalledText) {
       problem.textContent = section.dataset.exampleProblem;
       next.textContent = section.dataset.exampleNext;
       memoLabel.textContent = "예시 메모";
       memo.textContent = section.dataset.exampleMemo;
     }
 
-    note.hidden = false;
+    note.hidden = !note.textContent;
   }
 
   function revealProjectReload() {
@@ -12967,20 +13369,47 @@
     const currentDay = getCurrentDay();
     const requestStudentId = getStudentId();
     activeDay = currentDay;
-    const serverRestore = await loadServerDayState(currentDay);
-    await loadBridgePreviousRecord(currentDay);
+    const dayStateRestore = loadDayState(currentDay, null);
+    activeDayState = dayStateRestore.state;
 
-    if (!isStudentSelected() || getStudentId() !== requestStudentId) {
+    const selectionElapsed = studentSelectionStartedAt
+      ? performance.now() - studentSelectionStartedAt
+      : performance.now() - appStartedAt;
+    logPerformanceMetric("lesson-ui-available", selectionElapsed, { dayId: currentDay.dayId });
+    studentSelectionStartedAt = 0;
+
+    renderActiveDayPage(currentDay, dayStateRestore.status, "", {
+      allowInitialDay01Save: !isDay01ServerSyncEnabled(),
+    });
+
+    const initialRevision = activeDayState ? Number(activeDayState.localRevision || 0) : 0;
+    const contextPromise = fetchLessonContext(currentDay, getCurrentStudent());
+    if (dayStateRestore.retryServerSync && activeDayState) {
+      queueDay01ServerSave(currentDay, activeDayState, { immediate: true });
+    }
+    synchronizeLessonContext(
+      currentDay,
+      requestStudentId,
+      initialRevision,
+      contextPromise,
+      dayStateRestore.retryServerSync
+    ).catch((error) => console.error("lesson context sync failed", error));
+  }
+
+  function renderActiveDayPage(
+    currentDay,
+    dayStateStatus = "",
+    serverStatus = "",
+    options = {}
+  ) {
+    if (!isStudentSelected() || !activeDay || activeDay.dayId !== currentDay.dayId) {
       return;
     }
-
-    const dayStateRestore = loadDayState(currentDay, serverRestore.state);
-    activeDayState = dayStateRestore.state;
 
     if (activeDayState) {
       updateDayProgress(activeDayState, activeDay);
 
-      if (day01NeedsInitialSave) {
+      if (day01NeedsInitialSave && options.allowInitialDay01Save !== false) {
         saveDayState("");
         day01NeedsInitialSave = false;
       }
@@ -12995,7 +13424,60 @@
     renderStandardDay(currentDay);
     initializeDynamicLessonState();
 
-    if (dayStateRestore.retryServerSync && activeDayState) {
+    if (dayStateStatus || serverStatus) {
+      renderSaveState(dayStateStatus || serverStatus);
+    }
+  }
+
+  async function synchronizeLessonContext(
+    currentDay,
+    requestStudentId,
+    initialRevision,
+    contextPromise,
+    initialRetryQueued
+  ) {
+    const [serverRestore] = await Promise.all([
+      loadServerDayState(currentDay, contextPromise),
+      loadBridgePreviousRecord(currentDay, contextPromise),
+    ]);
+
+    if (
+      !isStudentSelected() ||
+      getStudentId() !== requestStudentId ||
+      !activeDay ||
+      activeDay.dayId !== currentDay.dayId
+    ) {
+      return;
+    }
+
+    if (!isPersistedLessonDay(currentDay)) {
+      updateProjectReloadRecord();
+      return;
+    }
+
+    const changedDuringSync = Boolean(
+      activeDayState && Number(activeDayState.localRevision || 0) !== initialRevision
+    );
+    const dayStateRestore = loadDayState(
+      currentDay,
+      changedDuringSync ? null : serverRestore.state
+    );
+
+    if (!changedDuringSync) {
+      activeDayState = dayStateRestore.state;
+      renderActiveDayPage(currentDay, dayStateRestore.status, serverRestore.status, {
+        allowInitialDay01Save:
+          !isDay01ServerSyncEnabled() || serverRestore.readSucceeded === true,
+      });
+      logPerformanceMetric("server-state-applied", performance.now() - appStartedAt, {
+        dayId: currentDay.dayId,
+        hasServerState: Boolean(serverRestore.state),
+      });
+    } else if (dayStateRestore.status) {
+      renderSaveState(dayStateRestore.status);
+    }
+
+    if (dayStateRestore.retryServerSync && activeDayState && !initialRetryQueued) {
       queueDay01ServerSave(currentDay, activeDayState, { immediate: true });
     }
 
@@ -13004,16 +13486,7 @@
     }
   }
 
-  document.addEventListener("DOMContentLoaded", async () => {
-    renderIdentityGate("연구원 정보를 불러오는 중입니다.");
-    await loadRegisteredStudents();
-
-    if (restoreStudentContext()) {
-      await renderPage();
-    } else {
-      renderIdentityGate();
-    }
-
+  function initializePageListeners() {
     elements.identityGate.addEventListener("click", handleIdentityGateClick);
     elements.changeStudent.addEventListener("click", handleChangeStudent);
     elements.saveStates.forEach((saveState) => {
@@ -13028,6 +13501,7 @@
     });
     elements.standardDay.addEventListener("click", handleChoiceClick);
     elements.standardDay.addEventListener("click", handleProjectReloadReveal);
+    elements.standardDay.addEventListener("click", handleProjectReloadRetry);
     elements.standardDay.addEventListener("click", handleDay02Click);
     elements.standardDay.addEventListener("click", handleDay03Click);
     elements.standardDay.addEventListener("click", handleDay04Click);
@@ -13043,5 +13517,52 @@
     elements.standardDay.addEventListener("drop", handleResearchOrderDrop);
     elements.standardDay.addEventListener("dragend", handleResearchOrderDragEnd);
     window.addEventListener("beforeunload", () => cleanupDay01Media({ invalidate: true }));
-  });
+  }
+
+  function initializePage() {
+    initializePageListeners();
+
+    if (getAppsScriptApiUrl()) {
+      const cachedStudents = readCachedStudentDirectory();
+
+      if (cachedStudents) {
+        registeredStudents = cachedStudents;
+        registeredStudentSource = "cache";
+        registeredStudentsMessage = "저장된 연구원 목록을 먼저 보여 주고 최신 목록을 확인합니다.";
+        renderIdentityGate();
+        logPerformanceMetric("student-directory-visible", performance.now() - appStartedAt, {
+          source: "browser-cache",
+          count: cachedStudents.length,
+        });
+
+        if (restoreStudentContext()) {
+          renderPage();
+        }
+
+        refreshRegisteredStudents();
+        return;
+      }
+
+      renderIdentityGate("연구원 정보를 불러오는 중입니다.");
+      refreshRegisteredStudents().then(() => {
+        if (restoreStudentContext()) {
+          renderPage();
+        } else {
+          renderIdentityGate();
+        }
+      });
+      return;
+    }
+
+    renderIdentityGate();
+    refreshRegisteredStudents().then(() => {
+      if (restoreStudentContext()) {
+        renderPage();
+      } else {
+        renderIdentityGate();
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", initializePage);
 })();
