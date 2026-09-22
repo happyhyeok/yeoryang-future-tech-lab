@@ -2420,7 +2420,7 @@
     const hasDefinition = Boolean(
       String(state.targetUser || "").trim() &&
       getDay05Inconvenience(state) &&
-      isDay05CompleteProblemDefinition(getDay05ProblemDefinition(state))
+      String(getDay05ProblemDefinition(state) || "").trim()
     );
     const quizCompleted = isDay05QuizCompleted(state, activeDay ? getLessonForDay(activeDay) : null);
     const selectedRealityCheckComplete = Boolean(
@@ -4154,9 +4154,13 @@
     const previous = lesson.projectReload.previousRecord;
     const evidence = lesson.projectReload.evidence;
     const previousRecord = recordSource[previous.previousDayId] || {};
-    const previousState = previousRecord.dayStateJson || previousRecord.dayState || {};
+    const previousState = extractDayStateFromDayRecord(previousRecord) || {};
     let problemDefinition = String(previousRecord[previous.problemDefinitionField] || previousState.problemDefinition || "").trim();
-    if (previous.previousDayId === "day05" && !isDay05CompleteProblemDefinition(problemDefinition)) {
+    if (
+      previous.previousDayId === "day05" &&
+      !isDay05CompleteProblemDefinition(problemDefinition) &&
+      previousState.problemDefinitionEdited !== true
+    ) {
       const targetUser = previousState.targetUser || previousRecord.targetUser || "";
       const inconvenience = previousState.inconvenience || previousRecord.inconvenience || previousRecord.difficulty || problemDefinition;
       problemDefinition = buildDay05ProblemDefinition(targetUser, inconvenience) || problemDefinition;
@@ -9431,7 +9435,7 @@
       : "";
 
     return `<div class="day05-lesson"><nav class="day05-progress" aria-label="오늘의 연구 순서"><span>연구 이어보기</span><span>→</span><span>불편 찾기</span><span>→</span><span>문제 선택</span><span>→</span><span>문제 정의문</span><span>→</span><span>퀴즈</span></nav>
-      <section class="lesson-section day05-section" id="research-bridge"><p class="section-kicker">연구 이어보기</p><h2 class="section-title">연구 이어보기</h2><p>AI가 “우리 학교에는 이런 문제가 있어요.”라고 말했습니다. 그다음에 가장 먼저 해야 할 일은 무엇일까요?</p><div class="choice-list compact-choice-list">${["바로 발명품을 만든다.", "실제로 그런 불편이 있는지 살펴본다.", "가장 멋진 센서를 고른다.", "AI에게 정답을 다시 물어본다."].map(choice => `<button type="button" class="choice-button${state.day05BridgeAnswer === choice ? " is-selected" : ""}" data-day05-bridge="${escapeHtml(choice)}" aria-pressed="${state.day05BridgeAnswer === choice ? "true" : "false"}">${escapeHtml(choice)}</button>`).join("")}</div>${state.day05BridgeAnswer ? `<p class="inline-feedback inline-feedback--correct">실제로 그런 불편이 있는지 살펴본 뒤 문제를 정합니다. 오답이어도 계속 진행할 수 있어요.</p>` : ""}</section>
+      <section class="lesson-section day05-section" id="research-bridge"><p class="section-kicker">연구 이어보기</p><h2 class="section-title">연구 이어보기</h2><p>AI가 “우리 학교에는 이런 문제가 있어요.”라고 말했습니다. 그다음에 가장 먼저 해야 할 일은 무엇일까요?</p><div class="choice-list compact-choice-list">${["바로 발명품을 만든다.", "실제로 그런 불편이 있는지 살펴본다.", "가장 멋진 센서를 고른다.", "AI에게 정답을 다시 물어본다."].map(choice => `<button type="button" class="choice-button${state.day05BridgeAnswer === choice ? " is-selected" : ""}" data-day05-bridge="${escapeHtml(choice)}" aria-pressed="${state.day05BridgeAnswer === choice ? "true" : "false"}">${escapeHtml(choice)}</button>`).join("")}</div>${state.day05BridgeAnswer ? `<p class="inline-feedback${state.day05BridgeAnswer === "실제로 그런 불편이 있는지 살펴본다." ? " inline-feedback--correct" : ""}">실제로 그런 불편이 있는지 살펴본 뒤 문제를 정합니다. 오답이어도 계속 진행할 수 있어요.</p>` : ""}</section>
       <section class="lesson-section day05-section" id="today-research"><p class="section-kicker">오늘의 연구</p><h2 class="section-title">누가, 언제, 무엇 때문에 불편할까요?</h2><p>사람 보기<br>↓<br>상황 보기<br>↓<br>불편 찾기</p></section>
       <section class="lesson-section day05-section" id="day05-a"><h2 class="section-title">함께 연습해요</h2><p class="day05-instruction">사진에서 사람과 상황을 함께 살펴봅시다.</p><div class="day05-a-grid">${DAY05_A_SCENES.slice(0, 2).map((scene, index) => `<article class="day05-practice-card"><p class="section-kicker">함께 연습 ${index + 1}</p>${renderDay05Scene(scene)}${renderDay05AResponse(scene, state)}</article>`).join("")}</div><p class="inline-feedback inline-feedback--correct">같은 상황도 사람에 따라 다르게 불편할 수 있습니다. 사람뿐 아니라 그때의 상황도 살펴봅니다.</p></section>
       <section class="lesson-section day05-section" id="day05-independent"><h2 class="section-title">이제 내가 찾아봐요</h2><p class="day05-instruction">두 장면에서 불편을 직접 찾아보세요.</p><div class="day05-a-grid">${DAY05_A_SCENES.slice(2).map((scene, index) => `<article class="day05-practice-card"><p class="section-kicker">내가 찾아보기 ${index + 1}</p>${renderDay05Scene(scene)}${renderDay05AResponse(scene, state)}</article>`).join("")}</div></section>

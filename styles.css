@@ -3067,7 +3067,7 @@ select:focus-visible,
   }
 
   .research-day__line {
-    grid-template-columns: 36px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .research-day__status {
