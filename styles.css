@@ -3199,3 +3199,55 @@ select:focus-visible,
 .day05-record-list li > strong { min-width: 0; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; word-break: normal; }
 @media (max-width: 700px) { .day05-a-grid, .day05-b-grid, .day05-field-grid { grid-template-columns: 1fr; } .day05-field-grid .record-field:last-child { grid-column: auto; } .day05-progress { font-size: .78rem; } }
 @media (max-width: 520px) { .day05-record-list li { grid-template-columns: minmax(0, 1fr); gap: .25rem; } }
+
+/* Day06 follows the existing lesson rhythm with plain separators and collapsible steps. */
+.day06-lesson { max-width: 760px; }
+.day06-opening .day06-position { margin: 0 0 14px; color: var(--color-muted); font-size: 16px; line-height: 1.6; overflow-wrap: anywhere; }
+.day06-todo-list, .day06-example-list, .day06-criteria-list { margin: 12px 0 0; padding-left: 1.4em; }
+.day06-todo-list li, .day06-example-list li, .day06-criteria-list li { margin-top: 8px; line-height: 1.65; overflow-wrap: anywhere; }
+.day06-step-details > summary { display: list-item; cursor: pointer; overflow-wrap: anywhere; }
+.day06-step-details > summary:focus-visible { outline: 3px solid rgba(53, 111, 102, 0.28); outline-offset: 5px; }
+.day06-step-details[open] > summary { margin-bottom: 24px; }
+.day06-step-content { display: grid; gap: 18px; min-width: 0; line-height: 1.7; }
+.day06-step-content > p, .day06-step-content .plain-group > p { margin: 0; }
+.day06-step-action { padding: 12px 14px; border-left: 3px solid var(--color-accent); background: var(--color-accent-soft); }
+.day06-step-locked { margin: 0; overflow-wrap: anywhere; }
+.day06-subheading { margin: 10px 0 -10px; color: var(--color-text); font-weight: 700; }
+.day06-record-values { display: grid; gap: 0 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.day06-record-values > div { min-width: 0; padding: 12px 0; border-bottom: 1px solid var(--color-line); }
+.day06-record-values dt { color: var(--color-muted); font-size: 15px; font-weight: 600; }
+.day06-record-values dd { margin: 3px 0 0; color: var(--color-text); overflow-wrap: anywhere; }
+.day06-record-reason, .day06-guidance { margin: 14px 0 0; line-height: 1.7; overflow-wrap: anywhere; }
+.day06-record-empty { margin: 0; line-height: 1.7; }
+.day06-record-actions, .day06-problem-decisions, .day06-save-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.day06-record-actions .secondary-button { display: inline-flex; align-items: center; text-decoration: none; }
+.day06-problem-decisions .choice-button { max-width: 100%; white-space: normal; text-align: left; }
+.day06-problem-edit { display: grid; gap: 12px; margin-top: 16px; }
+.day06-problem-edit[hidden] { display: none; }
+.day06-latest-problem { margin: 0; overflow-wrap: anywhere; }
+.day06-starting-sentence { color: var(--color-text); font-size: 19px; font-weight: 700; }
+.day06-idea-inputs { display: grid; gap: 18px; }
+.day06-idea-inputs .record-field, .day06-friend-question .record-field, .day06-step-content > .record-field { min-width: 0; }
+.day06-idea-inputs input, .day06-friend-question input, #day06-next-question, #day06-reason { width: 100%; max-width: 100%; }
+.day06-comparison-list { gap: 26px; }
+.day06-comparison-progress { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.day06-comparison-item { min-width: 0; padding-top: 18px; border-top: 1px solid var(--color-line); }
+.day06-comparison-item[hidden] { display: none; }
+.day06-comparison-item h3 { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
+.day06-friend-question { margin-top: 10px; }
+.day06-self-check ul { margin: 10px 0 0; padding-left: 1.4em; }
+.day06-self-check li { margin-top: 8px; line-height: 1.65; }
+.day06-self-check li.is-complete { color: var(--color-accent-dark); font-weight: 700; }
+.day06-save-actions { margin-top: 20px; }
+.day06-save-status { margin: 10px 0 0; line-height: 1.65; overflow-wrap: anywhere; }
+.day06-record-summary { display: grid; gap: 8px; margin: 20px 0; padding: 14px 0; border-top: 1px solid var(--color-line); border-bottom: 1px solid var(--color-line); }
+.day06-record-summary p { margin: 0; overflow-wrap: anywhere; }
+.day06-complete [data-day06-saved-message] { line-height: 1.7; }
+.day06-next-guidance { margin: 0; line-height: 1.7; overflow-wrap: anywhere; }
+.day06-next-actions { justify-content: flex-start; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+@media (max-width: 600px) {
+  .day06-record-values { grid-template-columns: minmax(0, 1fr); }
+  .day06-opening .day06-position { font-size: 15px; }
+  .day06-problem-decisions, .day06-record-actions, .day06-save-actions, .day06-next-actions { align-items: stretch; flex-direction: column; }
+  .day06-problem-decisions > *, .day06-record-actions > *, .day06-save-actions > *, .day06-next-actions > * { width: 100%; }
+}

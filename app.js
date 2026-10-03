@@ -52,6 +52,7 @@
   const READ_TIMEOUT_MS = 8000;
   const STUDENT_DIRECTORY_TIMEOUT_MS = 15000;
   const SAVE_TIMEOUT_MS = 8000;
+  const DAY06_API_TIMEOUT_MS = 20000;
   const DAY01_MAX_VIDEO_BYTES = 6 * 1024 * 1024;
   const DAY01_RECORDER_BITS_PER_SECOND = 900000;
   const DAY01_SERVER_SAVE_DEBOUNCE_MS = 1200;
@@ -614,8 +615,12 @@
   }
 
   async function callAppsScriptApi(action, options = {}) {
+    const defaultTimeoutMs = options.method === "GET" ? READ_TIMEOUT_MS : SAVE_TIMEOUT_MS;
+    const day06TimeoutMs = activeDay && activeDay.dayId === "day06"
+      ? DAY06_API_TIMEOUT_MS
+      : defaultTimeoutMs;
     const timeout = createTimeoutSignal(
-      options.timeoutMs || (options.method === "GET" ? READ_TIMEOUT_MS : SAVE_TIMEOUT_MS)
+      options.timeoutMs || day06TimeoutMs
     );
     const method = options.method || "POST";
     const startedAt = performance.now();
@@ -994,13 +999,23 @@
         day06Role: "",
         day06Work: [],
         day06Finding: "",
-        day06Next: "선택한 아이디어의 입력·조건·출력을 정하기",
+        day06Next: "",
       },
       day06Ideas: ["", "", ""],
       day06Comparisons: [{ help: "", possible: "" }, { help: "", possible: "" }, { help: "", possible: "" }],
       day06SelectedIdea: "",
+      day06SelectedIdeaText: "",
       day06SelectionReason: "",
       day06FriendExplained: false,
+      day06ProblemKey: "",
+      day06ProblemSnapshot: "",
+      day06ProblemDecision: "",
+      day06ProblemEditBaseline: "",
+      day06NeedsReload: false,
+      day06DraftsByProblem: {},
+      day06FriendQuestion: "",
+      day06ExplanationChoice: "",
+      day06NextResearchQuestion: "",
       day04RetestResult: "",
       day04FinalJudgment: "",
       day04ConfusionObserved: "",
@@ -1132,13 +1147,51 @@
     state.day06Comparisons = Array.isArray(state.day06Comparisons) ? state.day06Comparisons.slice(0, 3) : [];
     while (state.day06Comparisons.length < 3) state.day06Comparisons.push({ help: "", possible: "" });
     state.day06Comparisons = state.day06Comparisons.map((item) => Object.assign({ help: "", possible: "" }, item || {}));
+    const legacyHelp = {
+      "잘 돕는다": "많이 줄여 줄 것 같아요",
+      "조금 돕는다": "조금 줄여 줄 것 같아요",
+      "다시 생각해 봐야 한다": "더 알아봐야 해요",
+    };
+    // The previous "currently hard to make" choice carries forward as a prompt to learn more.
+    const legacyPossible = {
+      "만들 수 있을 것 같다": "지금 시작할 수 있을 것 같아요",
+      "도움이 필요하다": "도움을 받으면 시작할 수 있어요",
+      "지금은 만들기 어렵다": "더 알아봐야 해요",
+    };
+    state.day06Comparisons = state.day06Comparisons.map((item) => ({
+      help: legacyHelp[item.help] || item.help,
+      possible: legacyPossible[item.possible] || item.possible,
+    }));
     state.day06SelectedIdea = ["idea1", "idea2", "idea3"].includes(state.day06SelectedIdea) ? state.day06SelectedIdea : "";
+    state.day06SelectedIdeaText = String(state.day06SelectedIdeaText || "");
+    if (state.day06SelectedIdea && !state.day06SelectedIdeaText) {
+      state.day06SelectedIdeaText = String(state.day06Ideas[Number(state.day06SelectedIdea.slice(-1)) - 1] || "").trim();
+    }
     state.day06SelectionReason = String(state.day06SelectionReason || "");
     state.day06FriendExplained = Boolean(state.day06FriendExplained);
+    state.day06ProblemKey = String(state.day06ProblemKey || "");
+    state.day06ProblemSnapshot = String(state.day06ProblemSnapshot || "");
+    state.day06ProblemDecision = ["keep", "edit", "replace"].includes(state.day06ProblemDecision)
+      ? state.day06ProblemDecision
+      : state.day06Ideas.some((idea) => String(idea || "").trim()) ? "keep" : "";
+    state.day06ProblemEditBaseline = String(state.day06ProblemEditBaseline || "");
+    state.day06NeedsReload = state.day06NeedsReload === true;
+    state.day06DraftsByProblem = state.day06DraftsByProblem && typeof state.day06DraftsByProblem === "object"
+      ? state.day06DraftsByProblem
+      : {};
+    state.day06FriendQuestion = String(state.day06FriendQuestion || "");
+    state.day06ExplanationChoice = ["내 설명을 그대로 둘래요", "조금 고칠래요"].includes(state.day06ExplanationChoice)
+      ? state.day06ExplanationChoice
+      : "";
+    const legacyDay06Next = String(state.recordValues.day06Next || "").trim();
+    state.day06NextResearchQuestion = String(state.day06NextResearchQuestion || "").trim();
+    if (!state.day06NextResearchQuestion && legacyDay06Next && legacyDay06Next !== "선택한 아이디어의 입력·조건·출력을 정하기") {
+      state.day06NextResearchQuestion = legacyDay06Next;
+    }
     state.recordValues.day06Role = String(state.recordValues.day06Role || "");
     state.recordValues.day06Work = Array.isArray(state.recordValues.day06Work) ? state.recordValues.day06Work : [];
     state.recordValues.day06Finding = String(state.recordValues.day06Finding || "");
-    state.recordValues.day06Next = String(state.recordValues.day06Next || "선택한 아이디어의 입력·조건·출력을 정하기");
+    state.recordValues.day06Next = state.day06NextResearchQuestion;
     state.day05SelectedScenes = Array.isArray(state.day05SelectedScenes) ? state.day05SelectedScenes : [];
     state.day05Candidates = Array.isArray(state.day05Candidates) ? state.day05Candidates : [];
     state.day05Candidates = state.day05Candidates.map((candidate, index) => Object.assign({ source: "" }, candidate || {}, {
@@ -2739,29 +2792,59 @@
   }
 
   function isDay06QuizCompleted(state, lesson) {
-    return isDay05QuizCompleted(state, lesson);
+    if (!lesson || !lesson.quiz || !Array.isArray(lesson.quiz.questions)) return false;
+    return lesson.quiz.questions.every((question) => {
+      if (!Array.isArray(question.choices)) return false;
+      const answer = state.quizAnswers[question.id];
+      return question.choices.some((choice) => answer === (choice.value || choice.text));
+    });
   }
 
   function updateDay06Progress(state) {
     const lesson = getLessonForDay(getDayForState(state) || activeDay);
-    const normalizedIdeas = state.day06Ideas.map((idea) => String(idea || "").trim().toLocaleLowerCase());
-    const ideasComplete = normalizedIdeas.every(Boolean) && new Set(normalizedIdeas).size === 3;
-    const comparisonsComplete = state.day06Comparisons.every((item) => item.help && item.possible);
-    const selected = Boolean(state.day06SelectedIdea && state.day06Ideas[Number(state.day06SelectedIdea.slice(-1)) - 1]);
+    const ideaEntries = getDay06IdeaEntries(state);
+    const distinctIdeas = ideaEntries.filter((idea) => idea.text && !idea.duplicate);
+    const hasDuplicate = ideaEntries.some((idea) => idea.duplicate);
+    const problem = lesson && lesson.projectReload ? getProjectReloadRecord(lesson) : null;
+    const currentProblemKey = getDay06ProblemKey(problem);
+    const problemReady = Boolean(
+      problem && problem.loadStatus === "record" && problem.hasProblemDefinition &&
+      !state.day06NeedsReload && state.day06ProblemKey === currentProblemKey &&
+      ["keep", "edit", "replace"].includes(state.day06ProblemDecision)
+    );
+    const comparisonsCompleteFor = (entries) => entries.length > 0 && entries.every((idea) => {
+      const comparison = state.day06Comparisons[idea.index] || {};
+      return DAY06_HELP_OPTIONS.includes(comparison.help) && DAY06_MAKE_OPTIONS.includes(comparison.possible);
+    });
+    const ideasComplete = distinctIdeas.length === 3 && !hasDuplicate;
+    const minimumComparisonsComplete = distinctIdeas.length >= 2 && comparisonsCompleteFor(distinctIdeas);
+    const allComparisonsComplete = ideasComplete && comparisonsCompleteFor(distinctIdeas);
+    const selectedIndex = Number(String(state.day06SelectedIdea || "").slice(-1)) - 1;
+    const selectedText = state.day06Ideas[selectedIndex] && String(state.day06Ideas[selectedIndex]).trim();
+    const selected = Boolean(
+      state.day06SelectedIdea && selectedText &&
+      state.day06SelectedIdeaText === selectedText &&
+      !ideaEntries[selectedIndex]?.duplicate
+    );
     const reason = Boolean(String(state.day06SelectionReason || "").trim());
-    const record = state.recordValues || {};
     const quizCompleted = isDay06QuizCompleted(state, lesson);
-    const recordCompleted = Boolean(record.day06Role && record.day06Work.length && record.day06Finding && record.day06Next);
+    const hasFriendQuestion = Boolean(String(state.day06FriendQuestion || "").trim());
+    const recordCompleted = Boolean(String(state.day06NextResearchQuestion || "").trim());
+    const baseChoiceComplete = Boolean(problemReady && selected && reason);
     state.lessonProgress = Object.assign({}, state.lessonProgress, {
-      block13Completed: ideasComplete,
-      block14Completed: Boolean(comparisonsComplete && selected && reason),
-      friendExplained: Boolean(state.day06FriendExplained),
+      block13Completed: Boolean(problemReady && distinctIdeas.length >= 2 && !hasDuplicate),
+      block14Completed: Boolean(minimumComparisonsComplete && selected && reason),
+      friendQuestionCompleted: hasFriendQuestion,
+      friendExplained: hasFriendQuestion,
       quizCompleted,
       recordCompleted,
     });
-    state.minimumCompleted = Boolean(selected && reason);
-    state.basicCompleted = Boolean(ideasComplete && comparisonsComplete && selected && reason && state.day06FriendExplained && quizCompleted && recordCompleted);
-    state.dayCompleted = state.basicCompleted;
+    state.minimumCompleted = Boolean(problemReady && distinctIdeas.length >= 2 && !hasDuplicate && minimumComparisonsComplete && baseChoiceComplete);
+    state.basicCompleted = Boolean(
+      problemReady && ideasComplete && allComparisonsComplete && baseChoiceComplete &&
+      quizCompleted && recordCompleted
+    );
+    state.dayCompleted = Boolean(state.minimumCompleted && quizCompleted);
     state.completionLevel = state.basicCompleted ? "basic" : state.minimumCompleted ? "minimum" : "in_progress";
   }
 
@@ -2848,7 +2931,7 @@
         block13: getProgressValue(Boolean(progress.block13Completed), state.day06Ideas.some(Boolean)),
         block14: getProgressValue(Boolean(progress.block14Completed), state.day06Comparisons.some((item) => item.help || item.possible) || Boolean(state.day06SelectedIdea)),
         quiz: getProgressValue(Boolean(progress.quizCompleted), hasAnyQuizAnswer(state)),
-        record: getProgressValue(Boolean(progress.recordCompleted), Boolean(state.recordValues.day06Role || state.recordValues.day06Work.length || state.recordValues.day06Finding)),
+        record: getProgressValue(Boolean(progress.recordCompleted), Boolean(state.day06NextResearchQuestion || state.day06FriendQuestion)),
       };
     }
     if (currentDay && currentDay.dayId === "day02") {
@@ -3216,6 +3299,12 @@
   function createDayRecordPayload(student, currentDay, state) {
     if (currentDay.dayId === "day06") {
       const previous = getProjectReloadRecord(getLessonForDay(currentDay));
+      const selectedIndex = Number(String(state.day06SelectedIdea || "").slice(-1)) - 1;
+      const selectedIdea = state.day06Ideas[selectedIndex] &&
+        String(state.day06Ideas[selectedIndex]).trim() === state.day06SelectedIdeaText
+        ? state.day06Ideas[selectedIndex]
+        : "";
+      const hasLatestProblem = previous.loadStatus === "record" && previous.hasProblemDefinition;
       return {
         studentId: student.studentId,
         workId: student.workId,
@@ -3224,18 +3313,18 @@
         blockProgress: getBlockProgress(currentDay, state),
         role: state.recordValues.day06Role || "",
         activities: state.recordValues.day06Work || [],
-        todayDecision: state.day06Ideas[Number(String(state.day06SelectedIdea).slice(-1)) - 1] || "",
+        todayDecision: selectedIdea || "",
         discovery: state.day06Ideas.filter(Boolean).join(" | "),
         difficulty: state.recordValues.day06Finding || "",
         changeMade: state.day06Comparisons.map((item) => `${item.help}; ${item.possible}`).join(" | "),
         changeReason: state.day06SelectionReason || "",
-        nextAction: state.recordValues.day06Next || "선택한 아이디어의 입력·조건·출력을 정하기",
-        problemDefinition: previous.problemDefinition || "",
-        targetUser: "",
+        nextAction: state.day06NextResearchQuestion || state.recordValues.day06Next || "",
+        problemDefinition: hasLatestProblem ? previous.problemDefinition : "",
+        targetUser: hasLatestProblem ? previous.targetUser : "",
         minimumCompleted: Boolean(state.minimumCompleted),
-        completionLevel: state.completionLevel,
+        completionLevel: state.completionLevel === "in_progress" ? "" : state.completionLevel,
         status: state.dayCompleted ? "completed" : "in_progress",
-        studentReflection: state.recordValues.day06Finding || "",
+        studentReflection: state.day06FriendQuestion || state.recordValues.day06Finding || "",
         dayState: cloneJsonValue(state, {}),
       };
     }
@@ -3549,6 +3638,14 @@
     );
   }
 
+  function isServerSaveRequestLatest(request) {
+    return Boolean(
+      isServerSaveRequestCurrent(request) &&
+      activeDayState &&
+      Number(activeDayState.localRevision || 0) === Number(request.localRevision)
+    );
+  }
+
   function getDay01ServerSaveSlot(saveKey) {
     if (!day01ServerSaveSlots.has(saveKey)) {
       day01ServerSaveSlots.set(saveKey, {
@@ -3673,6 +3770,7 @@
       activeDayState.serverSyncPending = false;
       activeDayState.serverUpdatedAt = updatedAt;
       writeDayStateToLocalStorage(activeDay, activeDayState);
+      if (request.dayId === "day06") syncDay06StudentUi();
       return true;
     }
 
@@ -3757,14 +3855,14 @@
 
       if (updatedAt && applyServerSaveSuccess(request, updatedAt)) {
         renderSaveStateWithVideoPriority(SAVE_STATUS.saved, {}, request);
-      } else if (isServerSaveRequestCurrent(request) && activeDayState.serverSyncPending) {
+      } else if (isServerSaveRequestLatest(request) && activeDayState.serverSyncPending) {
         renderServerSaveFailed();
       }
     } catch (error) {
       console.warn("day01 server save failed", error);
       slot.lastFlushOk = false;
 
-      if (isServerSaveRequestCurrent(request)) {
+      if (isServerSaveRequestLatest(request)) {
         renderServerSaveFailed();
       }
     } finally {
@@ -3840,6 +3938,8 @@
     if (!isPersistedLessonActive()) {
       return;
     }
+
+    if (activeDay.dayId === "day06") day06SaveOutcome = "";
 
     const beforeProgress = getBlockProgress(activeDay, activeDayState);
     const wasDayCompleted = Boolean(activeDayState.dayCompleted);
@@ -4290,6 +4390,247 @@
     });
   }
 
+  function buildDay05ReturnHref() {
+    const params = new URLSearchParams(window.location.search);
+    params.set("day", "5");
+    params.set("return", "day06");
+    return `?${params.toString()}`;
+  }
+
+  function readLocalDay05Record() {
+    const day05 = window.RESEARCH_DAYS.find((day) => day.dayNo === 5);
+    if (!day05 || !getStudentId()) return null;
+    try {
+      const raw = readStoredDayState(day05);
+      if (!isLocalStateForCurrentContext(raw, day05)) return null;
+      const state = normalizeDayState(day05, raw);
+      return {
+        studentId: getStudentId(),
+        workId: getWorkId(),
+        dayId: "day05",
+        problemDefinition: getDay05ProblemDefinition(state),
+        targetUser: state.targetUser || "",
+        difficulty: getDay05Inconvenience(state),
+        changeReason: Array.isArray(state.day05SelectionReasons) ? state.day05SelectionReasons.join(" ") : "",
+        dayState: state,
+      };
+    } catch (error) {
+      console.warn("local Day05 record read failed", error);
+      return null;
+    }
+  }
+
+  async function refreshDay06PreviousRecord() {
+    if (!activeDay || activeDay.dayId !== "day06" || !isStudentSelected()) return false;
+    const student = getCurrentStudent();
+    const baselineStudentId = student.studentId;
+    day06ReloadMessage = "";
+    currentStudentRecordLoadStatuses.day05 = "loading";
+    updateDay06ReloadPanel();
+
+    try {
+      let dayRecord = null;
+      if (isDay01ServerSyncEnabled()) {
+        const data = await callAppsScriptApi("getDayRecord", {
+          method: "GET",
+          params: { studentId: student.studentId, dayId: "day05" },
+        });
+        dayRecord = data.dayRecord || null;
+        if (dayRecord && dayRecord.studentId && dayRecord.studentId !== baselineStudentId) {
+          throw new Error("Day05 record student mismatch");
+        }
+      } else {
+        dayRecord = readLocalDay05Record();
+        if (!dayRecord && currentStudentRecords && currentStudentRecords.day05 &&
+          currentStudentRecords.day05.studentId === baselineStudentId) {
+          dayRecord = currentStudentRecords.day05;
+        }
+      }
+
+      if (getStudentId() !== baselineStudentId || !activeDay || activeDay.dayId !== "day06") return false;
+      if (dayRecord) {
+        currentStudentRecords = Object.assign({}, currentStudentRecords, { day05: dayRecord });
+        currentStudentRecordLoadStatuses.day05 = "record";
+      } else {
+        const records = Object.assign({}, currentStudentRecords);
+        delete records.day05;
+        currentStudentRecords = records;
+        currentStudentRecordLoadStatuses.day05 = "missing";
+      }
+
+      const problem = getProjectReloadRecord(getLessonForDay(activeDay));
+      const newKey = getDay06ProblemKey(problem);
+      if (activeDayState.day06NeedsReload) {
+        const baselineKey = activeDayState.day06ProblemEditBaseline;
+        if (newKey && newKey !== baselineKey && problem.loadStatus === "record") {
+          day06ReloadMessage = "";
+          updateDay01State((state) => {
+            state.day06NeedsReload = false;
+            ensureDay06DraftForCurrentProblem(state, problem);
+            state.day06ProblemDecision = "keep";
+          });
+        } else {
+          day06ReloadMessage = "고친 문제가 아직 보이지 않아요. 지난 연구에서 저장 상태를 확인한 뒤 다시 불러오세요.";
+        }
+      } else if (newKey && activeDayState.day06ProblemKey !== newKey) {
+        updateDay01State((state) => ensureDay06DraftForCurrentProblem(state, problem));
+      }
+      updateDay06ReloadPanel();
+      return Boolean(newKey && problem.loadStatus === "record");
+    } catch (error) {
+      console.warn("Day06 previous record refresh failed", error);
+      if (getStudentId() === baselineStudentId && activeDay && activeDay.dayId === "day06") {
+        currentStudentRecordLoadStatuses.day05 = "error";
+        day06ReloadMessage = activeDayState.day06NeedsReload
+          ? "고친 문제가 아직 보이지 않아요. 지난 연구에서 저장 상태를 확인한 뒤 다시 불러오세요."
+          : "";
+        updateDay06ReloadPanel();
+      }
+      return false;
+    }
+  }
+
+  async function handleDay06Save(event) {
+    const saveButton = event.target.closest("[data-day06-save], [data-day06-save-retry]");
+    if (!saveButton || !activeDay || activeDay.dayId !== "day06") return;
+    const student = getCurrentStudent();
+    const dayId = activeDay.dayId;
+    const state = activeDayState;
+    const stillCurrent = (revision) => {
+      const selected = getCurrentStudent();
+      return Boolean(
+        student && selected && selected.studentId === student.studentId &&
+        selected.workId === student.workId && activeDay && activeDay.dayId === dayId &&
+        activeDayState === state && activeDayState.localRevision === revision
+      );
+    };
+    saveButton.disabled = true;
+    day06SaveOutcome = "";
+    renderSaveState("연구기록을 저장하고 있어요.");
+    let saveRevision = -1;
+    try {
+      const savePromise = saveDayState("연구기록을 저장하고 있어요.", {
+        server: "immediate",
+        waitForServer: true,
+      });
+      saveRevision = state.localRevision;
+      const saved = await savePromise;
+      if (!stillCurrent(saveRevision)) return;
+      if (!isDay01ServerSyncEnabled()) {
+        day06SaveOutcome = "local";
+        renderSaveState("이 기기에만 임시로 저장했습니다. 선생님과 함께 연구소 기록에도 저장되었는지 확인해 주세요.");
+      } else if (saved && activeDayState && !activeDayState.serverSyncPending && activeDayState.serverUpdatedAt) {
+        day06SaveOutcome = "server";
+        renderSaveState("오늘의 연구기록이 저장되었습니다.");
+      } else {
+        day06SaveOutcome = "failed";
+        renderSaveState("연구소 기록에 저장하지 못했어요. 지금 쓴 내용은 이 화면에 남아 있습니다. 다시 저장해 보세요.");
+      }
+    } catch (error) {
+      console.warn("Day06 research save failed", error);
+      if (stillCurrent(saveRevision)) {
+        day06SaveOutcome = isDay01ServerSyncEnabled() ? "failed" : "local";
+      }
+    } finally {
+      saveButton.disabled = false;
+      if (stillCurrent(saveRevision)) syncDay06StudentUi();
+    }
+  }
+
+  async function handleDay05ReturnToDay06(event) {
+    if (!event.target.closest("[data-day06-return-from-day05]") || !activeDay || activeDay.dayId !== "day05") return;
+    const button = event.target.closest("[data-day06-return-from-day05]");
+    button.disabled = true;
+    const saved = await saveDayState("연구기록을 저장하고 있어요.", {
+      server: "immediate",
+      waitForServer: true,
+    });
+    if (isDay01ServerSyncEnabled() && (!saved || activeDayState.serverSyncPending || !activeDayState.serverUpdatedAt)) {
+      button.disabled = false;
+      renderSaveState("연구소 기록에 저장하지 못했어요. 지금 쓴 내용은 이 화면에 남아 있습니다. 다시 저장해 보세요.");
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    params.set("day", "6");
+    params.delete("return");
+    window.location.search = params.toString();
+  }
+
+  function handleDay06Click(event) {
+    const decision = event.target.closest("[data-day06-problem-decision]");
+    if (decision) {
+      const value = decision.dataset.day06ProblemDecision;
+      const record = getProjectReloadRecord(getLessonForDay(activeDay));
+      const baseline = getDay06ProblemKey(record);
+      day06ReloadMessage = "";
+      updateDay01State((state) => {
+        state.day06ProblemDecision = value;
+        if (value === "edit" || value === "replace") {
+          state.day06ProblemEditBaseline = baseline;
+          state.day06NeedsReload = true;
+        } else {
+          state.day06ProblemEditBaseline = "";
+          state.day06NeedsReload = false;
+        }
+      });
+      return;
+    }
+
+    if (event.target.closest("[data-day06-retry-record], [data-day06-reload-problem]")) {
+      refreshDay06PreviousRecord();
+      return;
+    }
+
+    if (event.target.closest("[data-day06-cancel-problem-edit]")) {
+      day06ReloadMessage = "";
+      updateDay01State((state) => {
+        state.day06ProblemDecision = "keep";
+        state.day06ProblemEditBaseline = "";
+        state.day06NeedsReload = false;
+      });
+      return;
+    }
+
+    if (event.target.closest("[data-day06-save], [data-day06-save-retry]")) {
+      handleDay06Save(event);
+      return;
+    }
+
+    if (event.target.closest("[data-day06-return-from-day05]")) {
+      handleDay05ReturnToDay06(event);
+      return;
+    }
+
+    const nextStep = event.target.closest("[data-day06-next]");
+    if (nextStep && !nextStep.disabled) {
+      openDay06Step(nextStep.dataset.day06Next);
+      return;
+    }
+
+    const returnIncomplete = event.target.closest("[data-day06-return-incomplete]");
+    if (returnIncomplete) {
+      openDay06Step(returnIncomplete.dataset.day06ReturnStep || "1");
+      return;
+    }
+
+    if (event.target.closest("[data-day06-next-quiz]")) {
+      focusSection("today-quiz");
+      return;
+    }
+
+    if (event.target.closest("[data-day06-next-record]")) {
+      focusSection("research-record");
+      return;
+    }
+
+    if (event.target.closest("[data-day06-quiz-record]")) {
+      const record = elements.standardDay.querySelector("#research-record");
+      if (record) record.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+  }
+
   function hasSavedVideoReference(state) {
     return hasPersistentVideoReference(state);
   }
@@ -4328,6 +4669,7 @@
     selectedResearchOrderCard = "";
     activeDay = null;
     activeDayState = null;
+    day06SaveOutcome = "";
     currentStudentRecords = {};
     currentStudentRecordLoadStatuses = {};
     clearRenderedLabSurfaces();
@@ -4355,7 +4697,9 @@
     try {
       prepareActiveStateForStudentChange();
 
-      if (isPersistedLessonActive()) {
+      if (isPersistedLessonActive() && (
+        activeDay.dayId !== "day06" || !isDay01ServerSyncEnabled() || activeDayState.serverSyncPending
+      )) {
         await saveDayState(SAVE_STATUS.saving, {
           server: "immediate",
           waitForServer: true,
@@ -4497,14 +4841,18 @@
     const status = statusText
       ? `<span class="research-day__status" aria-label="${statusLabel}">${statusText}</span>`
       : "";
+    const dayLinkContent = `
+      <span class="research-day__number">${formatDayNo(day.dayNo)}</span>
+      <span class="research-day__title">${escapeHtml(day.title)}</span>
+    `;
+    const dayLink = day.dayId === "day07" && !getLessonForDay(day)
+      ? `<span class="research-day__link" aria-disabled="true">${dayLinkContent}</span>`
+      : `<a class="research-day__link" href="${escapeHtml(getDayUrl(day))}">${dayLinkContent}</a>`;
 
     return `
       <li class="research-day research-day--${state}"${currentAttributes}>
         <div class="research-day__line">
-          <a class="research-day__link" href="${escapeHtml(getDayUrl(day))}">
-            <span class="research-day__number">${formatDayNo(day.dayNo)}</span>
-            <span class="research-day__title">${escapeHtml(day.title)}</span>
-          </a>
+          ${dayLink}
           ${status}
         </div>
         ${currentContent}
@@ -4612,15 +4960,33 @@
     const hasRecord = Object.keys(previousRecord).length > 0;
     const loadStatus = currentStudentRecordLoadStatuses[previous.previousDayId] ||
       (hasRecord ? "record" : "loading");
-    let problemDefinition = String(previousRecord[previous.problemDefinitionField] || previousState.problemDefinition || "").trim();
+    const selectedSource = String(previousState.day05SelectedProblemSource || "");
+    const selectedCandidate = selectedSource === "direct"
+      ? previousState.day05DirectObservation || {}
+      : (Array.isArray(previousState.day05Candidates)
+          ? previousState.day05Candidates.find((candidate) => candidate && candidate.source === selectedSource)
+          : null) || {};
+    const targetUser = String(
+      previousState.targetUser || previousRecord.targetUser || selectedCandidate.targetUser || ""
+    ).trim();
+    const situation = String(
+      previousState.day05Situation || selectedCandidate.situation ||
+        (selectedSource === "direct" ? previousState.day05DirectObservation?.situation : "") || ""
+    ).trim();
+    const inconvenience = String(
+      previousState.inconvenience || previousRecord.difficulty || selectedCandidate.problem ||
+        (selectedSource === "direct" ? previousState.day05DirectObservation?.problem : "") || ""
+    ).trim();
+    let problemDefinition = String(
+      previousRecord[previous.problemDefinitionField] ||
+        (previousState.problemDefinitionEdited === true ? previousState.problemDefinition : "") ||
+        getDay05ProblemDefinition(previousState) || ""
+    ).trim();
     if (
       previous.previousDayId === "day05" &&
       !isDay05CompleteProblemDefinition(problemDefinition) &&
       previousState.problemDefinitionEdited !== true
     ) {
-      const targetUser = previousState.targetUser || previousRecord.targetUser || "";
-      const inconvenience = previousState.inconvenience || previousRecord.inconvenience || previousRecord.difficulty || problemDefinition;
-      const situation = previousState.day05Situation || "";
       problemDefinition = buildDay05ProblemDefinition(targetUser, situation, inconvenience) || problemDefinition;
     }
     const nextAction = String(previousRecord[previous.nextActionField] || previousState.nextAction || "").trim();
@@ -4629,24 +4995,104 @@
         previousRecord.changeReason ||
         (Array.isArray(previousState.day05SelectionReasons) ? previousState.day05SelectionReasons.join(", ") : "")
     ).trim();
-    const hasProblemDefinition = Boolean(problemDefinition);
+    const hasProblemDefinition = isDay05CompleteProblemDefinition(problemDefinition);
     const hasNextAction = Boolean(nextAction);
     const hasSelectionReason = Boolean(memo);
+    const observationMaterials = [
+      previousState.day05DirectObservation?.problem,
+      previousState.day05A3Observation,
+      previousState.day05A4Observation,
+    ].map((value) => String(value || "").trim()).filter(Boolean);
 
     return {
       hasRecord,
       hasAnyRealRecord: hasProblemDefinition || hasNextAction || hasSelectionReason,
       loadStatus,
       hasProblemDefinition,
+      targetUser,
+      situation,
+      inconvenience,
       hasNextAction,
       hasSelectionReason,
       problemDefinition,
       nextAction,
       memo,
+      observationMaterials,
       exampleProblemDefinition: previous.fallbackProblemDefinition,
       exampleNextAction: previous.fallbackNextAction,
       exampleMemo: evidence.fallbackMemo,
     };
+  }
+
+  function getDay06ProblemKey(record) {
+    if (!record || !record.hasProblemDefinition) return "";
+    return [record.targetUser, record.situation, record.inconvenience, record.problemDefinition]
+      .map((value) => String(value || "").normalize("NFKC").replace(/\s+/g, " ").trim())
+      .join("\u001f");
+  }
+
+  function getDay06ActiveDraft(state) {
+    return {
+      ideas: state.day06Ideas.slice(0, 3),
+      comparisons: state.day06Comparisons.slice(0, 3).map((item) => ({ help: item.help || "", possible: item.possible || "" })),
+      selectedIdea: state.day06SelectedIdea,
+      selectedIdeaText: state.day06SelectedIdeaText,
+      selectionReason: state.day06SelectionReason,
+      friendQuestion: state.day06FriendQuestion,
+      explanationChoice: state.day06ExplanationChoice,
+      nextResearchQuestion: state.day06NextResearchQuestion,
+    };
+  }
+
+  function applyDay06Draft(state, draft, record, key) {
+    const source = draft || {};
+    state.day06Ideas = Array.isArray(source.ideas) ? source.ideas.slice(0, 3) : ["", "", ""];
+    while (state.day06Ideas.length < 3) state.day06Ideas.push("");
+    state.day06Comparisons = Array.isArray(source.comparisons) ? source.comparisons.slice(0, 3) : [];
+    while (state.day06Comparisons.length < 3) state.day06Comparisons.push({ help: "", possible: "" });
+    state.day06Comparisons = state.day06Comparisons.map((item) => Object.assign({ help: "", possible: "" }, item || {}));
+    state.day06SelectedIdea = ["idea1", "idea2", "idea3"].includes(source.selectedIdea) ? source.selectedIdea : "";
+    state.day06SelectedIdeaText = String(source.selectedIdeaText || "");
+    if (state.day06SelectedIdea && !state.day06SelectedIdeaText) {
+      state.day06SelectedIdeaText = String(state.day06Ideas[Number(state.day06SelectedIdea.slice(-1)) - 1] || "").trim();
+    }
+    state.day06SelectionReason = String(source.selectionReason || "");
+    state.day06FriendQuestion = String(source.friendQuestion || "");
+    state.day06ExplanationChoice = String(source.explanationChoice || "");
+    state.day06NextResearchQuestion = String(source.nextResearchQuestion || "");
+    state.recordValues.day06Next = state.day06NextResearchQuestion;
+    state.day06ProblemKey = key;
+    state.day06ProblemSnapshot = record.problemDefinition;
+    state.day06ProblemDecision = "";
+    state.day06ProblemEditBaseline = "";
+    state.day06NeedsReload = false;
+  }
+
+  function ensureDay06DraftForCurrentProblem(state = activeDayState, record = getProjectReloadRecord(getLessonForDay(activeDay))) {
+    if (!state || !record || record.loadStatus !== "record" || !record.hasProblemDefinition || state.day06NeedsReload) return false;
+    const key = getDay06ProblemKey(record);
+    if (!key) return false;
+    if (!state.day06ProblemKey) {
+      state.day06ProblemKey = key;
+      state.day06ProblemSnapshot = record.problemDefinition;
+      if (!state.day06ProblemDecision) {
+        state.day06ProblemDecision = state.day06Ideas.some((idea) => String(idea || "").trim()) ? "keep" : "";
+      }
+      return true;
+    }
+    if (state.day06ProblemKey === key) return true;
+
+    const drafts = Object.assign({}, state.day06DraftsByProblem || {});
+    const currentDraft = getDay06ActiveDraft(state);
+    const hasCurrentWork = currentDraft.ideas.some((idea) => String(idea || "").trim()) ||
+      currentDraft.selectedIdea || currentDraft.selectionReason || currentDraft.friendQuestion ||
+      currentDraft.nextResearchQuestion || currentDraft.comparisons.some((item) => item.help || item.possible);
+    if (hasCurrentWork && state.day06ProblemKey) {
+      drafts[state.day06ProblemKey] = Object.assign({ problemDefinition: state.day06ProblemSnapshot }, currentDraft);
+    }
+    applyDay06Draft(state, drafts[key] || null, record, key);
+    state.day06DraftsByProblem = drafts;
+    return true;
   }
 
   function getReloadRecordTitle(reload, record) {
@@ -4680,6 +5126,227 @@
 
   function getReloadMemoLabel(reload, record) {
     return record.hasRecord || record.hasAnyRealRecord ? reload.evidence.memoLabel : "예시 메모";
+  }
+
+  const DAY06_HELP_OPTIONS = ["많이 줄여 줄 것 같아요", "조금 줄여 줄 것 같아요", "더 알아봐야 해요"];
+  const DAY06_MAKE_OPTIONS = ["지금 시작할 수 있을 것 같아요", "도움을 받으면 시작할 수 있어요", "더 알아봐야 해요"];
+  let day06ReloadMessage = "";
+  let day06SaveOutcome = "";
+
+  function getDay06IdeaEntries(state = activeDayState) {
+    if (!state || !Array.isArray(state.day06Ideas)) return [];
+    const seen = new Set();
+    return state.day06Ideas.slice(0, 3).map((value, index) => {
+      const text = String(value || "").trim();
+      const key = text.normalize("NFKC").replace(/\s+/g, " ").toLocaleLowerCase();
+      const duplicate = Boolean(key && seen.has(key));
+      if (key) seen.add(key);
+      return { index, value: `idea${index + 1}`, text, key, duplicate };
+    });
+  }
+
+  function hasDay06CurrentProblem(record = getProjectReloadRecord(getLessonForDay(activeDay))) {
+    return Boolean(record && record.loadStatus === "record" && record.hasProblemDefinition);
+  }
+
+  function renderDay06PreviousContents(record) {
+    const available = hasDay06CurrentProblem(record);
+    const data = available
+      ? `<dl class="day06-record-values">
+          <div><dt>도움을 줄 사람</dt><dd>${escapeHtml(record.targetUser)}</dd></div>
+          <div><dt>그 사람이 불편했던 때</dt><dd>${escapeHtml(record.situation)}</dd></div>
+          <div><dt>그때 어려웠던 일</dt><dd>${escapeHtml(record.inconvenience)}</dd></div>
+          <div><dt>내가 정한 문제</dt><dd>${escapeHtml(record.problemDefinition)}</dd></div>
+        </dl>
+        ${record.hasSelectionReason ? `<p class="day06-record-reason">내가 이 문제를 고른 이유: ${escapeHtml(record.memo)}</p>` : ""}
+        ${record.observationMaterials.length ? `<details class="help-toggle"><summary>그때의 관찰 자료 보기</summary><ul class="help-list">${record.observationMaterials.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>` : ""}`
+      : `<p class="day06-record-empty">지난 연구의 문제 문장이 아직 보이지 않아요. 연구원 이름을 확인하고 다시 불러오세요. 기록이 없다면 선생님과 함께 지난 연구에서 사람·상황·불편을 정한 뒤 이곳으로 돌아옵니다.</p>
+        <div class="section-action day06-record-actions">
+          <button class="secondary-button" type="button" data-day06-retry-record>내 기록 다시 불러오기</button>
+          <a class="secondary-button" href="${escapeHtml(buildDay05ReturnHref())}">지난 연구로 돌아가기</a>
+        </div>`;
+
+    return `${data}<p class="inline-feedback day06-record-refresh-status" data-day06-record-refresh-status aria-live="polite">${escapeHtml(day06ReloadMessage)}</p>`;
+  }
+
+  function renderDay06ComparisonRows(state) {
+    return [0, 1, 2].map((index) => {
+      const ideaNo = index + 1;
+      const comparison = state.day06Comparisons[index] || { help: "", possible: "" };
+      return `<article class="day06-comparison-item" data-day06-comparison-item="${index}" hidden>
+        <h3><span data-day06-idea-display="${ideaNo}">${escapeHtml(state.day06Ideas[index] || "")}</span></h3>
+        <fieldset class="simple-choice">
+          <legend data-day06-help-question="${index}"></legend>
+          ${DAY06_HELP_OPTIONS.map((option, optionIndex) => {
+            const id = `day06-help-${ideaNo}-${optionIndex + 1}`;
+            return `<label class="radio-option" for="${id}"><input id="${id}" name="day06-help-${ideaNo}" type="radio" value="${escapeHtml(option)}" data-day06-comparison="${index}:help"${comparison.help === option ? " checked" : ""}><span>${escapeHtml(option)}</span></label>`;
+          }).join("")}
+        </fieldset>
+        <fieldset class="simple-choice">
+          <legend data-day06-make-question="${index}"></legend>
+          ${DAY06_MAKE_OPTIONS.map((option, optionIndex) => {
+            const id = `day06-make-${ideaNo}-${optionIndex + 1}`;
+            return `<label class="radio-option" for="${id}"><input id="${id}" name="day06-make-${ideaNo}" type="radio" value="${escapeHtml(option)}" data-day06-comparison="${index}:possible"${comparison.possible === option ? " checked" : ""}><span>${escapeHtml(option)}</span></label>`;
+          }).join("")}
+        </fieldset>
+      </article>`;
+    }).join("");
+  }
+
+  function renderDay06FinalChoices(state) {
+    return getDay06IdeaEntries(state).filter((idea) => {
+      const comparison = state.day06Comparisons[idea.index] || {};
+      return idea.text && !idea.duplicate && DAY06_HELP_OPTIONS.includes(comparison.help) && DAY06_MAKE_OPTIONS.includes(comparison.possible);
+    }).map((idea) => {
+      const ideaNo = idea.index + 1;
+      const selected = state.day06SelectedIdea === idea.value && state.day06SelectedIdeaText === idea.text;
+      const id = `day06-final-choice-${ideaNo}`;
+      return `<label class="radio-option" data-day06-final-option="${ideaNo}" for="${id}"><input id="${id}" name="final-choice" type="radio" value="${idea.value}"${selected ? " checked" : ""}><span>${escapeHtml(idea.text)}</span></label>`;
+    }).join("");
+  }
+
+  function renderDay06StudentLesson(lesson) {
+    const state = activeDayState || createDefaultDayState({ dayId: "day06" });
+    const problem = getProjectReloadRecord(lesson);
+    const hasProblem = hasDay06CurrentProblem(problem);
+    const canContinueFromProblem = hasProblem && !state.day06NeedsReload && ["keep", "edit", "replace"].includes(state.day06ProblemDecision);
+    const canStartSceneRecall = hasProblem && !state.day06NeedsReload;
+    const quiz = renderTodayQuiz(lesson);
+    const complete = renderResearchComplete(lesson);
+
+    return `<div class="day06-lesson">
+      <section class="lesson-section day06-opening" id="today-research">
+        <p class="section-kicker">오늘의 연구</p>
+        <p class="day06-position">불편 찾기 → 해결 방법 고르기 → 만들 계획 세우기</p>
+        <h2 class="section-title">한 가지 불편, 여러 가지 방법</h2>
+        <p class="section-description">지난 연구에서 찾은 불편을 다시 보고, 두세 가지 방법을 떠올려 모두 비교한 뒤 먼저 해 볼 방법과 이유를 정해요.</p>
+        <div class="section-action"><a class="primary-link" href="#day06-step-1">내 지난 기록 보기</a></div>
+      </section>
+
+      <section class="lesson-section day06-step" id="day06-step-1" data-day06-step="1">
+        <details class="day06-step-details" data-day06-details="1" open>
+          <summary class="section-title">지난번에 내가 찾은 불편은 무엇이었나요?</summary>
+          <div class="day06-step-content">
+            <div class="plain-group"><h3>내 기록</h3><div class="day06-previous-record" data-day06-previous-record>${renderDay06PreviousContents(problem)}</div></div>
+            <p class="day06-guidance">위 기록에서 사람·때·불편을 확인해요.</p>
+            <p class="inline-feedback day06-step-locked" data-day06-step1-guidance aria-live="polite"></p>
+            <div class="section-action"><button class="primary-link" type="button" data-day06-next="2"${canStartSceneRecall ? "" : " disabled"}>장면 떠올리고 문제 정하기</button></div>
+          </div>
+        </details>
+      </section>
+
+      <section class="lesson-section day06-step" id="day06-step-2" data-day06-step="2">
+        <details class="day06-step-details" data-day06-details="2">
+          <summary class="section-title">그 일이 일어난 순간을 떠올려요</summary>
+          <div class="day06-step-content">
+            <p class="day06-step-action"><strong>종이에 장면 하나를 그리거나 짧게 적어요.</strong> 누가 무엇을 하다가 막혔나요? 같은 불편이 생긴 다른 장면도 하나 떠올려 보세요.</p>
+            <div class="plain-group"><h3>오늘 해결할 문제 정하기</h3><p>지난 문제를 그대로 쓰거나, 고치거나, 새 문제로 바꿀 수 있어요.</p>
+              <div class="choice-list day06-problem-decisions" role="group" aria-label="내 문제 결정하기">
+                ${[["keep", "지난번 문제를 그대로 쓸래요"], ["edit", "지난번 문제를 조금 고칠래요"], ["replace", "새로 찾은 문제로 바꿀래요"]].map(([value, label]) => `<button class="choice-button${state.day06ProblemDecision === value ? " is-selected" : ""}" type="button" aria-pressed="${state.day06ProblemDecision === value ? "true" : "false"}" data-day06-problem-decision="${value}"${hasProblem && !state.day06NeedsReload ? "" : " disabled"}>${label}</button>`).join("")}
+              </div>
+              <div class="day06-problem-edit" data-day06-problem-edit hidden>
+                <p>지난 연구에서 문제를 고쳐 저장한 뒤 여기로 돌아와 다시 불러오세요.</p>
+                <a class="secondary-button" href="${escapeHtml(buildDay05ReturnHref())}">지난 문제 고치러 가기</a>
+                <p class="day06-latest-problem" data-day06-current-problem></p>
+                <p class="inline-feedback" data-day06-problem-reload-message aria-live="polite"></p>
+                <button class="secondary-button" type="button" data-day06-reload-problem>고친 문제 다시 불러오기</button>
+                <button class="secondary-button" type="button" data-day06-cancel-problem-edit>수정 취소하고 지난 문제 그대로 쓰기</button>
+              </div>
+            </div>
+            <p class="day06-latest-problem" data-day06-confirmed-problem></p>
+            <p class="inline-feedback day06-step-locked" data-day06-step2-guidance aria-live="polite"></p>
+            <div class="section-action"><button class="primary-link" type="button" data-day06-next="3"${canContinueFromProblem ? "" : " disabled"}>해결 방법 생각하기</button></div>
+            <details class="help-toggle"><summary>장면이 잘 떠오르지 않을 때</summary>
+              <p>예를 들어, 화분을 돌보는 사람이 주변이 어두워진 것을 늦게 알아챘다면, 그 사람은 어두워졌을 때 바로 알아채기 어려운 문제를 겪어요.</p>
+              <ul class="day06-example-list"><li>누가 불편했나요? → 화분을 돌보는 사람</li><li>언제 불편했나요? → 주변이 어두워졌을 때</li><li>무엇이 어려웠나요? → 어두워진 것을 바로 알아채기</li></ul>
+              <ul class="help-list"><li>그 사람의 손이나 눈은 그때 무엇을 하고 있었나요?</li><li>지금은 그 불편을 어떻게 해결하나요?</li><li>언제 특히 불편할까요?</li></ul>
+            </details>
+            <details class="help-toggle"><summary>내가 떠올린 장면 돌아보기</summary>
+              <p>직접 본 일인가요, 들은 이야기인가요, 상상한 일인가요? 상상한 일이라면 누구에게 물어볼 수 있을까요?</p>
+              <p>친구에게 장면 하나를 설명하고 “그때 무엇이 제일 불편했어?” 같은 질문을 들어 보세요.</p>
+            </details>
+          </div>
+        </details>
+      </section>
+
+      <section class="lesson-section day06-step" id="day06-step-3" data-day06-step="3">
+        <details class="day06-step-details" data-day06-details="3">
+          <summary class="section-title">먼저 하나, 그다음 여러 개!</summary>
+          <div class="day06-step-content">
+            <p class="day06-subheading">종이에 두세 가지 방법 생각하기</p>
+            <p>먼저 종이에 단어·그림·짧은 문장으로 서로 다른 방법 두 가지를 적어요. 세 번째 방법은 선택이에요. 화면에 적은 방법은 모두 비교합니다.</p>
+            <p class="day06-starting-sentence">“[언제] [누가] [무엇을 할 수 있게] 돕기”</p>
+            <div class="day06-idea-inputs">
+              ${[0, 1, 2].map((index) => {
+                const number = index + 1;
+                const hints = ["첫 번째 방법을 적어요.", "첫 번째와 다른 방법을 적어요.", "선택: 더 생각났다면 적어요."];
+                return `<label class="record-field" for="day06-idea-${number}"><span>${["첫 번째 방법", "두 번째 방법", "세 번째 방법"][index]}</span><input id="day06-idea-${number}" data-idea-input="${number}" maxlength="120" value="${escapeHtml(state.day06Ideas[index] || "")}"${canContinueFromProblem ? "" : " disabled"}><p class="field-help">${hints[index]}</p></label>`;
+              }).join("")}
+            </div>
+            <p class="inline-feedback" data-day06-idea-message aria-live="polite"></p>
+            <div class="section-action"><button class="primary-link" type="button" data-day06-next="4" disabled>내 방법 비교하기</button></div>
+            <details class="help-toggle"><summary>방법이 잘 떠오르지 않을 때</summary>
+              <p>화분 장면이라면 “어두워지면 불빛으로 알려 주기”, “버튼을 눌러 밝기 확인하기”처럼 도움을 주는 방식이 다른 방법을 생각할 수 있어요. 내 문제에 맞는 방법을 적어 보세요.</p>
+              <ul class="help-list"><li>그 사람에게 무언가를 알려 줄 수 있을까요?</li><li>사람 대신 움직여 줄 수 있는 것은 무엇일까요?</li><li>그 사람이 상태를 직접 확인할 수 있을까요?</li><li>지금 하는 일의 순서나 위치를 바꾸면 어떨까요?</li></ul>
+              <p>친구에게 다른 방법을 물어보고 내 문제에 맞게 바꿔도 좋아요. 부품 이름만 적었다면 그 부품이 누구에게 어떤 도움을 주는지 덧붙여요. 더 생각나면 종이에 네다섯 번째 방법도 적을 수 있어요.</p>
+            </details>
+          </div>
+        </details>
+      </section>
+
+      <section class="lesson-section day06-step" id="day06-step-4" data-day06-step="4">
+        <details class="day06-step-details" data-day06-details="4">
+          <summary class="section-title">내 문제에 어떤 방법이 도움이 될까요?</summary>
+          <div class="day06-step-content">
+            <p>입력한 방법을 모두 비교해요. 두 기준은 정답을 고르는 점수가 아니라 더 알아볼 점을 찾는 질문입니다.</p>
+            <ul class="day06-criteria-list"><li>도움: 이 방법을 쓰면 그 사람의 불편이 줄어드나요?</li><li>만들기: 이번 프로젝트에서 일단 작동하는 첫 모습을 시작할 수 있나요?</li></ul>
+            <details class="help-toggle"><summary>비교 예시 보기</summary><p>화분에 불빛으로 알리면 어두워진 것을 알아채는 데 도움이 돼요. 버튼으로 밝기를 확인하려면 누군가 먼저 버튼을 눌러야 해요. 두 방법 모두 장단점이 있습니다.</p></details>
+            <div class="comparison-list day06-comparison-list">${renderDay06ComparisonRows(state)}</div>
+            <p class="inline-feedback day06-comparison-progress" data-day06-comparison-progress aria-live="polite"></p>
+            <p>모른다고 골라도 괜찮아요. 다음 연구에서 더 살펴볼 점이 생긴 거예요.</p>
+            <div class="plain-group day06-friend-question"><h3>이제 친구의 질문을 들어 봐요</h3>
+              <p data-day06-friend-guide></p>
+              <p class="field-help">친구 질문과 답은 선택이에요. 비워 두어도 다음 단계로 갈 수 있어요.</p>
+              <ul class="help-list"><li>그 사람은 언제 이 방법을 쓰나요?</li><li>이 방법을 쓰면 무엇이 달라지나요?</li><li>만들기 전에 더 알아볼 것은 무엇인가요?</li></ul>
+              <label class="record-field" for="day06-friend-question"><span>선택: 친구가 물어본 것이 있으면 적어 보세요.</span><input id="day06-friend-question" data-day06-friend-question maxlength="180" value="${escapeHtml(state.day06FriendQuestion)}"></label>
+              <fieldset class="simple-choice"><legend>질문을 듣고 선택</legend>
+                ${["내 설명을 그대로 둘래요", "조금 고칠래요"].map((option, index) => `<label class="radio-option" for="day06-explanation-${index + 1}"><input id="day06-explanation-${index + 1}" name="day06-explanation-choice" type="radio" value="${escapeHtml(option)}" data-day06-explanation${state.day06ExplanationChoice === option ? " checked" : ""}><span>${escapeHtml(option)}</span></label>`).join("")}
+              </fieldset>
+            </div>
+            <div class="section-action"><button class="primary-link" type="button" data-day06-next="5" disabled>첫 방법 고르기</button></div>
+          </div>
+        </details>
+      </section>
+
+      <section class="lesson-section day06-step" id="day06-step-5" data-day06-step="5">
+        <details class="day06-step-details" data-day06-details="5">
+          <summary class="section-title">나는 이 방법을 먼저 해 볼래요</summary>
+          <div class="day06-step-content">
+            <fieldset class="simple-choice final-choice"><legend>비교한 방법 중 하나를 고르세요.</legend><div data-day06-final-choices>${renderDay06FinalChoices(state)}</div></fieldset>
+            <label class="record-field" for="day06-reason"><span>“나는 [방법]을 먼저 해 보겠습니다. [누구]가 [어떤 불편]을 줄일 수 있기 때문입니다.” 필요한 경우 첫 시험으로 시작할 수 있는 모습도 덧붙여 보세요. 아직 모르겠다면 더 알아볼 점을 적어도 됩니다.</span><textarea id="day06-reason" rows="3" maxlength="180" data-day06-reason>${escapeHtml(state.day06SelectionReason)}</textarea><p class="field-help">예: “어두워지면 불빛으로 알리는 방법을 먼저 해 보겠습니다. 화분을 돌보는 사람이 어두워진 것을 빨리 알 수 있고, 불빛이 켜지는 모습부터 시험할 수 있기 때문입니다.”</p></label>
+            <p class="day06-guidance">고르지 않은 방법도 남아 있습니다. 나중에 다시 살펴볼 수 있어요.</p>
+            <div class="plain-group day06-self-check"><h3>오늘의 생각을 확인해요</h3>
+              <ul><li data-day06-check="problem">해결해 볼 문제를 정했나요?</li><li data-day06-check="compare">서로 다른 방법 두 가지 이상을 도움과 만들기 기준으로 비교했나요?</li><li data-day06-check="choice">먼저 해 볼 방법 하나와 그 이유를 적었나요?</li></ul>
+              <p data-day06-self-check-message></p>
+              <button class="secondary-button" type="button" data-day06-return-incomplete>비어 있는 곳으로 돌아가기</button>
+              <div class="section-action"><button class="primary-link" type="button" data-day06-next-quiz>오늘의 퀴즈 풀기</button></div>
+            </div>
+            <details class="help-toggle day06-extension"><summary>종이 세 칸으로 사용 장면 시험하기</summary><p>“사용 전 → 장치가 도움을 주는 순간 → 사용 후”를 그려 보세요. 친구가 이 방법을 처음 쓰는 사람이라면 무엇을 물어볼까요? 답하기 어려웠던 부분을 한 가지 고쳐 보세요.</p></details>
+          </div>
+        </details>
+      </section>
+
+      ${quiz}
+      ${renderDay06ResearchRecord(lesson)}
+      ${complete}
+    </div>`;
+  }
+
+  function updateDay06ReloadPanel() {
+    if (!activeDay || activeDay.dayId !== "day06" || !elements.standardDay) return;
+    const target = elements.standardDay.querySelector("[data-day06-previous-record]");
+    if (target) target.innerHTML = renderDay06PreviousContents(getProjectReloadRecord(getLessonForDay(activeDay)));
+    syncDay06StudentUi();
   }
 
   function renderResearchBridge(lesson) {
@@ -9048,7 +9715,7 @@
 
     return `
       <section class="lesson-section today-quiz" id="today-quiz" data-section="todayQuiz">
-        <p class="section-kicker">확인하기</p>
+        ${lesson.dayId === "day06" ? "" : `<p class="section-kicker">확인하기</p>`}
         <h2 class="section-title">${escapeHtml(lesson.quiz.title)}</h2>
         <p class="section-description">${escapeHtml(lesson.quiz.description)}</p>
 
@@ -9058,14 +9725,15 @@
             .join("")}
         </div>
 
-        ${
-          renderSequentialNav
+        ${lesson.dayId === "day06"
+          ? `<p class="day06-quiz-complete" data-day06-quiz-complete hidden>오늘 내가 고른 방법을 연구기록에 남겨 볼까요?</p>
+              <div class="section-action"><button class="primary-link" type="button" data-day06-quiz-record hidden>연구기록 보기</button></div>`
+          : renderSequentialNav
             ? `<nav class="section-nav" aria-label="퀴즈 이동">
                 <a href="${escapeHtml(previousHref)}">← ${escapeHtml(previousLabel)}</a>
                 <a class="section-nav__next" href="#research-record">연구기록 →</a>
               </nav>`
-            : ""
-        }
+            : ""}
       </section>
     `;
   }
@@ -9301,20 +9969,20 @@
 
   function renderDay06ResearchRecord(lesson) {
     const state = activeDayState;
-    const values = state.recordValues || {};
-    const workOptions = lesson.record.fields.find((field) => field.id === "work").options;
-    const roleOptions = lesson.record.fields.find((field) => field.id === "role").options;
     return `
       <section class="lesson-section research-record" id="research-record" data-section="researchRecord">
-        <p class="section-kicker">기록하기</p><h2 class="section-title">${escapeHtml(lesson.record.title)}</h2>
-        <form class="record-form">
-          <label class="record-field" for="day06-role"><span>오늘 맡은 역할</span><select id="day06-role" data-day06-record="day06Role"><option value="">선택</option>${roleOptions.map((option) => `<option value="${escapeHtml(option)}"${values.day06Role === option ? " selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select></label>
-          <fieldset class="record-field record-field--checkbox-group"><legend>오늘 내가 한 일</legend><div class="checkbox-group">${workOptions.map((option, index) => `<label class="checkbox-option" for="day06-work-${index}"><input id="day06-work-${index}" type="checkbox" value="${escapeHtml(option)}" data-day06-work${values.day06Work.includes(option) ? " checked" : ""}><span>${escapeHtml(option)}</span></label>`).join("")}</div></fieldset>
-          <label class="record-field" for="day06-final-idea"><span>최종 선택한 아이디어</span><input id="day06-final-idea" data-record-source="finalIdea" readonly value="${escapeHtml(state.day06Ideas[Number(String(state.day06SelectedIdea || "").slice(-1)) - 1] || "")}"><p class="field-help">비교 활동에서 고른 아이디어가 자동으로 들어갑니다.</p></label>
-          <label class="record-field" for="day06-finding"><span>어려웠던 점이나 새롭게 발견한 것</span><textarea id="day06-finding" rows="3" maxlength="180" data-day06-record="day06Finding">${escapeHtml(values.day06Finding || "")}</textarea></label>
-          <label class="record-field" for="day06-next"><span>다음 연구에서 할 일</span><input id="day06-next" maxlength="120" value="${escapeHtml(values.day06Next || "선택한 아이디어의 입력·조건·출력을 정하기")}" data-day06-record="day06Next"></label>
-        </form>
-        <nav class="section-nav" aria-label="연구기록 이동"><a href="#today-quiz">← 오늘의 퀴즈</a><a class="section-nav__next primary-link" href="#research-complete">오늘 연구 정리 보기 →</a></nav>
+        <h2 class="section-title">오늘 내가 정한 것을 저장해요</h2>
+        <div class="day06-record-summary">
+          <p>내가 해결할 문제: <span data-day06-summary-problem></span></p>
+          <p>내가 먼저 해 볼 방법: <span data-day06-summary-choice></span></p>
+          <p>내가 고른 이유: <span data-day06-summary-reason></span></p>
+        </div>
+        <label class="record-field" for="day06-next-question"><span>다음에 만들 계획을 세울 때 더 알아보고 싶은 것은 무엇인가요?</span><input id="day06-next-question" data-day06-next-question maxlength="120" value="${escapeHtml(state.day06NextResearchQuestion || "")}"><p class="field-help">예: “어느 정도로 어두워졌을 때 알려 주면 좋을까?”</p></label>
+        <div class="day06-save-actions">
+          <button class="primary-link" type="button" data-day06-save>오늘의 연구 저장하기</button>
+          <button class="secondary-button" type="button" data-day06-save-retry hidden>연구기록에 다시 저장하기</button>
+        </div>
+        <p class="inline-feedback day06-save-status" data-day06-save-status aria-live="polite"></p>
       </section>`;
   }
 
@@ -9674,7 +10342,7 @@
     }
 
     if (lesson.dayId === "day06") {
-      return `<section class="lesson-section research-complete" id="research-complete" data-section="researchComplete"><p class="section-kicker">마무리</p><h2 class="section-title" data-day06-complete-title>${activeDayState.dayCompleted ? escapeHtml(lesson.complete.title) : "아직 연구를 완료하지 않았어요"}</h2><div data-day06-complete-body>${activeDayState.dayCompleted ? `<p>${escapeHtml(lesson.complete.gained)}</p>${renderParagraphs(lesson.complete.summaryLines || [])}<h3>다음 연구</h3><p>${escapeHtml(lesson.complete.nextTitle)}</p><p>${escapeHtml(lesson.complete.nextSummary)}</p>` : "세 아이디어를 비교하고 선택 이유와 연구기록을 확인해 주세요."}</div><div class="section-action"><a class="primary-link" href="#page-title">연구소 지도에서 확인하기 →</a></div></section>`;
+      return `<section class="lesson-section research-complete day06-complete" id="research-complete" data-section="researchComplete"><div data-day06-complete-body><p data-day06-saved-message hidden>오늘은 여러 방법을 비교하고 내가 먼저 만들 방법을 골랐습니다.</p><p class="day06-next-guidance" data-day06-next-guidance aria-live="polite"></p><div class="section-action day06-next-actions"><button class="secondary-button" type="button" data-day06-return-incomplete hidden>빠진 단계로 돌아가기</button><button class="secondary-button" type="button" data-day06-next-quiz hidden>오늘의 퀴즈 풀기</button><button class="secondary-button" type="button" data-day06-next-record hidden>연구기록으로 가기</button></div></div></section>`;
     }
 
     return `
@@ -9979,7 +10647,7 @@
       <section class="lesson-section day05-section" id="day05-friend"><h2 class="section-title">친구에게 설명해 보세요</h2><p class="day05-definition-sentence" data-day05-problem-definition-display data-empty-text="문제 정의문을 먼저 작성해 주세요.">${escapeHtml(problemDefinition || "문제 정의문을 먼저 작성해 주세요.")}</p><p>친구에게 언제 그런 일이 생기고 왜 불편한지 설명해 보세요.</p><div class="choice-list compact-choice-list">${["바로 설명할 수 있었다.", "조금 더 생각해야 했다.", "문제를 조금 고치고 싶다."].map(value => `<button type="button" class="choice-button${state.day05FriendCheck === value ? " is-selected" : ""}" data-day05-friend="${value}">${value}</button>`).join("")}</div>${["조금 더 생각해야 했다.", "문제를 조금 고치고 싶다."].includes(state.day05FriendCheck) ? `<p class="field-help">그렇다면 위의 문제 정의문을 다시 읽고 필요한 부분을 고쳐 보세요. <a href="#day05-definition" data-day05-edit-definition>문제 정의문으로 돌아가기</a></p>` : ""}</section>
       ${renderDay05Quiz(state)}
       <section class="lesson-section day05-section" id="day05-record"><h2 class="section-title">오늘의 연구기록</h2><ul class="day05-record-list"><li><span>내가 찾은 실제 불편</span><strong>${escapeHtml(selectedCandidate.problem || state.day05DirectObservation.problem || "아직 없음")}</strong></li><li><span>도움을 주고 싶은 사람</span><strong>${escapeHtml(targetUser || "아직 없음")}</strong></li><li><span>언제·어디서 생기는 문제인지</span><strong>${escapeHtml([situation, selectedProblemSource === "direct" ? state.day05DirectObservation.location : ""].filter(Boolean).join(" · ") || "아직 없음")}</strong></li><li><span>최종 문제 정의문</span><strong data-day05-problem-definition-display data-empty-text="아직 없음">${escapeHtml(problemDefinition || "아직 없음")}</strong></li><li><span>이 문제를 선택한 이유</span><strong>${escapeHtml(state.day05SelectionReasons.join(" ") || "아직 없음")}${state.day05OtherReason ? ` ${escapeHtml(state.day05OtherReason)}` : ""}</strong></li><li><span>문제를 떠올리게 한 곳</span><strong>${escapeHtml(state.day05RecordLocation || state.day05DirectObservation.location || "아직 없음")}</strong></li></ul></section>
-      <section class="lesson-section research-complete day05-complete" id="research-complete"><h2 class="section-title">${state.basicCompleted ? "오늘의 문제 발견 연구 완료 ✓" : state.minimumCompleted ? "내가 연구할 문제를 찾았어요 ✓" : "아직 해결할 문제를 정하지 못했어요"}</h2><p>${state.minimumCompleted ? "누구의 어떤 불편을 해결할지 정했어요. 필요하면 기본 활동을 더하고, 다음 연구로 이어갈 수 있어요." : "누구의 어떤 불편을 해결할지 문제 정의문을 먼저 완성해 주세요."}</p><p class="day05-definition-sentence" data-day05-problem-definition-display>${escapeHtml(problemDefinition)}</p>${state.minimumCompleted ? `<a class="primary-link" href="?day=6">다음 연구: 아이디어 비교하기 →</a>` : `<p class="field-help">누구의 어떤 불편을 해결할지 문제 정의문을 먼저 완성해 주세요.</p>`}</section></div>`;
+      <section class="lesson-section research-complete day05-complete" id="research-complete"><h2 class="section-title">${state.basicCompleted ? "오늘의 문제 발견 연구 완료 ✓" : state.minimumCompleted ? "내가 연구할 문제를 찾았어요 ✓" : "아직 해결할 문제를 정하지 못했어요"}</h2><p>${state.minimumCompleted ? "누구의 어떤 불편을 해결할지 정했어요. 필요하면 기본 활동을 더하고, 다음 연구로 이어갈 수 있어요." : "누구의 어떤 불편을 해결할지 문제 정의문을 먼저 완성해 주세요."}</p><p class="day05-definition-sentence" data-day05-problem-definition-display>${escapeHtml(problemDefinition)}</p>${state.minimumCompleted ? `<a class="primary-link" href="?day=6">다음 연구: 아이디어 비교하기 →</a>` : `<p class="field-help">누구의 어떤 불편을 해결할지 문제 정의문을 먼저 완성해 주세요.</p>`}</section>${new URLSearchParams(window.location.search).get("return") === "day06" ? `<div class="section-action day05-return"><button class="primary-link" type="button" data-day06-return-from-day05>오늘 연구로 돌아오기</button></div>` : ""}</div>`;
   }
 
   function renderStandardDay(currentDay) {
@@ -10002,6 +10670,19 @@
     }
     if (lesson.dayId === "day05") {
       elements.standardDay.innerHTML = renderDay05Lesson();
+      return;
+    }
+    if (lesson.dayId === "day06") {
+      const previous = getProjectReloadRecord(lesson);
+      const beforeKey = activeDayState && activeDayState.day06ProblemKey;
+      if (activeDayState && hasDay06CurrentProblem(previous) && !activeDayState.day06NeedsReload) {
+        ensureDay06DraftForCurrentProblem(activeDayState, previous);
+        if (beforeKey !== activeDayState.day06ProblemKey) {
+          updateDayProgress(activeDayState, currentDay);
+          writeDayStateToLocalStorage(currentDay, activeDayState);
+        }
+      }
+      elements.standardDay.innerHTML = renderDay06StudentLesson(lesson);
       return;
     }
 
@@ -10041,7 +10722,7 @@
     }
 
     section.scrollIntoView({ behavior: "smooth", block: "start" });
-    const heading = section.querySelector("h2");
+    const heading = section.querySelector("h2") || section.querySelector("summary");
 
     if (heading) {
       heading.setAttribute("tabindex", "-1");
@@ -10143,6 +10824,14 @@
     const section = elements.standardDay.querySelector("[data-section='projectReload']");
 
     if (!section) {
+      if (activeDay && activeDay.dayId === "day06") {
+        const record = getProjectReloadRecord(getLessonForDay(activeDay));
+        const key = getDay06ProblemKey(record);
+        if (activeDayState && key && !activeDayState.day06NeedsReload && activeDayState.day06ProblemKey !== key) {
+          updateDay01State((state) => ensureDay06DraftForCurrentProblem(state, record));
+        }
+        updateDay06ReloadPanel();
+      }
       return;
     }
 
@@ -12403,6 +13092,280 @@
     syncDay03CompleteUi();
   }
 
+  function getDay06UiStatus(state = activeDayState) {
+    const record = getProjectReloadRecord(getLessonForDay(activeDay));
+    const entries = getDay06IdeaEntries(state);
+    const distinct = entries.filter((idea) => idea.text && !idea.duplicate);
+    const duplicate = entries.some((idea) => idea.duplicate);
+    const key = getDay06ProblemKey(record);
+    const problemReady = Boolean(
+      record.loadStatus === "record" && record.hasProblemDefinition && !state.day06NeedsReload &&
+      state.day06ProblemKey === key && ["keep", "edit", "replace"].includes(state.day06ProblemDecision)
+    );
+    const compared = (idea) => {
+      const value = state.day06Comparisons[idea.index] || {};
+      return DAY06_HELP_OPTIONS.includes(value.help) && DAY06_MAKE_OPTIONS.includes(value.possible);
+    };
+    const minCompared = distinct.length >= 2 && distinct.every(compared);
+    const selectedIndex = Number(String(state.day06SelectedIdea || "").slice(-1)) - 1;
+    const selectedText = String(state.day06Ideas[selectedIndex] || "").trim();
+    const selected = Boolean(
+      state.day06SelectedIdea && selectedText && !entries[selectedIndex]?.duplicate &&
+      selectedText === state.day06SelectedIdeaText && distinct.some((idea) => idea.index === selectedIndex && compared(idea))
+    );
+    const reason = Boolean(String(state.day06SelectionReason || "").trim());
+    return {
+      record, entries, distinct, duplicate, problemReady, compared, minCompared, selected,
+      reason, minimum: problemReady && distinct.length >= 2 && !duplicate && minCompared && selected && reason,
+    };
+  }
+
+  function openDay06Step(step) {
+    const details = elements.standardDay.querySelector(`[data-day06-details="${step}"]`);
+    const section = elements.standardDay.querySelector(`#day06-step-${step}`);
+    elements.standardDay.querySelectorAll("[data-day06-details]").forEach((other) => {
+      if (other !== details) other.open = false;
+    });
+    if (details) details.open = true;
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+      const summary = details && details.querySelector("summary");
+      if (summary) summary.focus({ preventScroll: true });
+    }
+  }
+
+  function syncDay06StudentUi() {
+    if (!activeDay || activeDay.dayId !== "day06" || !activeDayState || !elements.standardDay) return;
+    const state = activeDayState;
+    updateDay06Progress(state);
+    const status = getDay06UiStatus(state);
+    const currentProblem = status.record.loadStatus === "record" && status.record.hasProblemDefinition
+      ? status.record.problemDefinition
+      : "";
+    const confirmedProblem = elements.standardDay.querySelector("[data-day06-confirmed-problem]");
+    if (confirmedProblem) {
+      confirmedProblem.textContent = status.problemReady ? `오늘 내가 해결해 볼 문제: ${currentProblem}` : "";
+    }
+    const editPanel = elements.standardDay.querySelector("[data-day06-problem-edit]");
+    if (editPanel) {
+      editPanel.hidden = !["edit", "replace"].includes(state.day06ProblemDecision);
+      const problem = editPanel.querySelector("[data-day06-current-problem]");
+      const message = editPanel.querySelector("[data-day06-problem-reload-message]");
+      const reload = editPanel.querySelector("[data-day06-reload-problem]");
+      if (problem) problem.textContent = currentProblem ? `오늘 내가 해결해 볼 문제: ${currentProblem}` : "";
+      if (message) message.textContent = day06ReloadMessage;
+      if (reload) reload.hidden = !state.day06NeedsReload;
+    }
+    elements.standardDay.querySelectorAll("[data-day06-problem-decision]").forEach((button) => {
+      const selected = button.dataset.day06ProblemDecision === state.day06ProblemDecision;
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+      button.disabled = status.record.loadStatus !== "record" || !status.record.hasProblemDefinition || state.day06NeedsReload;
+    });
+    const firstNext = elements.standardDay.querySelector('[data-day06-next="2"]');
+    const secondNext = elements.standardDay.querySelector('[data-day06-next="3"]');
+    if (firstNext) firstNext.disabled = status.record.loadStatus !== "record" || !status.record.hasProblemDefinition || state.day06NeedsReload;
+    if (secondNext) secondNext.disabled = !status.problemReady;
+    const firstStepGuidance = elements.standardDay.querySelector("[data-day06-step1-guidance]");
+    if (firstStepGuidance) {
+      firstStepGuidance.textContent = !status.record.hasProblemDefinition
+        ? status.record.loadStatus === "loading"
+          ? "지난 연구 기록을 불러오고 있어요. 잠시 뒤 다시 확인해 주세요."
+          : "지난 문제를 다시 불러오거나, 지난 연구로 돌아가 문제를 정한 뒤 여기로 오세요."
+        : state.day06NeedsReload
+          ? "고친 문제를 확인한 뒤 다시 불러오세요. 마음이 바뀌었다면 Step 2에서 수정을 취소할 수 있어요."
+          : "";
+    }
+    const secondStepGuidance = elements.standardDay.querySelector("[data-day06-step2-guidance]");
+    if (secondStepGuidance) secondStepGuidance.textContent = !status.record.hasProblemDefinition
+      ? "위에서 지난 문제를 다시 불러오거나, 지난 연구로 돌아가 먼저 문제를 정해 주세요."
+      : state.day06NeedsReload
+        ? "수정한 문제를 다시 불러오거나, 아래 버튼으로 수정을 취소해 주세요."
+        : !state.day06ProblemDecision
+          ? "위에서 오늘 해결해 볼 문제를 골라 주세요."
+          : "";
+
+    elements.standardDay.querySelectorAll("[data-idea-input]").forEach((input) => {
+      input.disabled = !status.problemReady;
+      const index = Number(input.dataset.ideaInput) - 1;
+      const value = String(state.day06Ideas[index] || "");
+      if (document.activeElement !== input && input.value !== value) input.value = value;
+    });
+    elements.standardDay.querySelectorAll("[data-day06-idea-display]").forEach((node) => {
+      const index = Number(node.dataset.day06IdeaDisplay) - 1;
+      node.textContent = state.day06Ideas[index] || "";
+    });
+    elements.standardDay.querySelectorAll("[data-day06-comparison-item]").forEach((item) => {
+      const index = Number(item.dataset.day06ComparisonItem);
+      const idea = status.entries[index];
+      item.hidden = !idea.text || idea.duplicate;
+      item.querySelectorAll("input[data-day06-comparison]").forEach((input) => {
+        const [, criterion] = input.dataset.day06Comparison.split(":");
+        const comparison = state.day06Comparisons[index] || {};
+        input.checked = comparison[criterion] === input.value;
+        input.disabled = !status.problemReady || !idea.text || idea.duplicate;
+      });
+      const help = item.querySelector("[data-day06-help-question]");
+      const make = item.querySelector("[data-day06-make-question]");
+      if (help) help.textContent = idea.text && status.record.targetUser
+        ? `이 방법은 ${status.record.targetUser}의 불편을 얼마나 줄여 줄까요?`
+        : "";
+      if (make) make.textContent = idea.text ? "이 방법을 지금 시작해 볼 수 있을까요?" : "";
+    });
+    const ideaMessage = elements.standardDay.querySelector("[data-day06-idea-message]");
+    if (ideaMessage) {
+      const count = status.distinct.length;
+      ideaMessage.textContent = status.duplicate
+        ? "비슷한 방법은 하나로 합칩니다."
+        : count === 1
+          ? "먼저 적은 방법을 다른 방식으로 바꿔 볼까요? “알려 주기·움직이기·확인하기” 중 아직 해 보지 않은 생각을 골라 보세요."
+          : "";
+    }
+    const ideasNext = elements.standardDay.querySelector('[data-day06-next="4"]');
+    if (ideasNext) ideasNext.disabled = !status.problemReady || status.distinct.length < 2 || status.duplicate;
+
+    elements.standardDay.querySelectorAll("[data-day06-friend-question], [data-day06-explanation]").forEach((input) => {
+      input.disabled = !status.problemReady || status.distinct.length < 2 || status.duplicate;
+      if (input.matches("[data-day06-friend-question]") && document.activeElement !== input && input.value !== state.day06FriendQuestion) {
+        input.value = state.day06FriendQuestion;
+      }
+      if (input.matches("[data-day06-explanation]")) input.checked = state.day06ExplanationChoice === input.value;
+    });
+    elements.standardDay.querySelectorAll("input[data-day06-comparison]").forEach((input) => {
+      const index = Number(input.dataset.day06Comparison.split(":")[0]);
+      const idea = status.entries[index];
+      input.disabled = !status.problemReady || !idea.text || idea.duplicate;
+    });
+    const friendGuide = elements.standardDay.querySelector("[data-day06-friend-guide]");
+    if (friendGuide) {
+      friendGuide.textContent = currentProblem
+        ? `선생님이 순서를 알려 주면 “내 문제는 ${currentProblem}이고, 이 방법을 생각했어”라고 짧게 설명하세요. 친구는 한 가지를 물어봅니다.`
+        : "";
+    }
+    const comparisonsNext = elements.standardDay.querySelector('[data-day06-next="5"]');
+    if (comparisonsNext) comparisonsNext.disabled = !status.problemReady || !status.minCompared;
+    const comparisonProgress = elements.standardDay.querySelector("[data-day06-comparison-progress]");
+    if (comparisonProgress) {
+      const missing = status.distinct.filter((idea) => !status.compared(idea)).map((idea) => {
+        const comparison = state.day06Comparisons[idea.index] || {};
+        const criteria = [];
+        if (!DAY06_HELP_OPTIONS.includes(comparison.help)) criteria.push("도움");
+        if (!DAY06_MAKE_OPTIONS.includes(comparison.possible)) criteria.push("만들기");
+        return `${idea.text} — ${criteria.join(", ")}`;
+      });
+      comparisonProgress.textContent = status.duplicate
+        ? "비슷한 방법은 하나로 합친 뒤 모두 비교해요."
+        : status.distinct.length < 2
+          ? "서로 다른 방법을 두 가지 이상 적으면 비교할 수 있어요."
+          : missing.length
+            ? `남은 비교: ${missing.join(" · ")}`
+            : `입력한 ${status.distinct.length}개 방법을 도움과 만들기 기준으로 모두 비교했어요.`;
+    }
+
+    const finalChoices = elements.standardDay.querySelector("[data-day06-final-choices]");
+    if (finalChoices) {
+      const signature = JSON.stringify(status.distinct.filter(status.compared).map((idea) => [idea.index, idea.text]));
+      if (finalChoices.dataset.signature !== signature) {
+        finalChoices.innerHTML = renderDay06FinalChoices(state);
+        finalChoices.dataset.signature = signature;
+      }
+    }
+    elements.standardDay.querySelectorAll("[data-day06-final-option]").forEach((label) => {
+      const input = label.querySelector("input");
+      const index = Number(label.dataset.day06FinalOption) - 1;
+      const idea = status.entries[index];
+      if (input) input.disabled = !status.problemReady || !status.minCompared || !idea || !status.compared(idea);
+      if (input) input.checked = state.day06SelectedIdea === input.value && state.day06SelectedIdeaText === String(state.day06Ideas[index] || "").trim();
+      const ideaText = label.querySelector("span");
+      if (ideaText && idea) ideaText.textContent = idea.text;
+    });
+    const reasonInput = elements.standardDay.querySelector("[data-day06-reason]");
+    if (reasonInput) {
+      reasonInput.disabled = !status.problemReady || !status.minCompared;
+      if (document.activeElement !== reasonInput && reasonInput.value !== state.day06SelectionReason) reasonInput.value = state.day06SelectionReason;
+    }
+    const nextQuestionInput = elements.standardDay.querySelector("[data-day06-next-question]");
+    if (nextQuestionInput && document.activeElement !== nextQuestionInput && nextQuestionInput.value !== state.day06NextResearchQuestion) {
+      nextQuestionInput.value = state.day06NextResearchQuestion;
+    }
+
+    const summaryProblem = elements.standardDay.querySelector("[data-day06-summary-problem]");
+    const summaryChoice = elements.standardDay.querySelector("[data-day06-summary-choice]");
+    const summaryReason = elements.standardDay.querySelector("[data-day06-summary-reason]");
+    if (summaryProblem) summaryProblem.textContent = currentProblem;
+    if (summaryChoice) summaryChoice.textContent = status.selected ? state.day06SelectedIdeaText : "";
+    if (summaryReason) summaryReason.textContent = state.day06SelectionReason || "";
+
+    const problemCheck = elements.standardDay.querySelector('[data-day06-check="problem"]');
+    const compareCheck = elements.standardDay.querySelector('[data-day06-check="compare"]');
+    const choiceCheck = elements.standardDay.querySelector('[data-day06-check="choice"]');
+    if (problemCheck) problemCheck.classList.toggle("is-complete", status.problemReady);
+    if (compareCheck) compareCheck.classList.toggle("is-complete", Boolean(status.problemReady && status.distinct.length >= 2 && status.minCompared));
+    if (choiceCheck) choiceCheck.classList.toggle("is-complete", Boolean(status.problemReady && status.minCompared && status.selected && status.reason));
+    const checkMessage = elements.standardDay.querySelector("[data-day06-self-check-message]");
+    if (checkMessage) checkMessage.textContent = status.minimum
+      ? "오늘 필요한 생각을 모았습니다. 퀴즈를 풀고 연구기록을 저장해 봅시다."
+      : "아직 비어 있는 부분이 있어요. 해당 단계로 돌아가 한 가지씩 채워 보세요. 막히면 선생님과 함께 생각해도 됩니다.";
+    const returnButton = elements.standardDay.querySelector("[data-day06-return-incomplete]");
+    const returnStep = !status.problemReady ? "1" :
+      status.distinct.length < 2 || status.duplicate ? "3" :
+        !status.minCompared ? "4" : !status.selected || !status.reason ? "5" : "5";
+    if (returnButton) {
+      returnButton.dataset.day06ReturnStep = returnStep;
+    }
+    elements.standardDay.querySelectorAll("[data-day06-return-incomplete]").forEach((button) => {
+      button.dataset.day06ReturnStep = returnStep;
+      button.hidden = status.minimum;
+    });
+    const quizComplete = isDay06QuizCompleted(state, getLessonForDay(activeDay));
+    const quizPrompt = elements.standardDay.querySelector("[data-day06-quiz-complete]");
+    const quizRecordButton = elements.standardDay.querySelector("[data-day06-quiz-record]");
+    if (quizPrompt) quizPrompt.hidden = !quizComplete;
+    if (quizRecordButton) quizRecordButton.hidden = !quizComplete;
+    const serverConfirmed = Boolean(
+      isDay01ServerSyncEnabled() && !state.serverSyncPending && state.serverUpdatedAt
+    );
+    const completionReady = Boolean(state.dayCompleted && serverConfirmed);
+    const savedMessage = elements.standardDay.querySelector("[data-day06-saved-message]");
+    if (savedMessage) savedMessage.hidden = !completionReady;
+    const nextGuidance = elements.standardDay.querySelector("[data-day06-next-guidance]");
+    const nextQuiz = elements.standardDay.querySelectorAll("[data-day06-next-quiz]");
+    const nextRecord = elements.standardDay.querySelector("[data-day06-next-record]");
+    if (nextGuidance) {
+      nextGuidance.textContent = !status.minimum
+        ? "먼저 오늘의 방법 선택과 이유를 마쳐요."
+        : !quizComplete
+          ? "퀴즈는 연구기록 저장과 별도로 확인해요. 오늘의 퀴즈에 답한 뒤 연구기록을 저장하세요."
+          : day06SaveOutcome === "failed"
+            ? "저장하지 못했어요. 작성한 내용은 남아 있습니다. 연구기록으로 돌아가 다시 저장해 주세요."
+            : !isDay01ServerSyncEnabled()
+              ? "현재 서버에 저장할 수 없어 이 기기에만 임시로 보관돼요. 선생님과 연구기록을 확인해 주세요."
+              : state.serverSyncPending
+                ? "오늘의 연구기록을 저장하고 있어요."
+                : completionReady
+                  ? "다음 시간에는 오늘 고른 방법으로 제작계획을 세웁니다."
+                  : "오늘의 연구기록을 저장해 주세요.";
+    }
+    nextQuiz.forEach((button) => { button.hidden = !status.minimum || quizComplete; });
+    if (nextRecord) {
+      nextRecord.hidden = !status.minimum || !quizComplete;
+      nextRecord.textContent = day06SaveOutcome === "failed" ? "연구기록 다시 확인하기" : "연구기록 확인하기";
+    }
+    const saveStatus = elements.standardDay.querySelector("[data-day06-save-status]");
+    const retrySave = elements.standardDay.querySelector("[data-day06-save-retry]");
+    if (saveStatus) {
+      const outcome = day06SaveOutcome || (serverConfirmed ? "server" : "");
+      saveStatus.textContent = outcome === "server"
+        ? "오늘의 연구기록이 저장되었습니다."
+        : outcome === "local"
+          ? "이 기기에만 임시로 저장했습니다. 선생님과 함께 연구소 기록에도 저장되었는지 확인해 주세요."
+          : outcome === "failed"
+            ? "연구소 기록에 저장하지 못했어요. 지금 쓴 내용은 이 화면에 남아 있습니다. 다시 저장해 보세요."
+            : "";
+    }
+    if (retrySave) retrySave.hidden = day06SaveOutcome !== "failed";
+  }
+
   function syncActiveLessonUiFromState() {
     if (isDay02Active()) {
       syncDay02UiFromState();
@@ -12415,16 +13378,7 @@
     }
 
     if (activeDay && activeDay.dayId === "day06") {
-      syncSelectedIdeaToRecord();
-      const title = elements.standardDay.querySelector("[data-day06-complete-title]");
-      const body = elements.standardDay.querySelector("[data-day06-complete-body]");
-      const lesson = getLessonForDay(activeDay);
-      if (title && body) {
-        title.textContent = activeDayState.dayCompleted ? lesson.complete.title : "아직 연구를 완료하지 않았어요";
-        body.innerHTML = activeDayState.dayCompleted
-          ? `<p>${escapeHtml(lesson.complete.gained)}</p>${renderParagraphs(lesson.complete.summaryLines || [])}<h3>다음 연구</h3><p>${escapeHtml(lesson.complete.nextTitle)}</p><p>${escapeHtml(lesson.complete.nextSummary)}</p>`
-          : "세 아이디어를 비교하고 선택 이유와 연구기록을 확인해 주세요.";
-      }
+      syncDay06StudentUi();
       return;
     }
 
@@ -13383,12 +14337,25 @@
 
     if (activeDay.dayId === "day06" && event.target.matches("[data-day06-comparison]")) {
       const [index, criterion] = event.target.dataset.day06Comparison.split(":");
-      updateDay01State((state) => { state.day06Comparisons[Number(index)][criterion] = event.target.value; });
+      updateDay01State((state) => {
+        const row = state.day06Comparisons[Number(index)];
+        if (row && ["help", "possible"].includes(criterion)) row[criterion] = event.target.value;
+      });
       return;
     }
     if (activeDay.dayId === "day06" && event.target.matches(".final-choice input[type='radio']")) {
-      updateDay01State((state) => { state.day06SelectedIdea = event.target.value; });
+      updateDay01State((state) => {
+        const selectedIndex = Number(String(event.target.value || "").slice(-1)) - 1;
+        const selectedText = String(state.day06Ideas[selectedIndex] || "").trim();
+        if (state.day06SelectedIdea !== event.target.value) state.day06SelectionReason = "";
+        state.day06SelectedIdea = selectedText ? event.target.value : "";
+        state.day06SelectedIdeaText = selectedText;
+      });
       syncSelectedIdeaToRecord();
+      return;
+    }
+    if (activeDay.dayId === "day06" && event.target.matches("[data-day06-explanation]")) {
+      updateDay01State((state) => { state.day06ExplanationChoice = event.target.value; });
       return;
     }
     if (activeDay.dayId === "day06" && event.target.matches("[data-day06-record='day06Role']")) {
@@ -13567,12 +14534,38 @@
       syncSelectedIdeaToRecord();
       if (activeDay && activeDay.dayId === "day06") {
         const index = Number(event.target.dataset.ideaInput) - 1;
-        updateDay01State((state) => { state.day06Ideas[index] = String(event.target.value || "").trim().slice(0, 120); });
+        const value = String(event.target.value || "").trim().slice(0, 120);
+        updateDay01State((state) => {
+          state.day06Ideas[index] = value;
+          const selectedIndex = Number(String(state.day06SelectedIdea || "").slice(-1)) - 1;
+          const selectedValue = String(state.day06Ideas[selectedIndex] || "").trim();
+          const selectedKey = selectedValue.normalize("NFKC").replace(/\s+/g, " ").toLocaleLowerCase();
+          const selectedBecameDuplicate = selectedIndex >= 0 && state.day06Ideas.slice(0, selectedIndex).some((idea) =>
+            String(idea || "").trim().normalize("NFKC").replace(/\s+/g, " ").toLocaleLowerCase() === selectedKey
+          );
+          if (state.day06SelectedIdea && (state.day06SelectedIdeaText !== selectedValue || !selectedValue || selectedBecameDuplicate)) {
+            state.day06SelectedIdea = "";
+            state.day06SelectedIdeaText = "";
+            state.day06SelectionReason = "";
+          }
+        });
       }
     }
 
     if (event.target.closest("[data-day06-reason]") && activeDay && activeDay.dayId === "day06") {
       updateDay01State((state) => { state.day06SelectionReason = String(event.target.value || "").trim().slice(0, 180); });
+    }
+
+    if (event.target.matches("[data-day06-friend-question]") && activeDay && activeDay.dayId === "day06") {
+      updateDay01State((state) => { state.day06FriendQuestion = String(event.target.value || "").trim().slice(0, 180); });
+    }
+
+    if (event.target.matches("[data-day06-next-question]") && activeDay && activeDay.dayId === "day06") {
+      updateDay01State((state) => {
+        const value = String(event.target.value || "").trim().slice(0, 120);
+        state.day06NextResearchQuestion = value;
+        state.recordValues.day06Next = value;
+      });
     }
 
     if (event.target.closest("#reload-helper, #reload-difficulty")) {
@@ -13672,10 +14665,7 @@
     contextPromise,
     initialRetryQueued
   ) {
-    const [serverRestore] = await Promise.all([
-      loadServerDayState(currentDay, contextPromise),
-      loadBridgePreviousRecord(currentDay, contextPromise),
-    ]);
+    const serverRestore = await loadServerDayState(currentDay, contextPromise);
 
     if (
       !isStudentSelected() ||
@@ -13687,6 +14677,7 @@
     }
 
     if (!isPersistedLessonDay(currentDay)) {
+      await loadBridgePreviousRecord(currentDay, contextPromise);
       updateProjectReloadRecord();
       return;
     }
@@ -13712,6 +14703,8 @@
     } else if (dayStateRestore.status) {
       renderSaveState(dayStateRestore.status);
     }
+
+    await loadBridgePreviousRecord(currentDay, contextPromise);
 
     if (dayStateRestore.retryServerSync && activeDayState && !initialRetryQueued) {
       queueDay01ServerSave(currentDay, activeDayState, { immediate: true });
@@ -13742,6 +14735,7 @@
     elements.standardDay.addEventListener("click", handleDay03Click);
     elements.standardDay.addEventListener("click", handleDay04Click);
     elements.standardDay.addEventListener("click", handleDay05Click);
+    elements.standardDay.addEventListener("click", handleDay06Click);
     elements.standardDay.addEventListener("click", handleDay01Click);
     elements.standardDay.addEventListener("input", handleStandardInput);
     elements.standardDay.addEventListener("input", handleDay01Input);

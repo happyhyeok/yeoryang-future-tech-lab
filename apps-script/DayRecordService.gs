@@ -92,6 +92,20 @@ function saveDayRecord_(payload) {
     workId,
     dayId
   );
+
+  if (dayId === "day06") {
+    if (Object.prototype.hasOwnProperty.call(body, "targetUser")) {
+      dayState.targetUser = cleanFreeText_(body.targetUser, FUTURELAB_CONFIG.LIMITS.TEXT, "targetUser");
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "problemDefinition")) {
+      dayState.problemDefinition = cleanFreeText_(
+        body.problemDefinition,
+        FUTURELAB_CONFIG.LIMITS.TEXT,
+        "problemDefinition"
+      );
+    }
+  }
+
   const dayRecordId = makeDayRecordId_(studentId, dayId);
   const now = formatServerDateTime_(new Date());
   const lock = LockService.getScriptLock();
