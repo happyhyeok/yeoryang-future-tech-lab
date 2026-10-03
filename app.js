@@ -2750,6 +2750,15 @@
     return /(?:해결하고 싶습니다|해결하고 싶어요)\.?$/.test(String(value || "").trim());
   }
 
+  function isDay05ProblemDefinitionValid(targetUser, situation, inconvenience, problemDefinition) {
+    return Boolean(
+      String(targetUser || "").trim() &&
+      (String(situation || "").trim() || isDay05CompleteProblemDefinition(problemDefinition)) &&
+      String(inconvenience || "").trim() &&
+      String(problemDefinition || "").trim()
+    );
+  }
+
   function getDay05Inconvenience(state) {
     const inconvenience = String(state.inconvenience || "").trim();
     if (inconvenience) return inconvenience;
@@ -2866,11 +2875,12 @@
     const selected = selectedSource === "direct"
       ? state.day05DirectObservation
       : getDay05CandidateBySource(state, selectedSource);
-    const hasDefinition = Boolean(
-      String(state.targetUser || "").trim() &&
-      (String(state.day05Situation || "").trim() || isDay05CompleteProblemDefinition(state.problemDefinition)) &&
-      getDay05Inconvenience(state) &&
-      String(getDay05ProblemDefinition(state) || "").trim()
+    const problemDefinition = getDay05ProblemDefinition(state);
+    const hasDefinition = isDay05ProblemDefinitionValid(
+      state.targetUser,
+      state.day05Situation,
+      getDay05Inconvenience(state),
+      problemDefinition
     );
     const quizCompleted = isDay05QuizCompleted(state, activeDay ? getLessonForDay(activeDay) : null);
     const selectedRealityChecks = selectedSource ? getDay05RealityChecks(state, selectedSource) : [];
@@ -4975,12 +4985,15 @@
     ).trim();
     const inconvenience = String(
       previousState.inconvenience || previousRecord.difficulty || selectedCandidate.problem ||
-        (selectedSource === "direct" ? previousState.day05DirectObservation?.problem : "") || ""
+        (selectedSource === "direct" ? previousState.day05DirectObservation?.problem : "") ||
+        (previous.previousDayId === "day05" ? getDay05Inconvenience(previousState) : "") || ""
     ).trim();
     let problemDefinition = String(
-      previousRecord[previous.problemDefinitionField] ||
-        (previousState.problemDefinitionEdited === true ? previousState.problemDefinition : "") ||
-        getDay05ProblemDefinition(previousState) || ""
+      previous.previousDayId === "day05" && previousState.problemDefinitionEdited === true
+        ? previousState.problemDefinition || ""
+        : previousRecord[previous.problemDefinitionField] ||
+            (previousState.problemDefinitionEdited === true ? previousState.problemDefinition : "") ||
+            getDay05ProblemDefinition(previousState) || ""
     ).trim();
     if (
       previous.previousDayId === "day05" &&
@@ -4995,7 +5008,9 @@
         previousRecord.changeReason ||
         (Array.isArray(previousState.day05SelectionReasons) ? previousState.day05SelectionReasons.join(", ") : "")
     ).trim();
-    const hasProblemDefinition = isDay05CompleteProblemDefinition(problemDefinition);
+    const hasProblemDefinition = previous.previousDayId === "day05"
+      ? isDay05ProblemDefinitionValid(targetUser, situation, inconvenience, problemDefinition)
+      : isDay05CompleteProblemDefinition(problemDefinition);
     const hasNextAction = Boolean(nextAction);
     const hasSelectionReason = Boolean(memo);
     const observationMaterials = [
