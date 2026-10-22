@@ -1,5 +1,6 @@
 .clasp.json
 node_modules/
+dist/
 .env
 .env.*
 *.log

@@ -43,7 +43,7 @@
     workId: "currentWorkId",
   };
   const E2E_TEST_STUDENT_ID = "test01";
-  const PERSISTED_LESSON_DAY_IDS = new Set(["day01", "day02", "day03", "day04", "day05", "day06"]);
+  const PERSISTED_LESSON_DAY_IDS = new Set(["day01", "day02", "day03", "day04", "day05", "day06", "day07"]);
   const DAY01_RECORDING_SECONDS = 10;
   const DAY02_RECORDING_SECONDS = 30;
   const DAY01_MAX_RECORDING_SECONDS = 15;
@@ -150,6 +150,8 @@
   let draggedResearchOrderCard = null;
   let selectedResearchOrderCard = "";
   let day01NeedsInitialSave = false;
+  let day07ServerVerified = false;
+  let day08AccessAllowed = false;
   const day01ServerSaveSlots = new Map();
 
   const elements = {
@@ -535,6 +537,46 @@
     const studentId = getStudentId();
 
     return studentId ? `${STORAGE_PREFIX}:${studentId}:${dayId}` : "";
+  }
+
+  function isDay07LatestServerConfirmed() {
+    return Boolean(activeDay?.dayId === "day07" && day07ServerVerified && activeDayState?.dayCompleted && !activeDayState.serverSyncPending && activeDayState.serverUpdatedAt);
+  }
+
+  function isConfirmedDay07Record(record) {
+    if (!record || record.dayId !== "day07" || record.studentId !== getStudentId() || record.status !== "completed" || !record.updatedAt) return false;
+    const state = extractDayStateFromDayRecord(record);
+    if (!state || state.studentId !== getStudentId() || state.dayId !== "day07") return false;
+    const checked = cloneJsonValue(state, {});
+    window.Day07.updateProgress(checked, window.DAY_LESSONS.day07);
+    return checked.dayCompleted === true;
+  }
+
+  function refreshDay07AccessUi() {
+    if (!activeDay) return;
+    renderResearchMap(activeDay);
+    if (activeDay.dayId === "day07" && activeDayState) {
+      window.Day07.sync(elements.standardDay, activeDayState, getLessonForDay(activeDay), isDay07LatestServerConfirmed());
+    }
+    if (activeDay.dayId === "day08") renderStandardDay(activeDay);
+  }
+
+  async function verifyDay08AccessFromServer(currentDay) {
+    if (currentDay.dayId !== "day08" || !isStudentSelected() || !getAppsScriptApiUrl()) return;
+    const studentId = getStudentId();
+    try {
+      const data = await callAppsScriptApi("getDayRecord", { method: "GET", params: { studentId, dayId: "day07" } });
+      if (getStudentId() !== studentId || activeDay?.dayId !== "day08") return;
+      const record = data && data.dayRecord;
+      const local = readStoredDayState({ dayId: "day07" });
+      const serverState = extractDayStateFromDayRecord(record);
+      const localAhead = local && local.studentId === studentId && (local.serverSyncPending === true || Number(local.localRevision || 0) > Number(serverState?.localRevision || 0));
+      day08AccessAllowed = !localAhead && isConfirmedDay07Record(record);
+    } catch (error) {
+      console.warn("Day08 access check failed", error);
+      day08AccessAllowed = false;
+    }
+    refreshDay07AccessUi();
   }
 
   function getAppsScriptApiUrl() {
@@ -1784,6 +1826,26 @@
     }
   }
 
+  async function loadDay07ProblemFallback(currentDay) {
+    if (currentDay.dayId !== "day07" || !isStudentSelected()) return;
+    const student = getCurrentStudent();
+    const previous = currentStudentRecords && currentStudentRecords.day06;
+    if (previous?.problemDefinition || currentStudentRecords.day05 || !getAppsScriptApiUrl()) return;
+    try {
+      const data = await callAppsScriptApi("getDayRecord", {
+        method: "GET", params: { studentId: student.studentId, dayId: "day05" },
+      });
+      const record = data && data.dayRecord;
+      if (record && record.studentId === student.studentId && getStudentId() === student.studentId && activeDay?.dayId === "day07") {
+        currentStudentRecords = Object.assign({}, currentStudentRecords, { day05: record });
+        renderStandardDay(activeDay);
+        syncActiveLessonUiFromState();
+      }
+    } catch (error) {
+      console.warn("Day07 previous problem read failed", error);
+    }
+  }
+
   function readStoredDayState(currentDay) {
     const storageKey = getStorageKey(currentDay.dayId);
 
@@ -2906,6 +2968,11 @@
 
     const dayId = (currentDay || getDayForState(state) || {}).dayId;
 
+    if (dayId === "day07") {
+      window.Day07.updateProgress(state, getLessonForDay(currentDay));
+      return;
+    }
+
     if (dayId === "day02") {
       updateDay02Progress(state);
       return;
@@ -2935,6 +3002,9 @@
   }
 
   function getBlockProgress(currentDay, state) {
+    if (currentDay && currentDay.dayId === "day07") {
+      return { plan: state.minimumCompleted ? "completed" : "in_progress", quiz: window.Day07.quizComplete(state, getLessonForDay(currentDay)) ? "completed" : "in_progress" };
+    }
     if (currentDay && currentDay.dayId === "day06") {
       const progress = state.lessonProgress || {};
       return {
@@ -3307,6 +3377,7 @@
   }
 
   function createDayRecordPayload(student, currentDay, state) {
+    if (currentDay.dayId === "day07") return window.Day07.recordPayload(student, currentDay, state, getConfiguredDayDate(currentDay), getBlockProgress(currentDay, state), cloneJsonValue);
     if (currentDay.dayId === "day06") {
       const previous = getProjectReloadRecord(getLessonForDay(currentDay));
       const selectedIndex = Number(String(state.day06SelectedIdea || "").slice(-1)) - 1;
@@ -3411,7 +3482,7 @@
     }
 
     const totalQuestions = lesson.quiz.questions.length;
-    const completed = currentDay.dayId === "day05" || currentDay.dayId === "day06"
+    const completed = currentDay.dayId === "day07" ? window.Day07.quizComplete(state, lesson) : currentDay.dayId === "day05" || currentDay.dayId === "day06"
       ? isDay05QuizCompleted(state, lesson)
       : isDay01QuizCompleted(state, lesson);
 
@@ -3438,7 +3509,7 @@
     }
 
     const totalQuestions = lesson.quiz.questions.length;
-    const completed = currentDay.dayId === "day05" || currentDay.dayId === "day06"
+    const completed = currentDay.dayId === "day07" ? window.Day07.quizComplete(state, lesson) : currentDay.dayId === "day05" || currentDay.dayId === "day06"
       ? isDay05QuizCompleted(state, lesson)
       : isDay01QuizCompleted(state, lesson);
 
@@ -3769,7 +3840,8 @@
     }
   }
 
-  function applyServerSaveSuccess(request, updatedAt) {
+  function applyServerSaveSuccess(request, updatedAt, savedRecord) {
+    if (request.dayId === "day07" && (!savedRecord || savedRecord.studentId !== request.studentId || savedRecord.workId !== request.workId || savedRecord.dayId !== "day07" || Number(extractDayStateFromDayRecord(savedRecord)?.localRevision || 0) !== Number(request.localRevision))) return false;
     const isCurrent = isServerSaveRequestCurrent(request);
 
     if (
@@ -3781,6 +3853,17 @@
       activeDayState.serverUpdatedAt = updatedAt;
       writeDayStateToLocalStorage(activeDay, activeDayState);
       if (request.dayId === "day06") syncDay06StudentUi();
+      if (request.dayId === "day07") {
+        day07ServerVerified = Boolean(
+          savedRecord && savedRecord.studentId === request.studentId &&
+          savedRecord.workId === request.workId && savedRecord.dayId === "day07" &&
+          savedRecord.status === "completed" &&
+          Number(extractDayStateFromDayRecord(savedRecord)?.localRevision || 0) === Number(request.localRevision) &&
+          isConfirmedDay07Record(savedRecord) && activeDayState.dayCompleted === true
+        );
+        day08AccessAllowed = day07ServerVerified;
+        refreshDay07AccessUi();
+      }
       return true;
     }
 
@@ -3863,7 +3946,7 @@
       const updatedAt = result.dayRecord && result.dayRecord.updatedAt;
       slot.lastFlushOk = true;
 
-      if (updatedAt && applyServerSaveSuccess(request, updatedAt)) {
+      if (updatedAt && applyServerSaveSuccess(request, updatedAt, result.dayRecord)) {
         renderSaveStateWithVideoPriority(SAVE_STATUS.saved, {}, request);
       } else if (isServerSaveRequestLatest(request) && activeDayState.serverSyncPending) {
         renderServerSaveFailed();
@@ -3920,6 +4003,11 @@
       updateDay01ProgressLine();
     }
     markDayStateServerPending(activeDayState);
+    if (activeDay.dayId === "day07") {
+      day07ServerVerified = false;
+      day08AccessAllowed = false;
+      refreshDay07AccessUi();
+    }
 
     try {
       const storageKey = getStorageKey(activeDay.dayId);
@@ -4855,7 +4943,7 @@
       <span class="research-day__number">${formatDayNo(day.dayNo)}</span>
       <span class="research-day__title">${escapeHtml(day.title)}</span>
     `;
-    const dayLink = day.dayId === "day07" && !getLessonForDay(day)
+    const dayLink = (day.dayId === "day07" && !getLessonForDay(day)) || (day.dayId === "day08" && !day08AccessAllowed)
       ? `<span class="research-day__link" aria-disabled="true">${dayLinkContent}</span>`
       : `<a class="research-day__link" href="${escapeHtml(getDayUrl(day))}">${dayLinkContent}</a>`;
 
@@ -10669,12 +10757,18 @@
     const lesson = getLessonForDay(currentDay);
 
     if (!lesson) {
-      elements.standardDay.hidden = true;
-      elements.standardDay.innerHTML = "";
+      elements.standardDay.hidden = currentDay.dayId !== "day08";
+      elements.standardDay.innerHTML = currentDay.dayId === "day08"
+        ? `<section class="lesson-section"><h2 class="section-title">${day08AccessAllowed ? "다음 연구 준비 중" : "다음 연구는 아직 잠겨 있어요"}</h2><p>${day08AccessAllowed ? "Day07 최신 기록의 서버 저장을 확인했습니다. Day08 학생 화면은 아직 준비 중입니다." : "Day07 제작계획과 퀴즈를 마치고 최신 기록을 서버에 저장하면 다음 연구로 이어집니다."}</p><a class="primary-link" href="${getDayUrl(window.RESEARCH_DAYS.find(day => day.dayId === "day07"))}">Day07로 돌아가기</a></section>`
+        : "";
       return;
     }
 
     elements.standardDay.hidden = false;
+    if (lesson.dayId === "day07") {
+      elements.standardDay.innerHTML = window.Day07.render(activeDayState, currentStudentRecords && currentStudentRecords.day06, currentStudentRecordLoadStatuses.day06, escapeHtml, lesson, currentStudentRecords && currentStudentRecords.day05);
+      return;
+    }
     if (lesson.dayId === "day04") {
       elements.standardDay.innerHTML = renderDay04Lesson(lesson);
       return;
@@ -10836,6 +10930,10 @@
   }
 
   function updateProjectReloadRecord() {
+    if (activeDay && activeDay.dayId === "day07" && activeDayState) {
+      renderStandardDay(activeDay);
+      return;
+    }
     const section = elements.standardDay.querySelector("[data-section='projectReload']");
 
     if (!section) {
@@ -13382,6 +13480,10 @@
   }
 
   function syncActiveLessonUiFromState() {
+    if (activeDay && activeDay.dayId === "day07") {
+      window.Day07.sync(elements.standardDay, activeDayState, getLessonForDay(activeDay), isDay07LatestServerConfirmed());
+      return;
+    }
     if (isDay02Active()) {
       syncDay02UiFromState();
       return;
@@ -14613,6 +14715,8 @@
     const currentDay = getCurrentDay();
     const requestStudentId = getStudentId();
     activeDay = currentDay;
+    day07ServerVerified = false;
+    day08AccessAllowed = false;
     const dayStateRestore = loadDayState(currentDay, null);
     activeDayState = dayStateRestore.state;
 
@@ -14625,6 +14729,7 @@
     renderActiveDayPage(currentDay, dayStateRestore.status, "", {
       allowInitialDay01Save: !isDay01ServerSyncEnabled(),
     });
+    if (currentDay.dayId === "day08") verifyDay08AccessFromServer(currentDay);
 
     const initialRevision = activeDayState ? Number(activeDayState.localRevision || 0) : 0;
     const contextPromise = fetchLessonContext(currentDay, getCurrentStudent());
@@ -14707,6 +14812,10 @@
 
     if (!changedDuringSync) {
       activeDayState = dayStateRestore.state;
+      if (currentDay.dayId === "day07") {
+        day07ServerVerified = Boolean(serverRestore.readSucceeded && isConfirmedDay07Record(serverRestore.dayRecord) && !activeDayState.serverSyncPending && Number(activeDayState.localRevision || 0) === Number(serverRestore.state?.localRevision || 0));
+        day08AccessAllowed = day07ServerVerified;
+      }
       renderActiveDayPage(currentDay, dayStateRestore.status, serverRestore.status, {
         allowInitialDay01Save:
           !isDay01ServerSyncEnabled() || serverRestore.readSucceeded === true,
@@ -14720,6 +14829,7 @@
     }
 
     await loadBridgePreviousRecord(currentDay, contextPromise);
+    await loadDay07ProblemFallback(currentDay);
 
     if (dayStateRestore.retryServerSync && activeDayState && !initialRetryQueued) {
       queueDay01ServerSave(currentDay, activeDayState, { immediate: true });
@@ -14751,6 +14861,12 @@
     elements.standardDay.addEventListener("click", handleDay04Click);
     elements.standardDay.addEventListener("click", handleDay05Click);
     elements.standardDay.addEventListener("click", handleDay06Click);
+    elements.standardDay.addEventListener("click", (event) => {
+      if (activeDay?.dayId === "day07") window.Day07.click(event, elements.standardDay, activeDayState, (mutator) => updateDay01State(mutator), getLessonForDay(activeDay));
+    });
+    elements.standardDay.addEventListener("input", (event) => {
+      if (activeDay?.dayId === "day07") window.Day07.input(event, activeDayState, (mutator) => updateDay01State(mutator), elements.standardDay, getLessonForDay(activeDay));
+    });
     elements.standardDay.addEventListener("click", handleDay01Click);
     elements.standardDay.addEventListener("input", handleStandardInput);
     elements.standardDay.addEventListener("input", handleDay01Input);

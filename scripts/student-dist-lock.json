@@ -1,0 +1,272 @@
+{
+  "candidateId": "day07-final-integrated-2026-10-23",
+  "baseManifestSha256": "03bcdd645e48f9a3dd5c70b0993612e6df7ebc61e580732f1abb1aceb9439dc5",
+  "fileCount": 53,
+  "files": [
+    {
+      "path": "app.js",
+      "bytes": 612250,
+      "sha256": "c24bf611d0a3e5522bea2685e8ef399ca099009c34786e50851bfab4c6dfb737"
+    },
+    {
+      "path": "assets/day01/coding-send-test-fix.png",
+      "bytes": 1987574,
+      "sha256": "83198b26f9506686674465b6376cfb88a26a49a3ed36687816cfdaf871c716c3"
+    },
+    {
+      "path": "assets/day01/computer-microbit-flow.png",
+      "bytes": 1947674,
+      "sha256": "8f73b29af5b662b068411830d56417f8f5b8f3a17790f22c924938d68845ecb1"
+    },
+    {
+      "path": "assets/day01/dark-road.svg",
+      "bytes": 1202,
+      "sha256": "b4bf25ed7e472231007f7f1c1dacf5d3f4e94e76bf36ab6b331d5d9e58108de1"
+    },
+    {
+      "path": "assets/day01/dry-plant.svg",
+      "bytes": 1287,
+      "sha256": "b3df96e2e85bb0056586db5fed7a66cef87d08cd3e87aa1d8135e2fa9455b1e5"
+    },
+    {
+      "path": "assets/day01/hard-door.svg",
+      "bytes": 1283,
+      "sha256": "1d3006c1b157b4709eea0e70eab1ac8d58f5e0a61654ea8c8b2067ba4a4de02c"
+    },
+    {
+      "path": "assets/day01/hardware-software.png",
+      "bytes": 1950433,
+      "sha256": "3676976b08c17b9cd7d386146526d30a1167c03953686b57466b630826461b62"
+    },
+    {
+      "path": "assets/day01/ipo-flow.png",
+      "bytes": 1606146,
+      "sha256": "1e41f9e1004d45c8e220ee87dd986049e51b46bf4efc20db720e3b99696ef919"
+    },
+    {
+      "path": "assets/day01/lost-things.svg",
+      "bytes": 1173,
+      "sha256": "ecf94ee4a63113e5b320308041c97e70b88c5000883f6c5af12af199a8151d7b"
+    },
+    {
+      "path": "assets/day01/makecode-pairing-guide.png",
+      "bytes": 1273613,
+      "sha256": "13bbeb45c4695ee041a396b4d77546190a062831df7ff2087b07c09543453144"
+    },
+    {
+      "path": "assets/day01/makecode-ui-guide.png",
+      "bytes": 1842687,
+      "sha256": "ad1572128384705d3f013e82af848b61fa757329f06ca3e38514acbd77fcdc89"
+    },
+    {
+      "path": "assets/day01/pet-waiting.svg",
+      "bytes": 1109,
+      "sha256": "7bc473effb010f09cfcbad0edb8043ccdfc2bc271c2e413dc105be08df734b68"
+    },
+    {
+      "path": "assets/day01/too-hot-cold.svg",
+      "bytes": 1222,
+      "sha256": "e3d8f072be8c8da7d37ddb2182cbf3a9828c92e3eda1b5d280c8a1b4434c28a6"
+    },
+    {
+      "path": "assets/day02/makecode-basic-show-number.png",
+      "bytes": 38172,
+      "sha256": "8c4a6c72ec84382a034068bd8677b0099b97299eb46bed1ed47175f6c1f312e6"
+    },
+    {
+      "path": "assets/day02/makecode-input-light-level.png",
+      "bytes": 49920,
+      "sha256": "e45ed18dcab915dfdeed4c4aec5753acc523059e7c29d834fe9424da7bc74b51"
+    },
+    {
+      "path": "assets/day02/makecode-light-condition-code.png",
+      "bytes": 29297,
+      "sha256": "0cecc8909d4070b4ed851842248bbe0bfa5563b406a610273eb7bf51090adfc8"
+    },
+    {
+      "path": "assets/day02/makecode-light-forever-number.png",
+      "bytes": 11177,
+      "sha256": "69724e1f2e8344924535dd9430e5f17b2f6db9092c6b5231c1ff0f30e9ec66f3"
+    },
+    {
+      "path": "assets/day02/makecode-logic-comparison-operator.png",
+      "bytes": 45575,
+      "sha256": "9891a8eb8a1eb3a296237c6703d7e2f426a951a53d22e0fd7f58cde3cd6a73e1"
+    },
+    {
+      "path": "assets/day02/makecode-logic-if-block.png",
+      "bytes": 60183,
+      "sha256": "827560f40e5c2c72c01fd30cb95ff150efe57b2be12729b07158e665114377cb"
+    },
+    {
+      "path": "assets/day03/day03-analog-block-location.png",
+      "bytes": 92845,
+      "sha256": "e97d0954f7c77058a20075814839b73fbd6347e9bcd25ece97956ff6561dea54"
+    },
+    {
+      "path": "assets/day03/day03-light-servo-condition.png",
+      "bytes": 73526,
+      "sha256": "0ff09a436b441d015a3a7439750eafcb834c02e6bd29518ea5e3bb2e552137dd"
+    },
+    {
+      "path": "assets/day03/day03-motor-vs-servo.png",
+      "bytes": 1850263,
+      "sha256": "b2fbca340d6a95d97b22e9517421f47fe03b91d33687b746d6efc01f5d57debf"
+    },
+    {
+      "path": "assets/day03/day03-p1-light-reading.png",
+      "bytes": 20145,
+      "sha256": "d5fbba01f5ae621c19e02c06d1c2b25bb8583dd95bd314c2d0c70275d2657a12"
+    },
+    {
+      "path": "assets/day03/day03-sensor-edge-wiring.png",
+      "bytes": 2069122,
+      "sha256": "c756aa9ad5cc8d2afcbe88e7f15075d12f95c649f7f6767f4fe055beed0dc7ed"
+    },
+    {
+      "path": "assets/day03/day03-servo-angle-test.png",
+      "bytes": 58083,
+      "sha256": "ae19ff6cfcd789452a52c615513a1cecf03fc3d524e38318a7f4e69f16f5258e"
+    },
+    {
+      "path": "assets/day03/day03-servo-block-location.png",
+      "bytes": 58652,
+      "sha256": "4f2d88966aba62e85fd4fc12019f3d537f093318f57f4fbdfb728076ea22d703"
+    },
+    {
+      "path": "assets/day04/day04-concept-rule-vs-ai.png",
+      "bytes": 2442996,
+      "sha256": "59f4a5411386a3d03b397d706d0457931fc34ac6f22195a851ca799be3ca95bb"
+    },
+    {
+      "path": "assets/day04/day04-generative-ai-check.png",
+      "bytes": 2572665,
+      "sha256": "618f38c9b15dad34e65c33b5c88d1481dc28160d86c1356ad77f82e3133d2984"
+    },
+    {
+      "path": "assets/day04/day04-test-change-condition.png",
+      "bytes": 2447426,
+      "sha256": "64153f52e8687f585a9c5af389c7147fd14f15edf5ea3361fa847a0f253234a4"
+    },
+    {
+      "path": "assets/day04/day04-tm-01-classes.png",
+      "bytes": 51512,
+      "sha256": "e6f4a9fde634e83b12d4df7ca100efaadf84f466e6d745a77cf86d3bb0959b5f"
+    },
+    {
+      "path": "assets/day04/day04-tm-02-webcam.png",
+      "bytes": 16489,
+      "sha256": "56f8e7b14f7c1bbe79c04642fd9814aa235389770c26b4a1e368c1278a5cbfc8"
+    },
+    {
+      "path": "assets/day04/day04-tm-03-record.png",
+      "bytes": 81315,
+      "sha256": "f7ed0f0fa8412a6185223f20f2c0446ae4a7cf594a4986e69bb0b879a7298096"
+    },
+    {
+      "path": "assets/day04/day04-tm-04-samples.png",
+      "bytes": 293089,
+      "sha256": "a9c553cb41f070df394efb3401c6b1468de377387c7f80afd3b968ee5766900c"
+    },
+    {
+      "path": "assets/day04/day04-tm-05-train.png",
+      "bytes": 25975,
+      "sha256": "b7990c866dfad8dd426c2b16de86b7a3105d9cea4e0ba3372f4681b8f1274d06"
+    },
+    {
+      "path": "assets/day04/day04-tm-06-preview.png",
+      "bytes": 274881,
+      "sha256": "56bee4e5c2ce5c4c063fa869dd604b7b48f9161d702da95b2655f4d78e927052"
+    },
+    {
+      "path": "assets/day05/day05-cafeteria-tray-carrying.png",
+      "bytes": 1649199,
+      "sha256": "7a23a54e000aa1e502ec7f12c396e3ee09464de4131af190b41f9f7f3f6b6e58"
+    },
+    {
+      "path": "assets/day05/day05-carrying-supplies-door.png",
+      "bytes": 1682518,
+      "sha256": "efc1b2ff0d1e011d6717e9fae8a8ecde1fcdb9c53b6009b741914f6751709e06"
+    },
+    {
+      "path": "assets/day05/day05-classroom-sun-glare.png",
+      "bytes": 1724738,
+      "sha256": "7e845635fadf95689c38473f01837302c61206b4edb949afa16c14155a8034e9"
+    },
+    {
+      "path": "assets/day05/day05-finding-similar-water-bottles.png",
+      "bytes": 2143852,
+      "sha256": "06bdd1eb82616a197ff77182219be3d20854ce51ecf5550ca858d701a796f8cb"
+    },
+    {
+      "path": "assets/day05/day05-finding-under-desk.png",
+      "bytes": 1596156,
+      "sha256": "5f62bc296a28aa3e349c62a69460f441f0458935ab60a3bcf63d842cf487957b"
+    },
+    {
+      "path": "assets/day05/day05-height-and-reach-shelf.png",
+      "bytes": 1554131,
+      "sha256": "697ecebc1f95e9ca4854d1119631c6b6b90c505267310b6c16f76a0cdad91cdc"
+    },
+    {
+      "path": "assets/day05/day05-rainy-school-entrance.png",
+      "bytes": 2271682,
+      "sha256": "db12c494b8c4d17bbba67d0ba7298a7558439c40ccc9c32864c670b0406afd9e"
+    },
+    {
+      "path": "assets/day05/day05-stuffy-classroom.png",
+      "bytes": 1757648,
+      "sha256": "3abfb4fc47fc97582db283784b6fd858ea2819de9afaad616bacde08b8158d14"
+    },
+    {
+      "path": "assets/day07/light_sensor.png",
+      "bytes": 39837,
+      "sha256": "c6fd4ea595cf31300a15d7f4f71cc17f55f025d153a927dc16462dc63262d172"
+    },
+    {
+      "path": "assets/day07/pir_sensor.png",
+      "bytes": 33555,
+      "sha256": "6fe35cef829fabb4ff9af70da63c08c5f82a5a2c5209a1cb0ce44ea925602883"
+    },
+    {
+      "path": "assets/day07/soil_sensor.png",
+      "bytes": 32877,
+      "sha256": "832bfce93d2c293c7784d51b4f31e9c485c6ab6a5cad7f66a9d2b33cbdf45684"
+    },
+    {
+      "path": "assets/day07/tmp36_sensor.png",
+      "bytes": 38126,
+      "sha256": "344cc0c205a1506c1f7b10923906c7751b111c175b4eb10c0e0caef756919a21"
+    },
+    {
+      "path": "assets/day07/ultrasonic_sensor.png",
+      "bytes": 43103,
+      "sha256": "c23110ce87294c10883e71a75bc62636e4384a4e05751de41943709692a6a090"
+    },
+    {
+      "path": "day07.js",
+      "bytes": 24500,
+      "sha256": "acde8df485f198b7a198bba7820aba5236fab49835a7d10ddbcec9f935d8fba1"
+    },
+    {
+      "path": "index.html",
+      "bytes": 2019,
+      "sha256": "6428a22f08ab0e08096bd7fb2f10d6bdb0f38e8ee5ddc6b068c1f32745040297"
+    },
+    {
+      "path": "research-days.js",
+      "bytes": 109913,
+      "sha256": "f4d7be9197021478f510d0f693639e6bd73ce4b2557ec1d3c765a3ae9b269684"
+    },
+    {
+      "path": "runtime-config.js",
+      "bytes": 681,
+      "sha256": "b76ce659c5f5b5ba57f6dc6a7422a89e26b241c40e083b58bbf67fa9c98090b8"
+    },
+    {
+      "path": "styles.css",
+      "bytes": 65669,
+      "sha256": "11b786c4951174162c0adbc3feefeed44d9f1e4d65828f3d1c632a31bf2b8508"
+    }
+  ]
+}

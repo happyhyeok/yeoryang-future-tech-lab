@@ -3251,3 +3251,28 @@ select:focus-visible,
   .day06-problem-decisions, .day06-record-actions, .day06-save-actions, .day06-next-actions { align-items: stretch; flex-direction: column; }
   .day06-problem-decisions > *, .day06-record-actions > *, .day06-save-actions > *, .day06-next-actions > * { width: 100%; }
 }
+.day07-section { scroll-margin-top: 1rem; }
+.day07-section summary { cursor: pointer; }
+.day07-section-body { display: grid; gap: .8rem; padding-top: 1rem; }
+.day07-section-body p, .day07-section-body ul { margin: .25rem 0; }
+.day07-sensors { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 1rem; }
+.day07-sensor { min-width: 0; padding: 1rem; border: 1px solid #ccd9d9; border-radius: 1rem; background: #fff; }
+.day07-sensor h3 { margin-top: 0; }
+.day07-sensor details { padding-top: .5rem; }
+.day07-sensor summary { min-height: 44px; font-weight: 700; }
+.day07-sensor input[type="range"] { width: 100%; min-height: 44px; touch-action: pan-y; }
+.day07-sensor-identification { display: grid; grid-template-columns: minmax(0, 46%) minmax(0, 1fr); align-items: center; gap: .75rem; }
+.day07-sensor-image { display: block; width: 100%; height: 144px; object-fit: contain; }
+.day07-sensor-identification p { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .day07-sensor-image { height: 126px; }
+}
+.day07-sensor-readout { font-weight: 700; }
+.day07-led { display: grid; place-items: center; width: 4rem; height: 4rem; border-radius: .5rem; background: #263e48; color: #aeb7b9; font-size: 2.5rem; }
+.day07-sensor.is-alert .day07-led { color: #ffe058; box-shadow: 0 0 0 4px #ffe05844; }
+.day07-sensor[data-day07-card="light"] { background: rgb(255 246 205 / var(--day07-light, .75)); }
+.day07-sensor[data-day07-card="distance"] .day07-led { margin-left: min(var(--day07-distance, 75%), calc(100% - 4rem)); max-width: 25%; }
+.day07-sensor[data-day07-card="temp"] .day07-led { border-bottom: 8px solid #e76e56; }
+.day07-quiz { min-width: 0; border: 1px solid #ccd9d9; border-radius: .5rem; }
+.day07-quiz .radio-option { min-height: 44px; }
+.day07 input, .day07 textarea, .day07 select { max-width: 100%; }

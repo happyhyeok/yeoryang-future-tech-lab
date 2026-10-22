@@ -2167,6 +2167,24 @@
     },
   };
 
+  DAY_LESSONS.day07 = {
+    dayId: "day07",
+    dayType: "standard",
+    flowStartId: "day07-step-1",
+    bridge: { carry: { previousDayId: "day06" } },
+    quiz: { title: "오늘의 퀴즈", questions: [
+      { id: "day07-q1", prompt: "센서는 주로 어떤 일을 하나요?", choices: [
+        { text: "① 주변의 변화를 알아차린다.", correct: true }, { text: "② 3D 프린터로 물건을 만든다.", correct: false }, { text: "③ 발명품의 이름을 정한다.", correct: false },
+      ] },
+      { id: "day07-q2", prompt: "처음 만드는 시제품은 어떻게 시작하는 것이 좋을까요?", choices: [
+        { text: "① 모든 기능을 한 번에 완성한다.", correct: false }, { text: "② 가장 중요한 기능 하나부터 시험한다.", correct: true }, { text: "③ 시험하지 않아도 성공했다고 기록한다.", correct: false },
+      ] },
+      { id: "day07-q3", prompt: "다음 중 입력 → 판단 → 출력의 순서가 올바른 것은 무엇인가요?", choices: [
+        { text: "① LED가 켜진다 → 주변 밝기를 측정한다 → 어두운지 판단한다.", correct: false }, { text: "② 주변 밝기를 측정한다 → 어두운지 판단한다 → LED가 켜진다.", correct: true }, { text: "③ 어두운지 판단한다 → LED가 켜진다 → 주변 밝기를 측정한다.", correct: false },
+      ] },
+    ] },
+  };
+
   window.RESEARCH_DAYS = RESEARCH_DAYS;
   window.LESSON_BLOCKS = LESSON_BLOCKS;
   window.DAY_LESSONS = DAY_LESSONS;
