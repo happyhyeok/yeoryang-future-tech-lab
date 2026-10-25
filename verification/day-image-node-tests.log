@@ -1,0 +1,12 @@
+✔ first image writes Asset and references it in DayRecord (2.9681ms)
+✔ replacement updates the same asset ID to a new Drive file (1.077ms)
+✔ link failure keeps previous representative image (1.5898ms)
+✔ day outside Day06/Day07 and other student are rejected (0.3486ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 135.217

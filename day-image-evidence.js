@@ -7,6 +7,7 @@
   let lastKey = "";
   let generation = 0;
   let inFlight = false;
+  let loadFailed = false;
 
   function install({ root, getContext, request }) {
     if (installed) return;
@@ -16,6 +17,11 @@
     root.addEventListener("click", event => {
       const button = event.target.closest("[data-day-image-button]");
       if (button && root.contains(button) && !inFlight) {
+        if (loadFailed) {
+          const ctx = current();
+          if (ctx) load(ctx, lastKey);
+          return;
+        }
         root.querySelector("[data-day-image-file]")?.click();
       }
     });
@@ -49,6 +55,8 @@
       button.textContent = url ? "변경하기" : "등록";
     }
     async function load(ctx, requestKey) {
+      const button = getSlot()?.querySelector("[data-day-image-button]");
+      if (button) button.disabled = true;
       setStatus("");
       try {
         const data = await request("getDayRecord", { method: "GET",
@@ -59,8 +67,14 @@
           a.assetId === assetId && a.assetType === "screenshot" &&
           a.ownerId === ctx.studentId && a.dayId === ctx.dayId);
         show(asset);
+        loadFailed = false;
+        if (button) button.disabled = false;
       } catch (_) {
-        if (lastKey === requestKey) setStatus("이미지를 불러오지 못했어요.");
+        if (lastKey === requestKey) {
+          loadFailed = true;
+          if (button) { button.textContent = "다시 시도"; button.disabled = false; }
+          setStatus("이미지를 불러오지 못했어요.");
+        }
       }
     }
     function ensure() {
@@ -71,13 +85,14 @@
       if (key === lastKey && slot) return;
       generation++;
       lastKey = key;
+      loadFailed = false;
       if (slot) slot.remove();
       const section = document.createElement("section");
       section.className = "lesson-section day-image-evidence";
       section.dataset.dayImageSlot = ctx.dayId;
       section.innerHTML = `<h2 class="section-title">${dayNames[ctx.dayId]}</h2>
         <img data-day-image-preview alt="내가 등록한 그림" hidden>
-        <div><button type="button" class="secondary-button" data-day-image-button>등록</button>
+        <div><button type="button" class="secondary-button" data-day-image-button disabled>등록</button>
         <input type="file" data-day-image-file accept="image/png,image/jpeg,image/webp" hidden></div>
         <p class="day-image-status" data-day-image-status role="status" aria-live="polite"></p>`;
       root.appendChild(section);
