@@ -42,9 +42,14 @@
       const status = slot?.querySelector("[data-day-image-status]");
       if (status) status.textContent = message;
     }
+    function readParams(ctx) {
+      return { studentId: ctx.studentId, dayId: ctx.dayId,
+        imageFetchNonce: `${Date.now()}_${Math.random().toString(36).slice(2)}` };
+    }
     function show(asset) {
       const slot = getSlot();
       if (!slot) return;
+      slot.dataset.fileId = asset?.storageFileId || "";
       const image = slot.querySelector("[data-day-image-preview]");
       const button = slot.querySelector("[data-day-image-button]");
       const url = asset?.storageFileId && /^[a-zA-Z0-9_-]{10,200}$/.test(asset.storageFileId)
@@ -72,7 +77,7 @@
       setStatus("");
       try {
         const data = await request("getDayRecord", { method: "GET",
-          params: { studentId: ctx.studentId, dayId: ctx.dayId } });
+          params: readParams(ctx) });
         if (lastKey !== requestKey) return;
         const assetId = `asset_${ctx.studentId}_${ctx.dayId}_image`;
         const asset = (data.assets || []).find(a =>
@@ -120,6 +125,7 @@
       inFlight = true;
       const key = lastKey, savedGeneration = generation;
       const slot = getSlot(), button = slot?.querySelector("[data-day-image-button]");
+      const previousFileId = slot?.dataset.fileId || "";
       if (button) button.disabled = true;
       setStatus("저장 중...");
       try {
@@ -138,7 +144,7 @@
         }});
         if (lastKey !== key || generation !== savedGeneration) return;
         const verified = await request("getDayRecord", { method: "GET",
-          params: { studentId: ctx.studentId, dayId: ctx.dayId } });
+          params: readParams(ctx) });
         if (lastKey !== key || generation !== savedGeneration) return;
         const asset = (verified.assets || []).find(a =>
           a.assetId === result.assetId && a.storageFileId === result.storageFileId &&
@@ -147,12 +153,28 @@
         show(asset);
         setStatus("저장됨");
       } catch (error) {
-        if (lastKey === key) setStatus("저장하지 못했어요. 다시 시도해 주세요.");
+        if (lastKey === key && generation === savedGeneration) {
+          try {
+            const data = await request("getDayRecord", { method: "GET", params: readParams(ctx) });
+            if (lastKey === key && generation === savedGeneration) {
+              const asset = (data.assets || []).find(a =>
+                a.assetId === `asset_${ctx.studentId}_${ctx.dayId}_image` &&
+                a.ownerId === ctx.studentId && a.dayId === ctx.dayId);
+              if (asset && asset.storageFileId !== previousFileId) {
+                show(asset);
+                setStatus("저장됨");
+              } else setStatus("저장하지 못했어요. 다시 시도해 주세요.");
+            }
+          } catch (_) {
+            if (lastKey === key) setStatus("저장 상태를 확인하지 못했어요. 다시 시도해 주세요.");
+          }
+        }
         console.warn("day image save failed", error);
       } finally {
         inFlight = false;
         if (lastKey === key && getSlot()) {
-          getSlot().querySelector("[data-day-image-button]").disabled = false;
+          if (generation !== savedGeneration) await load(ctx, key);
+          else getSlot().querySelector("[data-day-image-button]").disabled = false;
         }
       }
     }

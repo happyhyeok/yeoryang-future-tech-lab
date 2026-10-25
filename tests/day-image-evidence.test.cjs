@@ -20,6 +20,7 @@ function harness(options = {}) {
       PRODUCTION_SPREADSHEET_ID: "production_sheet", PRODUCTION_IMAGE_STORAGE_FOLDER_ID: "production_folder",
       ...options.properties })[key],
     getSpreadsheetId_: () => options.spreadsheetId || "test_sheet",
+    getProjectId_: () => "futurelab-image-e2e-test",
     getRequiredPayload_: x => x, assertId_: x => x,
     assertApi_: (ok, code) => { if (!ok) throw Error(code); },
     validateStudent_: id => { if (id !== "stu01") throw Error("wrong student"); },

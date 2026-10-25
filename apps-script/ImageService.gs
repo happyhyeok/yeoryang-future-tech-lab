@@ -26,7 +26,7 @@ function uploadDayImage_(payload) {
   assertApi_(validDayImageSignature_(bytes, mimeType), "INVALID_IMAGE_DATA", "이미지 형식이 파일 내용과 다릅니다.");
 
   const ext = mimeType === "image/png" ? "png" : mimeType === "image/jpeg" ? "jpg" : "webp";
-  const fileName = FUTURELAB_CONFIG.PROJECT_ID + "_" + studentId + "_" + dayId + "_image." + ext;
+  const fileName = getProjectId_() + "_" + studentId + "_" + dayId + "_image." + ext;
   const parent = getImageStorageFolder_();
   const root = getOrCreateChildFolder_(parent, "학생이미지_업로드");
   const folder = getOrCreateChildFolder_(getOrCreateChildFolder_(root, studentId), dayId);

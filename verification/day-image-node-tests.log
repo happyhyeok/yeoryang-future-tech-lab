@@ -1,15 +1,17 @@
-✔ first image writes Asset and references it in DayRecord (3.016ms)
-✔ replacement updates the same asset ID to a new Drive file (1.0236ms)
-✔ link failure keeps previous representative image (1.3947ms)
-✔ day outside Day06/Day07 and other student are rejected (0.2637ms)
-✔ TEST upload fails closed when Sheet or folder points to production (0.4292ms)
-✔ failed initial lookup shows retry and cannot open upload picker (1247.646ms)
-✔ failed thumbnail hides broken image and reports display error (606.7995ms)
-ℹ tests 7
+✔ first image writes Asset and references it in DayRecord (3.0465ms)
+✔ replacement updates the same asset ID to a new Drive file (1.4489ms)
+✔ link failure keeps previous representative image (1.9309ms)
+✔ day outside Day06/Day07 and other student are rejected (0.3544ms)
+✔ TEST upload fails closed when Sheet or folder points to production (0.5258ms)
+✔ failed initial lookup shows retry and cannot open upload picker (1286.1448ms)
+✔ failed thumbnail hides broken image and reports display error (547.2231ms)
+✔ post-upload record verification uses a fresh GET URL (687.487ms)
+✔ lost upload response re-reads server state and shows saved image (609.9615ms)
+ℹ tests 9
 ℹ suites 0
-ℹ pass 7
+ℹ pass 9
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 2288.9677
+ℹ duration_ms 3697.35
