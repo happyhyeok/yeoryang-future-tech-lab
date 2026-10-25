@@ -5,10 +5,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const source = fs.readFileSync(path.join(__dirname, "../apps-script/ImageService.gs"), "utf8");
 
-function harness() {
+function harness(options = {}) {
   let nextId = 0, asset = null, record = null, failWrite = false;
   const files = [];
-  const folder = { createFile() {
+  const folder = { isTrashed() { return false; }, createFile() {
     const file = { id: "test_file_" + (++nextId) + "_xxxx", trashed: false,
       getId() { return this.id; }, setSharing() {}, setTrashed() { this.trashed = true; } };
     files.push(file);
@@ -16,6 +16,10 @@ function harness() {
   } };
   const mock = {
     FUTURELAB_CONFIG: { PROJECT_ID: "futurelab2026", SHEETS: { DAY_RECORDS: "dayrecords" } },
+    getScriptProperty_: key => ({ ENVIRONMENT: "TEST", IMAGE_STORAGE_FOLDER_ID: "test_folder",
+      PRODUCTION_SPREADSHEET_ID: "production_sheet", PRODUCTION_IMAGE_STORAGE_FOLDER_ID: "production_folder",
+      ...options.properties })[key],
+    getSpreadsheetId_: () => options.spreadsheetId || "test_sheet",
     getRequiredPayload_: x => x, assertId_: x => x,
     assertApi_: (ok, code) => { if (!ok) throw Error(code); },
     validateStudent_: id => { if (id !== "stu01") throw Error("wrong student"); },
@@ -72,4 +76,13 @@ test("day outside Day06/Day07 and other student are rejected", () => {
   const h = harness();
   assert.throws(() => h.fn({ ...h.payload, dayId: "day05" }), /DAY_NOT_FOUND/);
   assert.throws(() => h.fn({ ...h.payload, studentId: "stu02" }), /wrong student/);
+});
+
+test("TEST upload fails closed when Sheet or folder points to production", () => {
+  const sameSheet = harness({ spreadsheetId: "production_sheet" });
+  assert.throws(() => sameSheet.fn(sameSheet.payload), /TEST_STORAGE_NOT_ISOLATED/);
+  assert.equal(sameSheet.snapshot().files.length, 0);
+  const sameFolder = harness({ properties: { IMAGE_STORAGE_FOLDER_ID: "production_folder" } });
+  assert.throws(() => sameFolder.fn(sameFolder.payload), /TEST_STORAGE_NOT_ISOLATED/);
+  assert.equal(sameFolder.snapshot().files.length, 0);
 });

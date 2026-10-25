@@ -27,7 +27,7 @@ function uploadDayImage_(payload) {
 
   const ext = mimeType === "image/png" ? "png" : mimeType === "image/jpeg" ? "jpg" : "webp";
   const fileName = FUTURELAB_CONFIG.PROJECT_ID + "_" + studentId + "_" + dayId + "_image." + ext;
-  const parent = DriveApp.getFolderById("1YbBCSQCA_aAeyyU2UwmD0wvTkOYlC9yi");
+  const parent = getImageStorageFolder_();
   const root = getOrCreateChildFolder_(parent, "학생이미지_업로드");
   const folder = getOrCreateChildFolder_(getOrCreateChildFolder_(root, studentId), dayId);
   let created = null;
@@ -80,6 +80,29 @@ function uploadDayImage_(payload) {
     }
     throw error;
   }
+}
+function getImageStorageFolder_() {
+  const environment = getScriptProperty_("ENVIRONMENT").trim().toUpperCase();
+  const folderId = getScriptProperty_("IMAGE_STORAGE_FOLDER_ID").trim();
+  const spreadsheetId = getSpreadsheetId_();
+  assertApi_(environment === "TEST" || environment === "PRODUCTION",
+    "IMAGE_STORAGE_NOT_CONFIGURED", "이미지 저장 환경이 설정되지 않았습니다.");
+  assertApi_(folderId, "IMAGE_STORAGE_NOT_CONFIGURED", "이미지 저장 폴더가 설정되지 않았습니다.");
+  if (environment === "TEST") {
+    const productionSheetId = getScriptProperty_("PRODUCTION_SPREADSHEET_ID").trim();
+    const productionFolderId = getScriptProperty_("PRODUCTION_IMAGE_STORAGE_FOLDER_ID").trim();
+    assertApi_(productionSheetId && productionFolderId &&
+      spreadsheetId !== productionSheetId && folderId !== productionFolderId,
+      "TEST_STORAGE_NOT_ISOLATED", "테스트 저장소가 운영 저장소와 분리되지 않았습니다.");
+  }
+  let folder;
+  try {
+    folder = DriveApp.getFolderById(folderId);
+    assertApi_(!folder.isTrashed(), "IMAGE_STORAGE_UNAVAILABLE", "이미지 저장 폴더를 사용할 수 없습니다.");
+  } catch (_) {
+    throw createApiError_("IMAGE_STORAGE_UNAVAILABLE", "이미지 저장 폴더에 접근할 수 없습니다.");
+  }
+  return folder;
 }
 function validDayImageSignature_(b, mime) {
   const u = function (i) { return (b[i] + 256) % 256; };

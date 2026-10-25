@@ -49,10 +49,22 @@
       const button = slot.querySelector("[data-day-image-button]");
       const url = asset?.storageFileId && /^[a-zA-Z0-9_-]{10,200}$/.test(asset.storageFileId)
         ? "https://drive.google.com/thumbnail?id=" + encodeURIComponent(asset.storageFileId) + "&sz=w1200" : "";
+      image.onload = null;
+      image.onerror = null;
       image.hidden = !url;
       image.removeAttribute("src");
-      if (url) image.src = url;
-      button.textContent = url ? "변경하기" : "등록";
+      if (url) {
+        image.onload = () => { if (getSlot() === slot && image.src === url) setStatus(""); };
+        image.onerror = () => {
+          if (getSlot() === slot && image.src === url) {
+            image.hidden = true;
+            setStatus("이미지를 표시하지 못했어요.");
+          }
+        };
+        image.src = url;
+      }
+      button.textContent = asset ? "변경하기" : "등록";
+      if (asset && !url) setStatus("이미지를 표시하지 못했어요.");
     }
     async function load(ctx, requestKey) {
       const button = getSlot()?.querySelector("[data-day-image-button]");
