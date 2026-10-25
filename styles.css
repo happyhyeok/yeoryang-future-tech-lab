@@ -3276,3 +3276,9 @@ select:focus-visible,
 .day07-quiz { min-width: 0; border: 1px solid #ccd9d9; border-radius: .5rem; }
 .day07-quiz .radio-option { min-height: 44px; }
 .day07 input, .day07 textarea, .day07 select { max-width: 100%; }
+
+/* Day06/Day07: one image and one action, no additional instructions. */
+.day-image-evidence img[data-day-image-preview] { display: block; width: min(100%, 720px); height: auto; max-height: 520px; object-fit: contain; margin: 0 0 12px; border-radius: 8px; }
+.day-image-evidence img[hidden] { display: none; }
+.day-image-status:empty { display: none; }
+.day-image-status { font-size: 0.9rem; margin: 8px 0 0; }
