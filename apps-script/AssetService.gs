@@ -71,6 +71,7 @@ function normalizeAssetPayload_(payload) {
     asset.storageUrl
   );
   validateVideoAssetPayload_(asset);
+  validateScreenshotAssetPayload_(asset);
 
   return asset;
 }
@@ -197,5 +198,21 @@ function validateVideoAssetPayload_(asset) {
     asset.storageUrl === makeDrivePreviewUrl_(asset.storageFileId),
     "INVALID_ASSET_URL",
     "영상 storageUrl은 Drive preview URL이어야 합니다."
+  );
+}
+
+function validateScreenshotAssetPayload_(asset) {
+  if (asset.assetType !== "screenshot") return;
+  assertApi_(asset.dayId === "day06" || asset.dayId === "day07",
+    "DAY_NOT_FOUND", "Day06·Day07의 그림만 등록할 수 있습니다.");
+  assertApi_(asset.assetId === "asset_" + asset.ownerId + "_" + asset.dayId + "_image",
+    "ASSET_ID_CONFLICT", "이미지 Asset ID가 맞지 않습니다.");
+  assertApi_(["image/png", "image/jpeg", "image/webp"].indexOf(asset.mimeType) >= 0,
+    "INVALID_IMAGE_MIME_TYPE", "이미지 파일 형식이 올바르지 않습니다.");
+  assertValidDriveFileId_(asset.storageFileId, "storageFileId");
+  assertApi_(
+    asset.storageUrl === makeDrivePreviewUrl_(asset.storageFileId) &&
+    asset.thumbnailUrl === "https://drive.google.com/thumbnail?id=" + asset.storageFileId + "&sz=w1200",
+    "INVALID_ASSET_URL", "이미지 파일 주소가 일치하지 않습니다."
   );
 }
