@@ -30,7 +30,7 @@ function normalizeAssetPayload_(payload) {
     assetId: assertId_(body.assetId, "ASSET_VALIDATION_ERROR", "assetId"),
     assetType: ensureAllowedValue_(
       String(body.assetType || ""),
-      ["webpage_link", "video"],
+      ["webpage_link", "video", "screenshot"],
       "ASSET_VALIDATION_ERROR",
       "assetType"
     ),
