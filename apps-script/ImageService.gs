@@ -31,6 +31,8 @@ function uploadDayImage_(payload) {
   const root = getOrCreateChildFolder_(parent, "학생이미지_업로드");
   const folder = getOrCreateChildFolder_(getOrCreateChildFolder_(root, studentId), dayId);
   let created = null;
+  const previous = findAssetById_(assetId).rowObject;
+  let assetUpdated = false;
   try {
     created = folder.createFile(Utilities.newBlob(bytes, mimeType, fileName));
     created.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -45,6 +47,7 @@ function uploadDayImage_(payload) {
       thumbnailUrl: "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1200",
       fileName: fileName, mimeType: mimeType, capturedAt: cleanFreeText_(body.capturedAt || now),
     }).asset;
+    assetUpdated = true;
     linkDayImageEvidence_(studentId, workId, dayId, assetId, dayRow);
     const readback = getDayRecordById_(studentId, dayId, true);
     assertApi_(readback.dayRecord && readback.assets.some(function (a) {
@@ -52,8 +55,29 @@ function uploadDayImage_(payload) {
     }), "IMAGE_VERIFY_FAILED", "이미지 저장 검증에 실패했습니다.");
     return { assetId: assetId, storageFileId: fileId, asset: asset };
   } catch (error) {
-    // Do not delete the file here: metadata may already reference it after a partial failure.
-    // This also preserves the previous image if a new save fails before the upsert.
+    // Compensating write: preserve the previous visible image if the new image
+    // was uploaded but record linkage/readback fails.
+    let restored = !assetUpdated;
+    if (assetUpdated && previous) {
+      try {
+        upsertAsset_({
+          assetId: previous.assetId, assetType: previous.assetType,
+          ownerType: previous.ownerType, ownerId: previous.ownerId,
+          dayId: previous.dayId, blockId: previous.blockId,
+          title: previous.title, description: previous.description,
+          storageFileId: previous.storageFileId, storageUrl: previous.storageUrl,
+          thumbnailUrl: previous.thumbnailUrl, fileName: previous.fileName,
+          mimeType: previous.mimeType, capturedAt: previous.capturedAt,
+        });
+        restored = true;
+      } catch (restoreError) {
+        console.warn("Day image metadata restoration failed: " + restoreError.message);
+      }
+    }
+    if (restored && created) {
+      try { created.setTrashed(true); }
+      catch (trashError) { console.warn("Day image failed upload cleanup: " + trashError.message); }
+    }
     throw error;
   }
 }
