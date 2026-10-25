@@ -119,6 +119,15 @@ function saveDayRecord_(payload) {
       "dayRecordId",
       dayRecordId
     );
+    // Image reference is server-owned. Preserve it across lesson autosaves.
+    if ((dayId === "day06" || dayId === "day07") && existing.rowObject) {
+      const imageId = "asset_" + studentId + "_" + dayId + "_image";
+      const existingRefs = parseJsonCell_(existing.rowObject.personalEvidenceRefs, []);
+      if (existingRefs.indexOf(imageId) >= 0 && personalEvidenceRefs.indexOf(imageId) < 0) {
+        personalEvidenceRefs.push(imageId);
+        validatePersonalEvidenceRefs_(personalEvidenceRefs, studentId, dayId);
+      }
+    }
     const createdAt = getExistingCreatedAt_(existing.rowObject, now);
     const rowObject = upsertById_(FUTURELAB_CONFIG.SHEETS.DAY_RECORDS, "dayRecordId", dayRecordId, {
       dayRecordId: dayRecordId,
