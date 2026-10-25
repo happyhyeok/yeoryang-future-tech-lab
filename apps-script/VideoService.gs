@@ -1,4 +1,6 @@
 function uploadVideo_(payload) {
+  if (payload && payload.payload && payload.payload.mediaKind === "image") return uploadDayImage_(payload);
+  if (payload && payload.mediaKind === "image") return uploadDayImage_(payload);
   const video = normalizeVideoUploadPayload_(payload);
   const bytes = decodeVideoBytes_(video.base64Data);
   ensureAssetHeaders_();
