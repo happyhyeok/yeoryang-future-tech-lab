@@ -238,11 +238,29 @@ function makeDrivePreviewUrl_(fileId) {
 
 function makeVideoFileName_(studentId, dayId, mimeType) {
   const extension = mimeType === "video/mp4" ? "mp4" : "webm";
-  return FUTURELAB_CONFIG.PROJECT_ID + "_" + studentId + "_" + dayId + "_video." + extension;
+  return getProjectId_() + "_" + studentId + "_" + dayId + "_video." + extension;
+}
+
+function getVideoRootFolderId_() {
+  const environment = getScriptProperty_("ENVIRONMENT").trim().toUpperCase();
+  const configuredId = getScriptProperty_("VIDEO_STORAGE_FOLDER_ID").trim();
+  const productionId = FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_ID;
+  if (environment === "TEST") {
+    const productionSheetId = getScriptProperty_("PRODUCTION_SPREADSHEET_ID").trim();
+    const productionFolderId = getScriptProperty_("PRODUCTION_VIDEO_STORAGE_FOLDER_ID").trim();
+    assertApi_(configuredId && productionSheetId && productionFolderId &&
+      getSpreadsheetId_() !== productionSheetId &&
+      configuredId !== productionId && configuredId !== productionFolderId,
+      "TEST_STORAGE_NOT_ISOLATED", "테스트 영상 저장소가 운영 저장소와 분리되지 않았습니다.");
+    return configuredId;
+  }
+  assertApi_(!environment || environment === "PRODUCTION",
+    "VIDEO_STORAGE_NOT_CONFIGURED", "영상 저장 환경이 올바르지 않습니다.");
+  return configuredId || productionId;
 }
 
 function getVideoRootFolder_() {
-  const folder = DriveApp.getFolderById(FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_ID);
+  const folder = DriveApp.getFolderById(getVideoRootFolderId_());
 
   assertApi_(
     folder.getName() === FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_NAME,
@@ -307,7 +325,7 @@ function verifyVideoStorage() {
 
   const report = {
     ok: false,
-    rootFolderId: FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_ID,
+    rootFolderId: getVideoRootFolderId_(),
     expectedFolderName: FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_NAME,
     actualFolderName: "",
     nameMatches: false,
@@ -323,7 +341,7 @@ function verifyVideoStorage() {
   let probe = null;
 
   try {
-    const root = DriveApp.getFolderById(FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_ID);
+    const root = getVideoRootFolder_();
     report.actualFolderName = root.getName();
     report.nameMatches = report.actualFolderName === report.expectedFolderName;
     assertApi_(

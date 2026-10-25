@@ -1,7 +1,7 @@
-# 현재 상태 — 2026-10-25
+# 현재 상태 — 2026-10-25 최종 회귀
 
-Day06·Day07 이미지 실연결 **PASS_WITH_LIMITATIONS**. 독립 TEST Apps Script 배포 버전 3, 가상 학생 A/B용 TEST Sheet·Drive, 로컬 격리 Preview의 실제 저장·조회·교체·새 세션 복원을 확인했다. Chromium 390×844, 650×900, 1440×900 흐름과 캡처 21개, S01–S13·S15–S18 PASS. S14는 영상 분기만 확인하고 실제 영상 저장은 운영 영상 폴더와 분리되지 않아 NOT_RUN. 자세한 근거는 `../../DAY06_DAY07_IMAGE_E2E_REPORT.md`.
+Day06·Day07 운영 전 최종 회귀는 **PASS_WITH_LIMITATIONS**. 기능 브랜치 `feature/day06-day07-image-evidence`에서 독립 TEST Apps Script 배포 버전 5, TEST Sheet·이미지/영상 Drive와 별도 Cloudflare TEST Pages HTTPS Preview를 사용했다. 실제 WebM Day01–03 업로드·교체, TEST Drive 파일·Sheet Asset/DayRecord, Chromium 파일 재생, 학생 UI 촬영·업로드·새로고침 iframe 복원을 확인했다. 기존 이미지 S01–S18 중 영향받는 Preview 교체/복원을 세 viewport에서 다시 확인했다.
 
-고정 폴더 ID를 Script Properties로 옮기고 TEST 운영 ID 차단, 교체 후 오래된 화면 복원 방지, 서버 응답 손실 복구, 54개 공개 파일 빌드를 적용했다. Node 모의·합성 UI 9/9 PASS. Cloudflare Preview/Production, 운영 Apps Script·Sheet·Drive 및 원본 이미지 9장은 변경하지 않았다. 기존 Day06/07 퀴즈·완료 전체 회귀와 영상 실제 업로드는 미검증이다.
+Day06/07 연구기록·퀴즈·완료·Day08 서버 확인 게이트는 Chromium 390×844, 650×900, 1440×900과 TEST Sheet `06_퀴즈결과`·`05_학생연구기록`으로 대조했다. Day06/07 서버 저장 실패와 재시도 후 참조 유지도 확인했다. 상세 판정·로그·캡처는 `../../DAY06_DAY07_FINAL_REGRESSION_REPORT.md`와 `../../verification/final-screenshots/`.
 
-Day07 원고·교육목표·완료 기준은 변경하지 않았다. Day07 개발 전 새 교육 결정은 필요 없으며, 운영 이미지 반영 전에는 공유 범위·구파일 정리 정책·운영 배포 승인과 남은 회귀 검사가 필요하다.
+남은 제한: Drive 내장 iframe에서 클릭 재생을 확인하지 못했으며, Day06 문제 원문을 실제 수정·교체한 후 Day05/06 왕복 저장은 미실행이다. 운영 Apps Script 배포·Script Properties 동등성, 영상 재생 권한, 기존 이미지 9장 접근 권한도 운영 변경 없이 최종 대조가 필요하다. 운영 Production·실제 학생 데이터는 변경하지 않았다. Day07 교육 원고와 완료 기준은 변경하지 않았고 새 교육 결정은 필요 없다. 운영 전에는 이미지 링크 공개 범위·구파일 보존 기간과 배포 승인을 결정해야 한다.

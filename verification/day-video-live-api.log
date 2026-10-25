@@ -1,0 +1,5 @@
+day01: PASS actual WebM saved to TEST server
+day02: PASS actual WebM saved to TEST server
+day03: PASS actual WebM saved to TEST server
+V01-V04,V06-V10: PASS TEST API, video record reference, rejects, image branch unchanged
+Four current TEST video file IDs retained in server response for Drive readback.
