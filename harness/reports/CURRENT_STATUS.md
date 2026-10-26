@@ -1,4 +1,6 @@
-# 현재 상태 — 2026-10-25 최종 회귀
+# 현재 상태 — 2026-10-26 운영 반영 사전점검
+
+**운영 반영 판정: NOT_READY.** 2026-10-25 TEST 회귀의 PASS_WITH_LIMITATIONS는 그대로 유효하지만 운영 배포 완료를 의미하지 않는다. 2026-10-26 TEST Day06 문제 수정·교체 R01–R12를 실제 브라우저·서버에서 통과하고 TEST 기록을 원복했다. Drive 영상 iframe은 로드됐으나 자동 클릭 재생은 확인하지 못해 수동 확인이 필요하다. 운영 활성 Apps Script 버전 15에는 ImageService가 없고 운영 Script Properties에는 `ENVIRONMENT`, `IMAGE_STORAGE_FOLDER_ID`가 없다. 원본 이미지 9개는 소유자 전용 권한이며 변경하지 않았다. 상세 근거는 `../../DAY06_DAY07_PREPRODUCTION_AUDIT.md`, 실행 기록은 `../../verification/day06-problem-roundtrip.log`, 브라우저 증거는 `../../verification/final-screenshots/`이다. 운영 배포·설정·Sheet·Drive 쓰기 및 main 병합은 실행하지 않았다. Day07 교육 원고·완료 기준의 추가 결정은 이번 이미지 점검에서 필요하지 않다.
 
 Day06·Day07 운영 전 최종 회귀는 **PASS_WITH_LIMITATIONS**. 기능 브랜치 `feature/day06-day07-image-evidence`에서 독립 TEST Apps Script 배포 버전 5, TEST Sheet·이미지/영상 Drive와 별도 Cloudflare TEST Pages HTTPS Preview를 사용했다. 실제 WebM Day01–03 업로드·교체, TEST Drive 파일·Sheet Asset/DayRecord, Chromium 파일 재생, 학생 UI 촬영·업로드·새로고침 iframe 복원을 확인했다. 기존 이미지 S01–S18 중 영향받는 Preview 교체/복원을 세 viewport에서 다시 확인했다.
 

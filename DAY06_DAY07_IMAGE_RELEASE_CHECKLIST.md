@@ -10,11 +10,12 @@
 - [x] Day06·Day07 퀴즈·최소/기본/추가 작성·서버 게이트 회귀, TEST QuizResult 행 대조
 - [x] 별도 Cloudflare TEST Pages HTTPS Preview, 공개 파일 54개 SHA-256 및 세 viewport Playwright
 - [x] TEST 영상 폴더 Script Properties 분리 및 TEST→운영 ID 일치 차단
-- [ ] Day06 문제 원문 실제 수정·교체 후 Day05/06 왕복 저장 시험
-- [ ] 실제 학생 브라우저에서 Drive 내장 영상 iframe 클릭 재생 확인
-- [ ] 이미지 개별 링크 공개 범위와 교체 구파일 보존 정책 검토
-- [ ] 운영 Script Properties·현재 운영 Apps Script 배포 소스와 TEST 버전 5의 동등성 확인
-- [ ] 기존 학생 이미지 9장의 개별 접근 권한 확인
+- [x] TEST Day06 문제 원문 실제 수정·교체 후 Day05/06 왕복 저장 시험 (R01–R12 PASS, R13 원복)
+- [ ] Drive 내장 영상 iframe 클릭 재생 확인 (자동 클릭 실패, 수동 확인 필요)
+- [x] 이미지 개별 링크 공개 범위와 교체 구파일 보존 방식 분석 (운영 정책 결정 필요)
+- [x] 운영 Script Properties·활성 배포 버전 15와 TEST 버전 5 대조 (필수 Property·ImageService 부재 발견)
+- [x] 기존 학생 이미지 9장의 개별 접근 권한 확인 (모두 소유자 전용, 변경 없음)
+- [ ] 개인정보 공유 정책·보존 기간 확정, 운영 백업·롤백 연습
 - [ ] 운영 반영 별도 승인
 
-최종 회귀 판정 **PASS_WITH_LIMITATIONS**. 대표 이미지는 Day별 1장만 표시하고, 교체된 구파일은 즉시 삭제하지 않는다. 보존 기간과 개인정보가 포함된 이미지의 개별 공개 링크 허용 범위를 운영 전에 정한다. Production 배포는 별도 승인·운영 사전 점검 전 실행하지 않는다. 운영 학생 기록·원본 이미지 9장에 대한 쓰기는 실행하지 않았다. 상세 결과는 `DAY06_DAY07_FINAL_REGRESSION_REPORT.md`.
+2026-10-25 TEST 최종 회귀 판정은 **PASS_WITH_LIMITATIONS**였다. 2026-10-26 운영 반영 사전점검 판정은 **NOT_READY**다. 운영 버전 15에는 ImageService가 없고 필수 운영 Property가 누락되어 있다. 대표 이미지는 Day별 1장만 표시하고, 교체된 구이미지는 즉시 삭제하지 않는다. 보존 기간·공개 링크 허용 범위·Drive 영상 수동 재생을 운영 전에 확정한다. Production 배포와 실제 학생 기록·원본 이미지 9장 쓰기는 실행하지 않았다. `DAY06_DAY07_PREPRODUCTION_AUDIT.md` 참조.

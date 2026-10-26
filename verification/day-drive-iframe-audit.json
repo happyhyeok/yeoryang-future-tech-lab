@@ -1,0 +1,8 @@
+{
+  "iframeLoaded": true,
+  "playerFound": false,
+  "beforeText": "재생(k)\n재생(k)\nfuturelab-image-e2e-test_test_student_a_day01_video.webm 표시 중입니다.",
+  "clickResult": "CLICK_FAILED:TimeoutError",
+  "afterText": "재생(k)\n재생(k)\nfuturelab-image-e2e-test_test_student_a_day01_video.webm 표시 중입니다.",
+  "pauseVisible": false
+}
