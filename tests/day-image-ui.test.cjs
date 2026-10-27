@@ -71,19 +71,17 @@ test('post-upload record verification uses a fresh GET URL', async () => {
         getContext: () => ({ studentId: 'test_student_a', workId: 'test_work_a', dayId: 'day06' }),
         request: async (action, options) => {
           if (action === 'uploadVideo') return { assetId: 'asset_test_student_a_day06_image',
-            storageFileId: 'test_file_123456789' };
+            reviewStatus: 'PENDING_REVIEW' };
           window.gets.push(options.params.imageFetchNonce);
-          return { assets: window.gets.length === 1 ? [] : [{
-            assetId: 'asset_test_student_a_day06_image', assetType: 'screenshot',
-            storageFileId: 'test_file_123456789', ownerId: 'test_student_a', dayId: 'day06',
-          }] };
+          return window.gets.length === 1 ? { assets: [], imageReviewStatus: 'NONE' }
+            : { assets: [], imageReviewStatus: 'PENDING_REVIEW' };
         },
       });
     });
     await page.locator('[data-day-image-button]').getByText('등록').waitFor();
     await page.locator('[data-day-image-file]').setInputFiles({ name: 'test.png',
       mimeType: 'image/png', buffer: png });
-    await page.locator('[data-day-image-button]').getByText('변경하기').waitFor();
+    await page.locator('[data-day-image-status]').getByText('승인 대기').waitFor();
     const gets = await page.evaluate(() => window.gets);
     assert.equal(gets.length, 2);
     assert.notEqual(gets[0], gets[1]);

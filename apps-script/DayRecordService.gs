@@ -46,7 +46,15 @@ function getDayRecordById_(studentId, dayId, includeAssets) {
   return {
     dayRecord: dayRecord,
     assets: includeAssets && dayRecord ? getDayRecordAssets_(dayRecord, studentId, dayId) : [],
+    imageReviewStatus: includeAssets && (dayId === "day06" || dayId === "day07")
+      ? getDayImageReviewStatus_(studentId, dayId) : "NONE",
   };
+}
+
+function getDayImageReviewStatus_(studentId, dayId) {
+  const found = findAssetById_("asset_" + studentId + "_" + dayId + "_image");
+  if (!found.rowObject || !isAssetOwnedByDay_(found.rowObject, studentId, dayId)) return "NONE";
+  return publicImageReview_(found.rowObject);
 }
 
 function saveDayRecord_(payload) {
@@ -119,14 +127,17 @@ function saveDayRecord_(payload) {
       "dayRecordId",
       dayRecordId
     );
-    // Image reference is server-owned. Preserve it across lesson autosaves.
-    if ((dayId === "day06" || dayId === "day07") && existing.rowObject) {
-      const imageId = "asset_" + studentId + "_" + dayId + "_image";
+    // Uploaded media references are server-owned. Preserve them across autosaves.
+    if (existing.rowObject) {
       const existingRefs = parseJsonCell_(existing.rowObject.personalEvidenceRefs, []);
-      if (existingRefs.indexOf(imageId) >= 0 && personalEvidenceRefs.indexOf(imageId) < 0) {
-        personalEvidenceRefs.push(imageId);
-        validatePersonalEvidenceRefs_(personalEvidenceRefs, studentId, dayId);
-      }
+      const protectedIds = [];
+      if (dayId === "day06" || dayId === "day07") protectedIds.push("asset_" + studentId + "_" + dayId + "_image");
+      protectedIds.push("asset_" + studentId + "_" + dayId + "_video");
+      protectedIds.forEach(function(assetId) {
+        if (existingRefs.indexOf(assetId) >= 0 && personalEvidenceRefs.indexOf(assetId) < 0)
+          personalEvidenceRefs.push(assetId);
+      });
+      validatePersonalEvidenceRefs_(personalEvidenceRefs, studentId, dayId);
     }
     const createdAt = getExistingCreatedAt_(existing.rowObject, now);
     const rowObject = upsertById_(FUTURELAB_CONFIG.SHEETS.DAY_RECORDS, "dayRecordId", dayRecordId, {
@@ -235,6 +246,7 @@ function getDayRecordAssets_(dayRecord, studentId, dayId) {
       return;
     }
 
+    if (found.rowObject.assetType === "screenshot" && publicImageReview_(found.rowObject) !== "APPROVED") return;
     assets.push(formatAssetForResponse_(found.rowObject));
   });
 

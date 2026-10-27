@@ -1,4 +1,6 @@
-# 현재 상태 — 2026-10-26 운영 반영 사전점검
+# 현재 상태 — 2026-10-27 이미지·영상 운영 정책 TEST 재검수
+
+**정책 검수 판정: NOT_READY.** 2026-10-27 로컬 변경을 보존하고 독립 TEST Apps Script Web App 버전 7 및 별도 Cloudflare TEST Preview에만 반영했다. 승인 대기 비공개 업로드, 관리자 승인 후 TEST 사본의 `anyone:reader` 권한과 학생 브라우저 표시, 영상 교체 전 파일 비휴지통·30일 보존 행, 학생 A/B 분리를 실제 TEST Drive·Sheet·Chromium에서 확인했다. 로컬 정책/복원 경계 검사 13건 통과, TEST 버전 7 관련 소스 6개가 브랜치와 일치한다. 관리자 거부·철회 후 실제 권한 제거, 승인된 이미지 교체의 새 승인 대기, 관리자 DRY_RUN 실서버 확인은 진행 중이다. 상세 근거는 `../../DAY_MEDIA_POLICY_E2E_REPORT.md`, `../../verification/day-media-policy-e2e.log`, 화면은 `../../verification/final-screenshots/`에 있다. 운영 Apps Script·Sheet·Drive·Cloudflare Production과 실제 학생 원본 9장은 변경하지 않았다. Day07 원고·완료 기준에 새 결정은 필요 없다.
 
 **운영 반영 판정: NOT_READY.** 2026-10-25 TEST 회귀의 PASS_WITH_LIMITATIONS는 그대로 유효하지만 운영 배포 완료를 의미하지 않는다. 2026-10-26 TEST Day06 문제 수정·교체 R01–R12를 실제 브라우저·서버에서 통과하고 TEST 기록을 원복했다. Drive 영상 iframe은 로드됐으나 자동 클릭 재생은 확인하지 못해 수동 확인이 필요하다. 운영 활성 Apps Script 버전 15에는 ImageService가 없고 운영 Script Properties에는 `ENVIRONMENT`, `IMAGE_STORAGE_FOLDER_ID`가 없다. 원본 이미지 9개는 소유자 전용 권한이며 변경하지 않았다. 상세 근거는 `../../DAY06_DAY07_PREPRODUCTION_AUDIT.md`, 실행 기록은 `../../verification/day06-problem-roundtrip.log`, 브라우저 증거는 `../../verification/final-screenshots/`이다. 운영 배포·설정·Sheet·Drive 쓰기 및 main 병합은 실행하지 않았다. Day07 교육 원고·완료 기준의 추가 결정은 이번 이미지 점검에서 필요하지 않다.
 

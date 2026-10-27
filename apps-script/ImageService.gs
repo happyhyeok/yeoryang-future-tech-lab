@@ -35,8 +35,15 @@ function uploadDayImage_(payload) {
   let assetUpdated = false;
   try {
     created = folder.createFile(Utilities.newBlob(bytes, mimeType, fileName));
-    created.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     const fileId = created.getId();
+    // Each new copy begins private. A reviewer must explicitly approve this exact file.
+    created.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.VIEW);
+    assertApi_(created.getSharingAccess() === DriveApp.Access.PRIVATE,
+      "IMAGE_PRIVATE_REQUIRED", "비공개 저장 상태를 확인하지 못했습니다.");
+    writeMediaPolicy_(fileId, { mediaKind: "image", assetId: assetId,
+      studentId: studentId, dayId: dayId, reviewStatus: "PENDING_REVIEW",
+      replacedAt: "", expiresAt: "", cleanupStatus: "CURRENT",
+      reviewedAt: "", reviewedBy: "" });
     const now = formatServerDateTime_(new Date());
     const asset = upsertAsset_({
       assetId: assetId, assetType: "screenshot", ownerType: "student",
@@ -48,12 +55,17 @@ function uploadDayImage_(payload) {
       fileName: fileName, mimeType: mimeType, capturedAt: cleanFreeText_(body.capturedAt || now),
     }).asset;
     assetUpdated = true;
-    linkDayImageEvidence_(studentId, workId, dayId, assetId, dayRow);
+    linkMediaEvidence_(studentId, workId, dayId, assetId, dayRow);
     const readback = getDayRecordById_(studentId, dayId, true);
-    assertApi_(readback.dayRecord && readback.assets.some(function (a) {
-      return a.assetId === assetId && a.storageFileId === fileId;
-    }), "IMAGE_VERIFY_FAILED", "이미지 저장 검증에 실패했습니다.");
-    return { assetId: assetId, storageFileId: fileId, asset: asset };
+    assertApi_(readback.dayRecord && readback.dayRecord.personalEvidenceRefs.indexOf(assetId) >= 0 &&
+      String(findAssetById_(assetId).rowObject.storageFileId) === fileId,
+      "IMAGE_VERIFY_FAILED", "이미지 저장 검증에 실패했습니다.");
+    if (previous && previous.storageFileId && previous.storageFileId !== fileId) {
+      keepReplacedMedia_(previous, "image", new Date());
+      // Retained copies are private even if their earlier approval permitted link viewing.
+      DriveApp.getFileById(previous.storageFileId).setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.VIEW);
+    }
+    return { assetId: assetId, reviewStatus: "PENDING_REVIEW" };
   } catch (error) {
     // Compensating write: preserve the previous visible image if the new image
     // was uploaded but record linkage/readback fails.
@@ -73,6 +85,14 @@ function uploadDayImage_(payload) {
       } catch (restoreError) {
         console.warn("Day image metadata restoration failed: " + restoreError.message);
       }
+    }
+    if (assetUpdated && !previous) {
+      try {
+        deleteAssetIfMatches_(assetId, created.getId());
+        unlinkMediaEvidenceIfOrphan_(studentId, dayId, assetId);
+        restored = true;
+      }
+      catch (restoreError) { console.warn("Day image new Asset cleanup failed: " + restoreError.message); }
     }
     if (restored && created) {
       try { created.setTrashed(true); }
@@ -111,7 +131,7 @@ function validDayImageSignature_(b, mime) {
   return b.length > 12 && [82,73,70,70].every(function(v,i){return u(i)===v;}) &&
     [87,69,66,80].every(function(v,i){return u(i+8)===v;});
 }
-function linkDayImageEvidence_(studentId, workId, dayId, assetId, dayRow) {
+function linkMediaEvidence_(studentId, workId, dayId, assetId, dayRow) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
@@ -135,6 +155,25 @@ function linkDayImageEvidence_(studentId, workId, dayId, assetId, dayRow) {
     values.personalEvidenceRefs = JSON.stringify(next);
     values.updatedAt = now;
     upsertById_(FUTURELAB_CONFIG.SHEETS.DAY_RECORDS, "dayRecordId", dayRecordId, values);
+    SpreadsheetApp.flush();
+  } finally { lock.releaseLock(); }
+}
+
+function unlinkMediaEvidenceIfOrphan_(studentId, dayId, assetId) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    if (findAssetById_(assetId).rowObject) return;
+    const found = findRowByColumn_(FUTURELAB_CONFIG.SHEETS.DAY_RECORDS,
+      "dayRecordId", makeDayRecordId_(studentId, dayId));
+    if (!found.rowObject) return;
+    const refs = parseJsonCell_(found.rowObject.personalEvidenceRefs, []);
+    if (refs.indexOf(assetId) < 0) return;
+    upsertById_(FUTURELAB_CONFIG.SHEETS.DAY_RECORDS, "dayRecordId",
+      makeDayRecordId_(studentId, dayId), Object.assign({}, found.rowObject, {
+        personalEvidenceRefs: JSON.stringify(refs.filter(function(ref) { return ref !== assetId; })),
+        updatedAt: formatServerDateTime_(new Date()),
+      }));
     SpreadsheetApp.flush();
   } finally { lock.releaseLock(); }
 }

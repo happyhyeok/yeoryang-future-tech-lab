@@ -245,8 +245,8 @@
     },
     {
       "path": "day-image-evidence.js",
-      "bytes": 8303,
-      "sha256": "33b3c35ff40130bc2a14258cd670888ac4c3548ae8b6de189f447897bda4ba45"
+      "bytes": 8919,
+      "sha256": "5b58ac843b110aea5f711331a71e28588847c1ed158eb1df00c1d8016171997e"
     },
     {
       "path": "day07.js",

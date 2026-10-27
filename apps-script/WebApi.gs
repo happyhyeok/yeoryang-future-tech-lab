@@ -128,6 +128,13 @@ function dispatchAction_(action, payload, params) {
     case "saveQuizResult":
       return saveQuizResult_(payload || {});
     case "upsertAsset":
+      assertApi_(String((payload || {}).assetType || "") !== "screenshot", "REVIEW_FORBIDDEN",
+        "이미지 Asset은 업로드 절차로만 등록할 수 있습니다.");
+      if (String((payload || {}).assetType || "") === "video") {
+        const currentVideo = findAssetById_(payload.assetId).rowObject;
+        assertApi_(currentVideo && String(currentVideo.storageFileId) === String(payload.storageFileId || ""),
+          "VIDEO_ASSET_IMMUTABLE", "영상 파일 변경은 업로드 절차로만 가능합니다.");
+      }
       return upsertAsset_(payload || {});
     case "uploadVideo":
       return uploadVideo_(payload || {});

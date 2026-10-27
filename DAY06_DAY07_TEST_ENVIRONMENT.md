@@ -7,14 +7,14 @@
 | Sheet | [가상 데이터 전용 Sheet](https://docs.google.com/spreadsheets/d/1nNXSKBjtPYe-X_knyq5YgCr5xRODQBpNmwprtdslboI/edit) | 운영 Sheet와 ID 불일치 확인 |
 | 이미지 Drive | [TEST 폴더](https://drive.google.com/drive/folders/1_2QjztAWTLByDXBQ0CZSEkodcxKp5B6Y) | 운영 원본 폴더와 ID 불일치 확인 |
 | 영상 Drive | [TEST 영상 루트](https://drive.google.com/drive/folders/1vCbKo4D8afz8FOWQptXtyiRe0WxWWLhs) | 운영 영상 루트와 ID·하위 파일 분리 확인 |
-| Apps Script | 별도 독립 프로젝트, 최종 Web App 버전 3 | 운영 프로젝트를 push·redeploy하지 않음 |
+| Apps Script | 별도 독립 프로젝트, 현재 Web App 버전 7 | 운영 프로젝트를 push·redeploy하지 않음 |
 | 학생·작품 | `test_student_a/test_work_a`, `test_student_b/test_work_b` | 실명·운영 기록 없음 |
 
 TEST Script Properties: `ENVIRONMENT=TEST`, `SPREADSHEET_ID`, `IMAGE_STORAGE_FOLDER_ID`, `PRODUCTION_SPREADSHEET_ID`, `PRODUCTION_IMAGE_STORAGE_FOLDER_ID`, `PROJECT_ID`. 속성 값은 TEST 콘솔에서 확인한다. TEST 서버는 Sheet 또는 이미지 폴더가 운영 ID와 일치하면 업로드 전에 거부한다. 운영 배포에는 이 설정을 복사하지 않는다.
 
-2026-10-25 최종 회귀에서 TEST 프로젝트에 `VIDEO_STORAGE_FOLDER_ID`와 `PRODUCTION_VIDEO_STORAGE_FOLDER_ID`를 추가하고, 영상 루트도 TEST/운영 ID가 같으면 거부하도록 했다. 독립 TEST Web App의 활성 배포는 **버전 5**다. 위 버전 3은 최초 이미지 검수 당시의 이력이다. 운영 Apps Script 배포·속성은 변경하지 않았다.
+2026-10-25 최종 회귀에서 TEST 프로젝트에 `VIDEO_STORAGE_FOLDER_ID`와 `PRODUCTION_VIDEO_STORAGE_FOLDER_ID`를 추가하고, 영상 루트도 TEST/운영 ID가 같으면 거부하도록 했다. 최초 이미지 검수의 버전 3, 이전 영상 회귀의 버전 5는 이력이다. 2026-10-27 이미지 승인·보존 정책의 TEST Web App은 **버전 7**이다. 정책 탭 `10_미디어정책`은 가상 TEST 데이터 전용이며, `MEDIA_REVIEWER_EMAIL`은 TEST 편집기에서 실행한 가상 학생 승인 검수 함수가 실제 관리자 계정으로 설정했다. 운영 Apps Script 배포·속성은 변경하지 않았다.
 
-별도 Cloudflare TEST Pages 프로젝트의 HTTPS Preview는 <https://acf03af9.yeoryang-image-e2e-test-20261025.pages.dev/>. TEST 가상 A/B와 TEST API만 포함한 `image-test-preview/` 공개 빌드 54개를 Direct Upload로 배포했다. 운영 Pages 프로젝트와 도메인/Production을 변경하지 않았다. 브랜치 자동 Preview는 운영 API를 사용하므로 가상 데이터 시험에 사용하지 않는다.
+별도 Cloudflare TEST Pages 프로젝트의 정책 검수 HTTPS Preview는 <https://99983888.yeoryang-image-e2e-test-20261025.pages.dev/>이며 별칭은 <https://media-policy-20261027.yeoryang-image-e2e-test-20261025.pages.dev/>이다. TEST 가상 A/B와 TEST API만 포함한 공개 빌드 54개를 Direct Upload의 **TEST 브랜치**로 배포했다. `index.html`, `runtime-config.js`, `day-image-evidence.js`의 배포 응답과 후보 해시가 일치했다. 운영 Pages 프로젝트와 도메인/Production은 변경하지 않았다. 이전 <https://acf03af9.yeoryang-image-e2e-test-20261025.pages.dev/>는 2026-10-25 이력이다. 브랜치 자동 Preview는 운영 API를 사용하므로 가상 데이터 시험에 사용하지 않는다.
 
 TEST Sheet `03_연구일`의 가상 day01·day05·day06 날짜를 학생 앱 기준 날짜로 보정했다. TEST Sheet의 `05_학생연구기록`, `06_퀴즈결과`, `09_자료파일`과 TEST 영상 Drive를 직접 재조회했다.
 
@@ -22,7 +22,7 @@ TEST Sheet에는 학생·작품·연구일 가상 행과 DayRecord·QuizResult·
 
 ## 재개 순서
 
-1. TEST Script Properties와 배포 버전 3을 확인한다. Google 권한 승인은 완료됐다.
+1. TEST Script Properties와 활성 Web App 버전 7을 확인한다. Google 권한 승인은 완료됐다.
 2. TEST Web App `ping`, `getStudents`를 확인한다. 현재 두 가상 학생만 반환한다.
 3. 코드 변경 시 TEST 프로젝트만 push·새 버전 배포한다.
 4. TEST/운영 Sheet·폴더 ID를 다시 비교한다. 같으면 업로드 중단.

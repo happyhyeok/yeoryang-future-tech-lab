@@ -7,10 +7,12 @@ const source = fs.readFileSync(path.join(__dirname, "../apps-script/ImageService
 
 function harness(options = {}) {
   let nextId = 0, asset = null, record = null, failWrite = false;
+  const policies = new Map();
   const files = [];
   const folder = { isTrashed() { return false; }, createFile() {
-    const file = { id: "test_file_" + (++nextId) + "_xxxx", trashed: false,
-      getId() { return this.id; }, setSharing() {}, setTrashed() { this.trashed = true; } };
+    const file = { id: "test_file_" + (++nextId) + "_xxxx", trashed: false, sharing: "private",
+      getId() { return this.id; }, setSharing(value) { this.sharing = value; },
+      getSharingAccess() { return this.sharing; }, setTrashed() { this.trashed = true; } };
     files.push(file);
     return file;
   } };
@@ -27,13 +29,18 @@ function harness(options = {}) {
     validateWorkForStudent_: (id, work) => { if (work !== "work_stu01") throw Error("wrong work"); },
     validateResearchDay_: () => ({ date: "2026-10-16" }),
     findAssetById_: () => ({ rowObject: asset }),
-    DriveApp: { getFolderById: () => folder, Access: { ANYONE_WITH_LINK: "any" }, Permission: { VIEW: "view" } },
+    DriveApp: { getFolderById: () => folder, getFileById: id => files.find(f => f.id === id),
+      Access: { ANYONE_WITH_LINK: "any", PRIVATE: "private" }, Permission: { VIEW: "view" } },
     getOrCreateChildFolder_: parent => parent,
     Utilities: { base64Decode: () => [-119, 80, 78, 71, 13, 10, 26, 10, ...Array(40).fill(0)], newBlob: () => ({}) },
     formatServerDateTime_: () => "2026-10-25T12:00:00",
     upsertAsset_: value => ({ asset: asset = { ...value } }),
-    getDayRecordById_: () => ({ dayRecord: record,
-      assets: record && JSON.parse(record.personalEvidenceRefs).includes(asset.assetId) ? [asset] : [] }),
+    getDayRecordById_: () => ({ dayRecord: record, assets: [] }),
+    writeMediaPolicy_: (id, value) => policies.set(id, { ...(policies.get(id) || {}), ...value }),
+    keepReplacedMedia_: (old, kind, at) => policies.set(old.storageFileId,
+      { ...policies.get(old.storageFileId), replacedAt: at.toISOString(), mediaKind: kind }),
+    deleteAssetIfMatches_: () => { asset = null; },
+    unlinkMediaEvidenceIfOrphan_: () => {},
     cleanFreeText_: value => value || "", createApiError_: code => Error(code),
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     findRowByColumn_: () => ({ rowObject: record }), parseJsonCell_: x => JSON.parse(x),
@@ -44,15 +51,18 @@ function harness(options = {}) {
   const fn = new Function(...Object.keys(mock), source + ";return uploadDayImage_;")(...Object.values(mock));
   const payload = { studentId: "stu01", workId: "work_stu01", dayId: "day06",
     assetId: "asset_stu01_day06_image", mimeType: "image/png", base64Data: "iVBORw0KGgo=" };
-  return { fn, payload, snapshot: () => ({ asset, record, files }),
+  return { fn, payload, snapshot: () => ({ asset, record, files, policies }),
     failNextWrite: () => { failWrite = true; } };
 }
 
 test("first image writes Asset and references it in DayRecord", () => {
   const h = harness();
   const saved = h.fn(h.payload);
-  const { asset, record } = h.snapshot();
-  assert.equal(saved.storageFileId, asset.storageFileId);
+  const { asset, record, files, policies } = h.snapshot();
+  assert.equal(saved.reviewStatus, "PENDING_REVIEW");
+  assert.equal(saved.storageFileId, undefined);
+  assert.equal(files[0].sharing, "private");
+  assert.equal(policies.get(asset.storageFileId).reviewStatus, "PENDING_REVIEW");
   assert.deepEqual(JSON.parse(record.personalEvidenceRefs), [h.payload.assetId]);
 });
 
@@ -60,7 +70,10 @@ test("replacement updates the same asset ID to a new Drive file", () => {
   const h = harness();
   const a = h.fn(h.payload);
   const b = h.fn(h.payload);
-  assert.notEqual(a.storageFileId, b.storageFileId);
+  assert.equal(a.reviewStatus, "PENDING_REVIEW");
+  assert.equal(b.reviewStatus, "PENDING_REVIEW");
+  assert.notEqual(h.snapshot().files[0].id, h.snapshot().asset.storageFileId);
+  assert.equal(h.snapshot().files[0].trashed, false);
   assert.equal(h.snapshot().asset.assetId, h.payload.assetId);
   assert.deepEqual(JSON.parse(h.snapshot().record.personalEvidenceRefs), [h.payload.assetId]);
 });
@@ -70,7 +83,7 @@ test("link failure keeps previous representative image", () => {
   const first = h.fn(h.payload);
   h.failNextWrite();
   assert.throws(() => h.fn(h.payload), /mock write failed/);
-  assert.equal(h.snapshot().asset.storageFileId, first.storageFileId);
+  assert.equal(h.snapshot().asset.storageFileId, h.snapshot().files[0].id);
 });
 
 test("day outside Day06/Day07 and other student are rejected", () => {

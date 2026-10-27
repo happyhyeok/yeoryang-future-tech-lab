@@ -1,5 +1,15 @@
 # Day06·Day07 이미지 운영 반영 전 확인
 
+2026-10-27 정책 추가 점검: 아래 2026-10-25/26 PASS는 당시 TEST 소스에 한정한다. 새 승인·보존 정책은 `DAY_MEDIA_POLICY_E2E_REPORT.md`로 별도 판정한다. 운영 반영은 아직 **NOT_READY**다.
+
+- [x] 이미지 새 업로드는 비공개 `PENDING_REVIEW`; TEST Drive 소유자 전용 권한 확인
+- [x] TEST 관리자 승인 사본만 링크 열람, Sheet 정책 행·Drive 권한·학생 브라우저 대조 (버전 6)
+- [ ] TEST 관리자 거부·철회 후 Drive 링크 권한 제거 및 새로고침 확인
+- [ ] 승인된 이미지 교체 후 새 사본 승인 대기·기존 승인 비승계 확인
+- [x] 영상 TEST 교체 후 구파일 비휴지통·30일 만료 기록 확인
+- [ ] 최종 TEST 소스 재배포·DRY_RUN 실서버 확인·영향 범위 재검수
+- [ ] 운영 `10_미디어정책` 탭/관리자 Property와 백업·롤백 실제 준비
+
 - [x] 운영 자원과 다른 TEST Sheet·Drive 폴더·Apps Script 프로젝트 구성
 - [x] 이미지 폴더 Script Properties 전환 및 TEST 운영 ID 차단
 - [x] 학생용 54개 파일 허용 목록·해시 빌드 통과

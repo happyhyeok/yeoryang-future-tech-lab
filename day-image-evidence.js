@@ -46,7 +46,7 @@
       return { studentId: ctx.studentId, dayId: ctx.dayId,
         imageFetchNonce: `${Date.now()}_${Math.random().toString(36).slice(2)}` };
     }
-    function show(asset) {
+    function show(asset, reviewStatus = "NONE") {
       const slot = getSlot();
       if (!slot) return;
       slot.dataset.fileId = asset?.storageFileId || "";
@@ -68,8 +68,11 @@
         };
         image.src = url;
       }
-      button.textContent = asset ? "변경하기" : "등록";
+      button.textContent = asset || reviewStatus !== "NONE" ? "변경하기" : "등록";
       if (asset && !url) setStatus("이미지를 표시하지 못했어요.");
+      if (!asset && reviewStatus === "PENDING_REVIEW") setStatus("승인 대기");
+      if (!asset && reviewStatus === "REJECTED") setStatus("게시 거부");
+      if (!asset && reviewStatus === "REVOKED") setStatus("승인 철회");
     }
     async function load(ctx, requestKey) {
       const button = getSlot()?.querySelector("[data-day-image-button]");
@@ -83,7 +86,7 @@
         const asset = (data.assets || []).find(a =>
           a.assetId === assetId && a.assetType === "screenshot" &&
           a.ownerId === ctx.studentId && a.dayId === ctx.dayId);
-        show(asset);
+        show(asset, data.imageReviewStatus || "NONE");
         loadFailed = false;
         if (button) button.disabled = false;
       } catch (_) {
@@ -147,11 +150,13 @@
           params: readParams(ctx) });
         if (lastKey !== key || generation !== savedGeneration) return;
         const asset = (verified.assets || []).find(a =>
-          a.assetId === result.assetId && a.storageFileId === result.storageFileId &&
-          a.ownerId === ctx.studentId && a.dayId === ctx.dayId);
-        if (!asset) throw new Error("서버 저장 확인 실패");
-        show(asset);
-        setStatus("저장됨");
+          a.assetId === result.assetId && a.ownerId === ctx.studentId && a.dayId === ctx.dayId);
+        if (verified.imageReviewStatus === "PENDING_REVIEW") {
+          show(null, "PENDING_REVIEW");
+        } else if (asset && verified.imageReviewStatus === "APPROVED") {
+          show(asset, "APPROVED");
+          setStatus("저장됨");
+        } else throw new Error("서버 저장 확인 실패");
       } catch (error) {
         if (lastKey === key && generation === savedGeneration) {
           try {
@@ -160,8 +165,10 @@
               const asset = (data.assets || []).find(a =>
                 a.assetId === `asset_${ctx.studentId}_${ctx.dayId}_image` &&
                 a.ownerId === ctx.studentId && a.dayId === ctx.dayId);
-              if (asset && asset.storageFileId !== previousFileId) {
-                show(asset);
+              if (data.imageReviewStatus === "PENDING_REVIEW") {
+                show(null, "PENDING_REVIEW");
+              } else if (asset && asset.storageFileId !== previousFileId) {
+                show(asset, data.imageReviewStatus || "APPROVED");
                 setStatus("저장됨");
               } else setStatus("저장하지 못했어요. 다시 시도해 주세요.");
             }

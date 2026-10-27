@@ -1,0 +1,11 @@
+2026-10-27 TEST-only media policy verification (no production writes)
+TEST v6: six policy source files match local candidate; TEST Preview 54 files and three fetched SHA-256 matched.
+A01/A03/A10/A11 PASS: TEST A Day06 and Day07 uploads private/pending; public API hides file ID and rejects approval action.
+A02 PASS: Drive permission list for pending TEST A Day06 owner only; previous retained file owner only.
+A04/A05 PASS (v6): authenticated TEST editor approval of A Day06; policy APPROVED, Drive anyone:reader, Chromium preview/refresh.
+F01-F04 PASS: TEST A Day02 real WebM first save and replacement; old/new Drive files not trashed; invalid MIME leaves representative.
+F05/F07 PASS: retained image and video policy rows; expiresAt minus replacedAt exactly 30 days.
+TEST v7: six policy sources re-pulled and match local; TEST B Day07 upload private/pending, owner-only Drive permissions; video Asset rollback via public API rejected; approved A Day06 browser reload PASS.
+Day06/Day07 lesson panels and Day02 video iframe visible; Day06/Day07 server records unchanged by read-only browser navigation.
+Local Node/Playwright unit tests: 13/13 PASS including dry-run boundaries and post-Asset video failure restoration.
+A08/A09/F13 administrator TEST editor outcomes pending. Production Apps Script, Sheet, Drive, Pages not changed.

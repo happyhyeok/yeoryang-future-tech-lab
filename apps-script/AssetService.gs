@@ -121,6 +121,14 @@ function findAssetById_(assetId) {
   return findRowByColumn_(FUTURELAB_CONFIG.SHEETS.ASSETS, "assetId", normalizedAssetId);
 }
 
+function deleteAssetIfMatches_(assetId, fileId) {
+  const found = findAssetById_(assetId);
+  assertApi_(found.rowObject && String(found.rowObject.storageFileId) === fileId,
+    "ASSET_CHANGED", "Asset이 변경되어 정리할 수 없습니다.");
+  found.sheet.deleteRow(found.rowNumber);
+  SpreadsheetApp.flush();
+}
+
 function formatAssetForResponse_(rowObject) {
   return rowObject ? Object.assign({}, rowObject) : null;
 }

@@ -2,13 +2,16 @@ function uploadVideo_(payload) {
   if (payload && payload.payload && payload.payload.mediaKind === "image") return uploadDayImage_(payload);
   if (payload && payload.mediaKind === "image") return uploadDayImage_(payload);
   const video = normalizeVideoUploadPayload_(payload);
+  const dayRow = validateResearchDay_(video.dayId);
   const bytes = decodeVideoBytes_(video.base64Data);
   ensureAssetHeaders_();
   const folder = getVideoDayFolder_(video.studentId, video.dayId);
   const previousFileId = getExistingVideoStorageFileId_(video);
+  const previousAsset = findAssetById_(video.assetId).rowObject;
   const videoLabels = getVideoDayLabels_(video.dayId);
   const now = formatServerDateTime_(new Date());
   let newFile = null;
+  let assetUpdated = false;
 
   try {
     const blob = Utilities.newBlob(bytes, video.mimeType, video.fileName);
@@ -33,11 +36,22 @@ function uploadVideo_(payload) {
       mimeType: video.mimeType,
       capturedAt: video.capturedAt || now,
     };
+    writeMediaPolicy_(storageFileId, { mediaKind: "video", assetId: video.assetId,
+      studentId: video.studentId, dayId: video.dayId, reviewStatus: "APPROVED",
+      replacedAt: "", expiresAt: "", cleanupStatus: "CURRENT" });
     const asset = upsertAsset_(assetPayload).asset;
-    let previousFileTrashed = false;
+    assetUpdated = true;
+    const readback = findAssetById_(video.assetId).rowObject;
+    assertApi_(readback && String(readback.storageFileId) === storageFileId,
+      "VIDEO_VERIFY_FAILED", "영상 저장 검증에 실패했습니다.");
+    linkMediaEvidence_(video.studentId, video.workId, video.dayId, video.assetId, dayRow);
+    const dayReadback = getDayRecordById_(video.studentId, video.dayId, true);
+    assertApi_(dayReadback.dayRecord && dayReadback.dayRecord.personalEvidenceRefs.indexOf(video.assetId) >= 0 &&
+      dayReadback.assets.some(function(item) { return item.assetId === video.assetId && item.storageFileId === storageFileId; }),
+      "VIDEO_VERIFY_FAILED", "영상 연구기록 검증에 실패했습니다.");
 
     if (previousFileId && previousFileId !== storageFileId) {
-      previousFileTrashed = trashVideoFile_(previousFileId);
+      keepReplacedMedia_(previousAsset, "video", new Date());
     }
 
     return {
@@ -50,10 +64,23 @@ function uploadVideo_(payload) {
       mimeType: video.mimeType,
       capturedAt: asset.capturedAt || assetPayload.capturedAt,
       asset: asset,
-      previousFileTrashed: previousFileTrashed,
+      previousFileTrashed: false,
     };
   } catch (error) {
-    if (newFile) {
+    let restored = !assetUpdated;
+    if (assetUpdated && previousAsset) {
+      try { upsertAsset_(previousAsset); restored = true; }
+      catch (restoreError) { console.warn("video metadata restoration failed: " + restoreError.message); }
+    }
+    if (assetUpdated && !previousAsset && newFile) {
+      try {
+        deleteAssetIfMatches_(video.assetId, newFile.getId());
+        unlinkMediaEvidenceIfOrphan_(video.studentId, video.dayId, video.assetId);
+        restored = true;
+      }
+      catch (restoreError) { console.warn("video new Asset cleanup failed: " + restoreError.message); }
+    }
+    if (restored && newFile) {
       try {
         newFile.setTrashed(true);
       } catch (trashError) {
@@ -308,16 +335,6 @@ function getExistingVideoStorageFileId_(video) {
   }
 
   return previousFileId;
-}
-
-function trashVideoFile_(fileId) {
-  try {
-    DriveApp.getFileById(fileId).setTrashed(true);
-    return true;
-  } catch (error) {
-    console.warn("previous video trash failed: " + error.message);
-    return false;
-  }
 }
 
 function verifyVideoStorage() {
