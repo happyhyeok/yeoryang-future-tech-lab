@@ -1,6 +1,6 @@
 # Day06·Day07 이미지 승인 및 이미지·영상 보존 TEST 검수
 
-검수일: 2026-10-27. **판정: NOT_READY — 실서버 DRY_RUN 검증 대기.** 기존 2026-10-25 이미지/영상 및 2026-10-26 Day06 왕복 PASS는 이전 버전 증거이며 이 정책 변경의 PASS로 대체하지 않는다.
+검수일: 2026-10-27. **판정: NOT_READY — 실제 30일 경과 후보 경계 검사 대기.** 기존 2026-10-25 이미지/영상 및 2026-10-26 Day06 왕복 PASS는 이전 버전 증거이며 이 정책 변경의 PASS로 대체하지 않는다.
 
 ## 환경과 범위
 
@@ -42,7 +42,7 @@
 | F10 현재 대표 제외 | PASS_LOCAL | 모의 현재 행은 만료돼도 후보 제외 |
 | F11 DayRecord 참조 제외 | PASS_LOCAL | 파일 ID가 DayRecord에 남은 모의 행 후보 제외 |
 | F12 원본 9장 제외 | PASS_LOCAL | 관리 업로드 경로 밖 모의 원본 제외; 실제 운영 원본 9장은 비공개·변경 없음 |
-| F13 DRY_RUN 무변경 | PASS_LOCAL | 함수에 삭제 경로 없음, 모의 검사; TEST 함수 실행 전후 Drive 확인 대기 |
+| F13 DRY_RUN 무변경 | PASS | TEST 편집기 실행 로그 `mode=DRY_RUN,total=10,current=4,expired=0,candidates=0`; 이후 Sheet 10행 및 표본 Drive 파일·권한 불변 |
 | F14 학생 A/B 분리 | PASS | 영상 TEST B 기록 ID 불변, 이미지 TEST B 기록 불변 |
 
 ## 브라우저·회귀 및 남은 게이트
@@ -51,4 +51,4 @@ Chromium 390×844에서 TEST A Day06 승인 대기 및 승인 후 표시·새로
 
 `clasp run`은 권한 오류로 관리자 함수를 자동 호출하지 못했다. [Google 공식 실행 요건](https://developers.google.com/apps-script/api/how-tos/execute)에 따르면 `scripts.run`에는 API 실행 배포, 적절한 OAuth 범위, 공통 표준 Cloud 프로젝트가 필요하다. TEST Web App 배포만으로 충족되지 않아 TEST 프로젝트 편집기에서 실제 관리자 계정으로 함수를 실행했다. 운영 관리자 실행과 Production 배포는 하지 않았다.
 
-최종 PASS는 관리자 DRY_RUN 실서버 결과와 파일 변경 없음 확인 뒤에만 기록한다. 실행 요약은 `verification/day-media-policy-e2e.log`에 있으며 파일 ID는 Git 밖 비공개 기록에 있다.
+실제 만료일을 31일 경과로 가정한 TEST 전용 후보 조회가 끝나면 F09를 마무리한다. 표준 DRY_RUN은 TEST에서 실행해 통과했으며 실제 만료 파일이 0개라 후보 발생 경계는 아직 로컬 검사 결과다. 실행 요약은 `verification/day-media-policy-e2e.log`에 있으며 파일 ID는 Git 밖 비공개 기록에 있다. 사용자 제공 실행 화면에는 TEST 프로젝트 ID가 주소창에 있으므로 공개 Git에 복사하지 않았다.
