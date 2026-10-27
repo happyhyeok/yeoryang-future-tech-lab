@@ -1,6 +1,6 @@
 # Day06·Day07 이미지 승인 및 이미지·영상 보존 TEST 검수
 
-검수일: 2026-10-27. **판정: NOT_READY — 실제 30일 경과 후보 경계 검사 대기.** 기존 2026-10-25 이미지/영상 및 2026-10-26 Day06 왕복 PASS는 이전 버전 증거이며 이 정책 변경의 PASS로 대체하지 않는다.
+검수일: 2026-10-27. **정책 구현 검수: PASS_WITH_LIMITATIONS. 운영 배포 준비: NOT_READY.** 기존 2026-10-25 이미지/영상 및 2026-10-26 Day06 왕복 PASS는 이전 버전 증거이며 이 정책 변경의 PASS로 대체하지 않는다.
 
 ## 환경과 범위
 
@@ -37,12 +37,12 @@
 | F05 이미지 교체 | PASS | TEST 이미지 구파일 정책 `RETAINED`, Drive 소유자 권한·비휴지통 확인 |
 | F06 이미지 교체 실패 | PASS_WITH_LIMITATIONS | 실제 TEST 잘못된 MIME 요청 거부 후 대표·DayRecord 불변; 로컬 링크 실패 보상 검사 PASS. 파일 생성 후 오류 주입 실연결은 미실행 |
 | F07 30일 만료 계산 | PASS | TEST 정책 행에서 교체·만료 ISO 시각 차이 정확히 30일 |
-| F08 미만료 제외 | PASS_LOCAL | DRY_RUN 단위 경계 검사, TEST 서버 함수 직접 실행 대기 |
-| F09 만료 후보 | PASS_LOCAL | 31일 경과 모의 행은 후보 분류만; TEST 서버 함수 직접 실행 대기 |
+| F08 미만료 제외 | PASS | TEST 편집기 표준 DRY_RUN `expired=0,candidates=0`; 10개 정책 행 중 미만료 구파일 6개 제외 |
+| F09 만료 후보 | PASS | TEST 편집기 31일 경과 임시 경계 실행 `expiredCandidateFound=true,total=10,candidates=1`; 실행 후 임시 날짜 복원 확인 |
 | F10 현재 대표 제외 | PASS_LOCAL | 모의 현재 행은 만료돼도 후보 제외 |
 | F11 DayRecord 참조 제외 | PASS_LOCAL | 파일 ID가 DayRecord에 남은 모의 행 후보 제외 |
 | F12 원본 9장 제외 | PASS_LOCAL | 관리 업로드 경로 밖 모의 원본 제외; 실제 운영 원본 9장은 비공개·변경 없음 |
-| F13 DRY_RUN 무변경 | PASS | TEST 편집기 실행 로그 `mode=DRY_RUN,total=10,current=4,expired=0,candidates=0`; 이후 Sheet 10행 및 표본 Drive 파일·권한 불변 |
+| F13 DRY_RUN 무변경 | PASS | 표준·31일 경계 모두 `mode=DRY_RUN`; 이후 Sheet 10행 전체 값이 사전 조회와 일치, 대상 구파일 및 현재 대표 파일은 비휴지통·소유자 권한 불변 |
 | F14 학생 A/B 분리 | PASS | 영상 TEST B 기록 ID 불변, 이미지 TEST B 기록 불변 |
 
 ## 브라우저·회귀 및 남은 게이트
@@ -51,4 +51,6 @@ Chromium 390×844에서 TEST A Day06 승인 대기 및 승인 후 표시·새로
 
 `clasp run`은 권한 오류로 관리자 함수를 자동 호출하지 못했다. [Google 공식 실행 요건](https://developers.google.com/apps-script/api/how-tos/execute)에 따르면 `scripts.run`에는 API 실행 배포, 적절한 OAuth 범위, 공통 표준 Cloud 프로젝트가 필요하다. TEST Web App 배포만으로 충족되지 않아 TEST 프로젝트 편집기에서 실제 관리자 계정으로 함수를 실행했다. 운영 관리자 실행과 Production 배포는 하지 않았다.
 
-실제 만료일을 31일 경과로 가정한 TEST 전용 후보 조회가 끝나면 F09를 마무리한다. 표준 DRY_RUN은 TEST에서 실행해 통과했으며 실제 만료 파일이 0개라 후보 발생 경계는 아직 로컬 검사 결과다. 실행 요약은 `verification/day-media-policy-e2e.log`에 있으며 파일 ID는 Git 밖 비공개 기록에 있다. 사용자 제공 실행 화면에는 TEST 프로젝트 ID가 주소창에 있으므로 공개 Git에 복사하지 않았다.
+TEST 전용 `mediaPolicyTestExpiredDryRun`을 인증된 편집기에서 사용자가 실행했다. 제공된 로그는 `mode=DRY_RUN,expiredCandidateFound=true,total=10,candidates=1`이다. 실행 전후 `10_미디어정책` 10개 행을 재조회해 전체 값과 대상 구파일의 `replacedAt`·`expiresAt` 복원을 확인했다. 대상 날짜는 다시 미래 만료일이며 현재 대표 4건도 그대로다. 대상 구파일과 현재 대표 파일의 Drive 메타데이터·권한을 전후 대조해 `trashed=false`, 소유자 전용 권한 불변을 확인했다. 실제 삭제·휴지통 이동은 없었다.
+
+F04·F06의 내부 실패 주입은 로컬 검사에 한정되고, F10–F12의 만료된 현재 대표·DayRecord 직접 참조·운영 원본 제외는 로컬 경계 검사에 한정된다. 따라서 정책 구현은 제한사항을 명시한 PASS_WITH_LIMITATIONS이며 운영은 NOT_READY다. 운영 활성 Apps Script 버전 15에는 ImageService가 없고 필수 운영 Script Properties 및 백업·롤백 준비가 남아 있다. 기존 Drive 영상 iframe 클릭 재생 제한도 유지한다. 실행 요약은 `verification/day-media-policy-e2e.log`에 있으며 파일 ID는 Git 밖 비공개 기록에 있다. 사용자 제공 실행 화면에는 TEST 프로젝트 ID가 주소창에 있으므로 공개 Git에 복사하지 않았다.
