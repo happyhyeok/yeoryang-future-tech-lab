@@ -1,6 +1,6 @@
 # Day06·Day07 이미지 승인 및 이미지·영상 보존 TEST 검수
 
-검수일: 2026-10-27. **판정: NOT_READY — 관리자 거부·철회와 실서버 DRY_RUN 검증 대기.** 기존 2026-10-25 이미지/영상 및 2026-10-26 Day06 왕복 PASS는 이전 버전 증거이며 이 정책 변경의 PASS로 대체하지 않는다.
+검수일: 2026-10-27. **판정: NOT_READY — 실서버 DRY_RUN 검증 대기.** 기존 2026-10-25 이미지/영상 및 2026-10-26 Day06 왕복 PASS는 이전 버전 증거이며 이 정책 변경의 PASS로 대체하지 않는다.
 
 ## 환경과 범위
 
@@ -18,13 +18,13 @@
 | A03 승인 대기 조회 | PASS | 공개 API `PENDING_REVIEW`, 파일 ID/URL/Asset 미반환; 브라우저 `승인 대기` |
 | A04 관리자 승인 | PASS (v6) | TEST 편집기에서 사용자 직접 실행, 정책 행 `APPROVED` 및 해당 사본 Drive `anyone:reader` 재조회 |
 | A05 승인 후 학생 화면 | PASS (v6) | Chromium 390×844 미리보기·새로고침 복원, TEST B 분리 |
-| A06 이미지 교체 | NOT_RUN | 승인/철회 후 새 사본 교체 재검수 예정 |
-| A07 승인 자동 승계 방지 | NOT_RUN | A06 이후 정책 행·Drive 권한 재조회 예정 |
-| A08 승인 거부 | BLOCKED | TEST 관리자 함수 실행 및 권한 재조회 대기 |
-| A09 승인 철회 | BLOCKED | TEST 관리자 함수 실행 및 권한 재조회 대기 |
+| A06 이미지 교체 | PASS | TEST A Day06 새 사본으로 교체, 이전 사본 비휴지통 `RETAINED` |
+| A07 승인 자동 승계 방지 | PASS | 새 사본 `PENDING_REVIEW`·소유자 전용, 이전 철회 사본은 별도 보존 |
+| A08 승인 거부 | PASS | TEST 편집기 `mediaPolicyTestRejectA07` 실행 완료, 정책 `REJECTED`, Drive 소유자 전용, 브라우저 미리보기 없음 |
+| A09 승인 철회 | PASS | TEST 편집기 `mediaPolicyTestRevokeA06` 실행 완료, 정책 `REVOKED`, Drive `anyone` 제거; 익명 썸네일 요청이 이미지 대신 HTML 반환 |
 | A10 학생 API 승인 차단 | PASS | 임의 `approveDayImage` → `INVALID_ACTION`; 스크린샷 `upsertAsset` → `REVIEW_FORBIDDEN` |
 | A11 학생 A/B 분리 | PASS | TEST B DayRecord 불변, 브라우저 TEST A 이미지 미노출 |
-| A12 새로고침·세션 일관성 | PARTIAL | 승인 대기·승인은 브라우저 PASS; 거부·철회 후 검수 필요 |
+| A12 새로고침·세션 일관성 | PASS | 승인 대기·승인·거부·철회 후 Chromium 새로고침, TEST B 분리 |
 
 ## 보존 F01–F14
 
@@ -47,8 +47,8 @@
 
 ## 브라우저·회귀 및 남은 게이트
 
-Chromium 390×844에서 TEST A Day06 승인 대기 및 승인 후 표시·새로고침, TEST A Day07 승인 대기, TEST B 미노출을 확인했다. Day06·Day07 수업 활동 화면과 Day02 저장 영상 iframe도 표시됐고 화면 이동 후 TEST A의 두 연구기록은 서버에서 불변이었다. 캡처는 `verification/final-screenshots/390x844-media-*.png`, `390x844-media-policy-day06-lesson.png`, `390x844-media-policy-day07-lesson.png`다. 로컬 이미지/UI/정책/영상 보상 검사 **13건 PASS**. 퀴즈·Day08 접근 조건은 이전 버전의 PASS이며 정책 버전에서 재시험하지 않았다.
+Chromium 390×844에서 TEST A Day06 승인 대기 및 승인 후 표시·새로고침, 철회, 새 사본 교체 후 승인 대기, TEST A Day07 게시 거부, TEST B 미노출을 확인했다. Day06·Day07 수업 활동 화면과 Day02 저장 영상 iframe도 표시됐고 화면 이동 후 TEST A의 두 연구기록은 서버에서 불변이었다. 캡처는 `verification/final-screenshots/390x844-media-*.png`, `390x844-media-policy-day06-lesson.png`, `390x844-media-policy-day07-lesson.png`다. 로컬 이미지/UI/정책/영상 보상 검사 **13건 PASS**. 퀴즈·Day08 접근 조건은 이전 버전의 PASS이며 정책 버전에서 재시험하지 않았다.
 
 `clasp run`은 권한 오류로 관리자 함수를 자동 호출하지 못했다. [Google 공식 실행 요건](https://developers.google.com/apps-script/api/how-tos/execute)에 따르면 `scripts.run`에는 API 실행 배포, 적절한 OAuth 범위, 공통 표준 Cloud 프로젝트가 필요하다. TEST Web App 배포만으로 충족되지 않아 TEST 프로젝트 편집기에서 실제 관리자 계정으로 함수를 실행했다. 운영 관리자 실행과 Production 배포는 하지 않았다.
 
-최종 PASS는 관리자 거부·철회 후 Drive 권한 제거, 승인된 사본 교체 시 신규 승인 대기, DRY_RUN 실서버 결과와 영향 범위 회귀가 끝난 뒤에만 기록한다. 실행 요약은 `verification/day-media-policy-e2e.log`에 있으며 파일 ID는 Git 밖 비공개 기록에 있다.
+최종 PASS는 관리자 DRY_RUN 실서버 결과와 파일 변경 없음 확인 뒤에만 기록한다. 실행 요약은 `verification/day-media-policy-e2e.log`에 있으며 파일 ID는 Git 밖 비공개 기록에 있다.

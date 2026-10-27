@@ -9,3 +9,6 @@ TEST v7: six policy sources re-pulled and match local; TEST B Day07 upload priva
 Day06/Day07 lesson panels and Day02 video iframe visible; Day06/Day07 server records unchanged by read-only browser navigation.
 Local Node/Playwright unit tests: 13/13 PASS including dry-run boundaries and post-Asset video failure restoration.
 A08/A09/F13 administrator TEST editor outcomes pending. Production Apps Script, Sheet, Drive, Pages not changed.
+A08/A09 PASS: authenticated TEST editor rejection A Day07 and revocation A Day06; policy rows REJECTED/REVOKED, Drive owner-only, Chromium refresh no preview. Anonymous thumbnail fetch returned HTML rather than image.
+A06/A07 PASS: TEST A Day06 replaced after revocation; new file PENDING_REVIEW/owner-only, old revoked file RETAINED/not trashed, 30-day expiry, no approval inheritance.
+F13: user reports TEST editor mediaPolicyTestDryRun execution completed; actual summary output requested. After execution, TEST policy sheet has 10 synthetic rows (4 CURRENT, 6 RETAINED, 0 expired). Five sampled Drive files remain not trashed with prior permissions.
