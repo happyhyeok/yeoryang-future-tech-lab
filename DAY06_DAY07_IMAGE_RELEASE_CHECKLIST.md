@@ -1,5 +1,19 @@
 # Day06·Day07 이미지 운영 반영 전 확인
 
+## 2026-10-29 백업·복구 실행 결과
+
+- [x] 승인된 로컬 비공개 폴더 생성·쓰기 시험·동기화 경로/프로세스·ACL 확인
+- [x] 운영 Sheet XLSX 및 활성 Apps Script v15 소스·배포 목록의 실제 사본과 SHA-256 저장
+- [x] TEST Sheet B01–B05·B07–B08 실제 변경·복원·재조회
+- [x] TEST B06 정책 셀과 별도 Drive 사본 권한을 각각 변경·복원 (연동 관리자 경로는 제한사항)
+- [x] TEST Drive 휴지통·권한, 별도 Apps Script v6→v7, Cloudflare TEST Preview 이전본→현재본 복귀
+- [x] 기존 `dist/`를 보존하고 새 격리 폴더에서 54개 파일 재빌드·해시 일치
+- [ ] 운영 Script Properties 비밀값을 별도 암호화 사본으로 저장
+- [ ] 운영 Drive 원본·영상 메타데이터/본문 및 Cloudflare 환경 설정 전수 백업
+- [ ] 운영 Sheet 모든 데이터 행·참조값 전수 대조
+
+위 결과는 아래 2026-10-28 준비 기록을 갱신한다. 백업은 **PARTIAL_BACKUP**, 운영 배포 준비는 계속 **NOT_READY**다. 실제 경로와 제한은 `DAY_MEDIA_PRODUCTION_BACKUP_REPORT.md`, `DAY_MEDIA_RECOVERY_DRILL_REPORT.md`에 기록했다.
+
 2026-10-27 정책 구현 검수는 **PASS_WITH_LIMITATIONS**, 운영 배포 준비는 **NOT_READY**다. 아래 2026-10-25/26 PASS는 당시 TEST 소스에 한정한다. 새 승인·보존 정책은 `DAY_MEDIA_POLICY_E2E_REPORT.md`로 별도 판정한다.
 
 2026-10-28 백업·복구 준비 점검: 사용자가 승인된 비공개 백업 위치가 없다고 확인해 운영 백업은 `BACKUP_LOCATION_REQUIRED`다. TEST B01–B08 및 Drive·Apps Script·Cloudflare 복구 연습은 NOT_RUN. 운영 Web App v15를 배포 목록에서 재확인했다. 54개 잠금 소스는 줄바꿈 정규화까지 포함해 일치하지만 기존 `dist/`의 이미지 스크립트 1개가 잠금과 달라 새 격리 빌드가 필요하다. 상세는 `DAY_MEDIA_PRODUCTION_BACKUP_REPORT.md`, `DAY_MEDIA_RECOVERY_DRILL_REPORT.md`, `DAY_MEDIA_PRODUCTION_DEPLOYMENT_PLAN.md`를 따른다.

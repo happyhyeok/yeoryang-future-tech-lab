@@ -1,4 +1,12 @@
-# 현재 상태 — 2026-10-28 이미지·영상 운영 백업·복구 준비
+# 현재 상태 — 2026-10-29 실제 운영 백업·TEST 복구 연습
+
+## 2026-10-29 새 실행 근거
+
+사용자가 승인한 로컬 `C:\Users\USER\Desktop\yeoryang-private-backup\`을 생성하고 쓰기·재읽기, 비동기화 경로 및 제한 ACL을 확인했다. 운영 Google Sheet XLSX(107,253바이트, SHA-256 `ecd26d8379a50aa06d5549cae42eef6844cc14df679eeecfe84952fdc52fd32f`)와 활성 Apps Script Web App v15의 13개 소스 파일·해시 목록, 운영 배포 목록, Cloudflare Production 배포 목록 25건을 비공개 저장했다. 운영 Sheet 10개 탭/헤더와 XLSX 구조를 대조했다. 운영 원본에는 쓰지 않았다.
+
+독립 TEST에서 B01–B08 Sheet 영향 셀 네 곳을 실제 변경·복원하고 세 탭 전체 범위 A1:Z30의 전후 값 일치와 A/B API 재조회를 확인했다. B06의 정책 셀과 Drive 권한 복원은 각각 검증했으나 관리자 연동 경로는 미검증이다. TEST 이미지·영상 사본의 휴지통 복원, 이미지 사본의 공개 권한 철회, 별도 Apps Script 배포 v6→v7 복귀, TEST Cloudflare Preview 이전 후보→현재 후보 복귀를 실행했다. Cloudflare 현재 후보 54개 원격 파일 SHA-256 불일치 0건. 기존 `dist/`를 보존한 새 격리 빌드 54개도 잠금 해시 불일치 0건이다.
+
+**백업: PARTIAL_BACKUP. TEST 복구: PASS_WITH_LIMITATIONS. 운영 배포 준비: NOT_READY.** Script Properties 비밀값의 암호화 백업, 운영 Drive 및 Cloudflare 설정 전수 백업, Sheet 데이터 행·참조 전수 대조는 남았다. 운영 배포·Properties 변경·학생 기록 변경·main 병합은 하지 않았다. 새 상세 근거는 `../../DAY_MEDIA_PRODUCTION_BACKUP_REPORT.md`, `../../DAY_MEDIA_RECOVERY_DRILL_REPORT.md`에 있다. 아래 2026-10-28 기록은 당시 상태의 역사적 기록이며 최신 판정이 아니다.
 
 ## 2026-10-28 운영 백업·복구 준비
 

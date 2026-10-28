@@ -1,4 +1,20 @@
-# 이미지·영상 운영 백업 준비 기록 — 2026-10-28
+# 이미지·영상 운영 백업 기록 — 2026-10-29
+
+## 2026-10-29 실제 백업 실행
+
+**판정: PARTIAL_BACKUP.** 사용자가 승인한 `C:\Users\USER\Desktop\yeoryang-private-backup\`에 운영 원본을 수정하지 않고 사본을 생성했다. 폴더는 로컬 NTFS 고정 디스크 C:에 새로 만들었고 재분석 지점이 아니며 읽기·쓰기·삭제 시험을 통과했다. Desktop 레지스트리 경로가 이 위치를 가리키고 OneDrive 경로와 다르다. Google Drive/OneDrive 동기화 프로세스는 실행 중이지 않았다. 상속 ACL을 제거해 현재 사용자, SYSTEM, Administrators에만 전체 권한을 부여했다. 제3자 백업 프로그램까지 조사한 결과는 아니다.
+
+| 대상 | 실제 결과 |
+| --- | --- |
+| 운영 Sheet | `production-sheet-2026-10-29.xlsx` 내보내기 완료. 107,253바이트, SHA-256 `ecd26d8379a50aa06d5549cae42eef6844cc14df679eeecfe84952fdc52fd32f`. ZIP 구조를 다시 열었고 원본과 사본의 10개 탭 이름·헤더가 일치했다. 데이터 행 수와 모든 참조값의 전수 비교는 미실행. |
+| 활성 Apps Script | 실제 Web App 버전 15를 `clasp pull --versionNumber 15`로 `production-apps-script-v15/`에 저장. 13개 파일, 총 65,116바이트. 개별 SHA-256은 `production-apps-script-v15-manifest.json`, 활성 배포 목록은 `production-deployments-2026-10-29.txt`에 저장. 편집기 HEAD가 아닌 활성 버전이며 ImageService/MediaPolicyService는 포함되지 않는다. |
+| Cloudflare 배포 이력 | Production 배포 목록 25건을 `production-cloudflare-deployments-2026-10-29.json`에 저장. 9,984바이트, SHA-256 `3987d1df40430072e7f0d1274c47057b2d69d25eefe27a343a4a2826a5dbe297`. 프로젝트 환경변수/비밀값 및 대시보드 설정의 전수 백업은 미실행. |
+| Script Properties 비밀값 | **NOT_BACKED_UP.** `clasp`와 Apps Script API에 기존 Property를 읽는 지원 명령이 없어 값 추출·DPAPI 암호화 파일 생성을 완료하지 못했다. 화면에서 프로젝트/계정 식별을 안정적으로 확인하지 못했으므로 값의 임의 복사나 설정 변경을 하지 않았다. |
+| Drive 원본·영상 | 이번 실행에서 운영 파일 본문/메타데이터 전체 사본은 만들지 않았다. TEST 복구 연습과 구분한다. |
+
+이 경로는 Git 저장소 밖이며 위 개인 데이터 사본은 PR에 포함하지 않는다. 운영 백업 완결 및 배포 준비는 **NOT_READY**다. 다음에는 인증된 운영 Apps Script 편집기의 프로젝트 설정에서 Script Properties를 읽어 Windows 사용자 DPAPI로 암호화해 같은 폴더에 저장하고, Cloudflare 설정과 Sheet 데이터 행·참조를 전수 대조해야 한다.
+
+## 이전 준비 기록 — 2026-10-28
 
 **백업 판정: BACKUP_LOCATION_REQUIRED / NOT_RUN.** 사용자가 현재 승인된 비공개 백업 위치가 없다고 확인했다. 학생 개인정보와 Script Properties 값을 임의의 개인 폴더·Git·공개 배포 폴더에 복사하지 않았다. 운영 원본에는 읽기 외의 작업을 하지 않았다.
 
