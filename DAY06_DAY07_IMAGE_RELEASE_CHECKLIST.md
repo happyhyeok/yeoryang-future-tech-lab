@@ -2,6 +2,13 @@
 
 2026-10-27 정책 구현 검수는 **PASS_WITH_LIMITATIONS**, 운영 배포 준비는 **NOT_READY**다. 아래 2026-10-25/26 PASS는 당시 TEST 소스에 한정한다. 새 승인·보존 정책은 `DAY_MEDIA_POLICY_E2E_REPORT.md`로 별도 판정한다.
 
+2026-10-28 백업·복구 준비 점검: 사용자가 승인된 비공개 백업 위치가 없다고 확인해 운영 백업은 `BACKUP_LOCATION_REQUIRED`다. TEST B01–B08 및 Drive·Apps Script·Cloudflare 복구 연습은 NOT_RUN. 운영 Web App v15를 배포 목록에서 재확인했다. 54개 잠금 소스는 줄바꿈 정규화까지 포함해 일치하지만 기존 `dist/`의 이미지 스크립트 1개가 잠금과 달라 새 격리 빌드가 필요하다. 상세는 `DAY_MEDIA_PRODUCTION_BACKUP_REPORT.md`, `DAY_MEDIA_RECOVERY_DRILL_REPORT.md`, `DAY_MEDIA_PRODUCTION_DEPLOYMENT_PLAN.md`를 따른다.
+
+- [ ] 승인된 비공개 위치에 운영 Sheet·Apps Script 활성 버전/Property·Drive 메타데이터 백업 및 무결성 확인
+- [ ] 독립 TEST 특정 행·파일·배포 복구 연습 B01–B08 및 복귀 검증
+- [ ] 기존 `dist/`와 분리한 새 54개 정적 빌드 해시·TEST 값·운영 개인정보 검토
+- [ ] 운영 Production 배포 ID·Git SHA·설정 및 직전 정상 배포 재확인
+
 - [x] 이미지 새 업로드는 비공개 `PENDING_REVIEW`; TEST Drive 소유자 전용 권한 확인
 - [x] TEST 관리자 승인 사본만 링크 열람, Sheet 정책 행·Drive 권한·학생 브라우저 대조 (버전 6)
 - [x] TEST 관리자 거부·철회 후 Drive 링크 권한 제거 및 새로고침 확인

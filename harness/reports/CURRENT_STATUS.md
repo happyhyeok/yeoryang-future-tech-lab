@@ -1,4 +1,8 @@
-# 현재 상태 — 2026-10-27 이미지·영상 운영 정책 TEST 재검수
+# 현재 상태 — 2026-10-28 이미지·영상 운영 백업·복구 준비
+
+## 2026-10-28 운영 백업·복구 준비
+
+**백업·복구 준비: NOT_READY (`BACKUP_LOCATION_REQUIRED`, TEST 복구 연습 NOT_RUN). 운영 배포 준비: NOT_READY.** 사용자가 승인된 비공개 백업 위치가 없다고 확인해 운영 Sheet·Apps Script Property·Drive 메타데이터 사본을 만들지 않았다. `gws`와 연결 Sheets/Drive 도구가 없어 이번 회차에 TEST B01–B08 특정 행 복구 및 Drive·Apps Script·Cloudflare 복귀를 실행하지 않았다. 운영 `clasp deployments`에서 활성 Web App v15를 재확인했고 운영 사이트 HEAD는 200이었다. 현재 배포 소스·Cloudflare 배포 ID·운영 Sheet 행/권한의 실시간 무결성 확인으로 해석하지 않는다. PR #1 기준 학생용 잠금 54개 소스는 줄바꿈 정규화 후 전부 해시가 맞지만 기존 `dist/`의 `day-image-evidence.js`는 잠금과 달라 재사용 불가다. 운영 자원 변경 없음. 상세는 `../../DAY_MEDIA_PRODUCTION_BACKUP_REPORT.md`, `../../DAY_MEDIA_RECOVERY_DRILL_REPORT.md`, `../../DAY_MEDIA_PRODUCTION_DEPLOYMENT_PLAN.md`, `../../DAY_MEDIA_PRODUCTION_ROLLBACK_PLAN.md`에 기록했다.
 
 **정책 구현 검수: PASS_WITH_LIMITATIONS.** 2026-10-27 변경을 독립 TEST Apps Script Web App 버전 7 및 별도 Cloudflare TEST Preview에만 반영했다. 승인 대기 비공개 업로드, 관리자 승인·거부·철회에 따른 실제 Drive 권한 전환과 학생 화면, 새 사본의 승인 비승계, 영상 교체 전 파일 비휴지통·30일 보존 행, 학생 A/B 분리를 실제 TEST Drive·Sheet·Chromium에서 확인했다. 표준 관리자 DRY_RUN은 `total=10,current=4,expired=0,candidates=0`; 31일 경과 임시 경계 검사는 `expiredCandidateFound=true,total=10,candidates=1`이었다. 실행 후 TEST 정책 Sheet 10행 전체 값과 대상 날짜 복원, 대상 구파일·현재 대표 파일의 Drive 비휴지통/권한 불변을 재조회했다. 로컬 정책/복원 경계 검사 13건 통과, TEST 버전 7 관련 소스 6개가 브랜치와 일치한다. F04·F06 내부 실패 주입과 F10–F12 제외 경계는 로컬 검사에 한정된다. 상세 근거는 `../../DAY_MEDIA_POLICY_E2E_REPORT.md`, `../../verification/day-media-policy-e2e.log`, 화면은 `../../verification/final-screenshots/`에 있다. 운영 Apps Script·Sheet·Drive·Cloudflare Production과 실제 학생 원본 9장은 변경하지 않았다. Day07 원고·완료 기준에 새 결정은 필요 없다.
 
