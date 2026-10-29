@@ -568,6 +568,7 @@
   async function verifyDay08AccessFromServer(currentDay) {
     if (currentDay.dayId !== "day08" || !isStudentSelected()) return;
     const student = getCurrentStudent();
+    const preserveDay08Draft = Boolean(activeDayState?.serverUpdatedAt);
     const generation = day08ContextGeneration;
     const isCurrent = () => generation === day08ContextGeneration && getStudentId() === student.studentId && getWorkId() === student.workId && activeDay?.dayId === "day08";
     try {
@@ -582,7 +583,7 @@
       const localAhead = local && local.studentId === student.studentId && (local.serverSyncPending === true || Number(local.localRevision || 0) > Number(previous?.localRevision || 0));
       day08AccessAllowed = !localAhead && isConfirmedDay07Record(record);
       if (record && activeDayState) {
-        const copied = window.Day08.seed(activeDayState, record);
+        const copied = window.Day08.seed(activeDayState, record, preserveDay08Draft);
         // A delayed copy must get a new revision if an earlier draft is being saved.
         if (copied && (activeDayState.serverSyncPending || activeDayState.serverUpdatedAt)) updateDay01State(() => {});
       }
@@ -4950,8 +4951,6 @@
   }
 
   function renderStartButton(currentDay) {
-    // Day08 activities begin inside the lesson; preserve the existing map UI.
-    if (currentDay.dayId === "day08") return "";
     const lesson = getLessonForDay(currentDay);
 
     if (!lesson) {
@@ -5000,7 +4999,7 @@
       <span class="research-day__number">${formatDayNo(day.dayNo)}</span>
       <span class="research-day__title">${escapeHtml(day.title)}</span>
     `;
-    const dayLink = (day.dayId === "day07" && !getLessonForDay(day)) || (day.dayId === "day08" && !day08AccessAllowed)
+    const dayLink = day.dayId === "day07" && !getLessonForDay(day)
       ? `<span class="research-day__link" aria-disabled="true">${dayLinkContent}</span>`
       : `<a class="research-day__link" href="${escapeHtml(getDayUrl(day))}">${dayLinkContent}</a>`;
 
@@ -10813,11 +10812,7 @@
   function renderStandardDay(currentDay) {
     if (currentDay.dayId === "day08" && activeDayState) {
       elements.standardDay.hidden = false;
-      if (!day08AccessAllowed && !day08SupplementAllowed) {
-        elements.standardDay.innerHTML = '<section class="lesson-section day08"><h2 class="section-title">다음 연구는 아직 잠겨 있어요</h2><p>Day07 제작계획과 퀴즈를 마치고 최신 기록을 서버에 저장하면 다음 연구로 이어집니다.</p><a class="primary-link" href="?day=7">Day07로 돌아가기</a><p>Day07을 마치지 못했다면, Day08에서 계획을 보완하고 첫 제작을 시작할 수 있어요. Day07 원본 기록은 그대로 남습니다.</p><button type="button" class="secondary-button" data-day08-supplement>Day08에서 계획 보완하기</button></section>';
-        return;
-      }
-      elements.standardDay.innerHTML = window.Day08.render(activeDayState, getLessonForDay(currentDay), escapeHtml, day08AccessAllowed ? "Day07 최신 기록의 서버 저장을 확인했습니다." : "Day07 보완 활동으로 시작했어요. Day07 완료나 선생님 승인을 뜻하지 않습니다.");
+      elements.standardDay.innerHTML = window.Day08.render(activeDayState, getLessonForDay(currentDay), escapeHtml);
       window.Day08.sync(elements.standardDay, activeDayState, getLessonForDay(currentDay), day08PreviousStatus, day08SaveStatus);
       return;
     }

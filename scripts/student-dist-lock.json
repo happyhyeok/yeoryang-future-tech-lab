@@ -1,12 +1,12 @@
 {
-  "candidateId": "day08-final-preflight-2026-10-29",
-  "baseManifestSha256": "f13e2f999cfadb506e1b780f07a977c193223866b984f03540c8288fca610717",
+  "candidateId": "day08-handoff-compat-2026-10-30",
+  "baselineCommit": "2a15a34424ea28644a733adca3e72748546275f4",
   "fileCount": 60,
   "files": [
     {
       "path": "app.js",
-      "bytes": 619712,
-      "sha256": "0f8c287d02d8580b0f5d3abdf7fc432bc92e4cf8531c741af966b165b3ef8c6f"
+      "bytes": 618727,
+      "sha256": "5e9e8731ceec3b49fffdf0de5bbc007f8a5786ccf44a34ae98fb2b73e82d3efc"
     },
     {
       "path": "assets/day01/coding-send-test-fix.png",
@@ -280,8 +280,8 @@
     },
     {
       "path": "day08.js",
-      "bytes": 12351,
-      "sha256": "525e38dba97f96b88dfc87a7dab3c6e31c6a58cfc5b3488b759c9746b6f4da9f"
+      "bytes": 15445,
+      "sha256": "97cb24e1257c89a80041a8a6d4d581ab64cb2a13d7d69260ddc99bba8eee0c4e"
     },
     {
       "path": "index.html",
@@ -300,8 +300,9 @@
     },
     {
       "path": "styles.css",
-      "bytes": 66696,
-      "sha256": "e35bbdac12a3738e79effb9446055f2f16e1eb4cf47f7d1017ad6cf6db28beac"
+      "bytes": 67391,
+      "sha256": "8c4d618573e1d30f4cbabfab5acad62e2417b3148bd7a7aca34163cae0f71ff3"
     }
-  ]
+  ],
+  "basePatchSha256": "e0edaf93ed86351510503f48c65d82ea96c1c81acd12aa844bbb92d9210fb697"
 }

@@ -3278,15 +3278,25 @@ select:focus-visible,
 .day07 input, .day07 textarea, .day07 select { max-width: 100%; }
 
 /* Day08 only: preserve the shared shell and all previous lesson styles. */
-.day08 { min-width: 0; overflow-wrap: anywhere; }
-.day08 .day08-practices { display: grid; gap: 24px; }
-.day08 .day08-practices article { min-width: 0; border: 1px solid #dce3ea; border-radius: 12px; padding: 14px; }
-.day08 .day08-practices img { display: block; max-width: 100%; height: auto; margin: 14px auto; }
-.day08 .day08-notice { padding: 12px; border-left: 4px solid #a06a14; background: #fff6e7; color: #61400b; }
-.day08 .day08-check { display: flex; align-items: flex-start; gap: 8px; margin: 14px 0; }
-.day08 .day08-check input { flex: 0 0 auto; margin-top: 5px; }
-.day08 .day08-quiz { min-width: 0; border: 1px solid #dce3ea; border-radius: 10px; padding: 14px; margin: 16px 0; }
-.day08 .day08-quiz legend { font-weight: 700; }
-.day08 .day08-parts { padding: 14px; background: #f4f7fb; border-radius: 10px; }
-.day08 textarea, .day08 select { max-width: 100%; }
-.day08 details summary { cursor: pointer; font-weight: 700; }
+.day08 { display: grid; gap: 64px; min-width: 0; overflow-wrap: anywhere; font-size: 18px; line-height: 1.65; }
+.day08 .lesson-section { display: grid; gap: 24px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.day08 h2, .day08 h3, .day08 h4, .day08 p { margin: 0; }
+.day08 h2 { font-size: 28px; line-height: 1.4; }
+.day08 h3 { font-size: 24px; line-height: 1.4; }
+.day08 h4, .day08 figcaption { font-size: 18px; font-weight: 700; }
+.day08 .day08-practices { display: grid; gap: 64px; }
+.day08 .day08-practices article { display: grid; gap: 24px; min-width: 0; border: 0; padding: 0; background: transparent; }
+.day08 .day08-practices article > div, .day08 figure { display: grid; gap: 16px; margin: 0; }
+.day08 .day08-practices img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.day08 .day08-check { display: flex; align-items: flex-start; gap: 12px; margin: 0; }
+.day08 .day08-check input { flex: 0 0 auto; width: 22px; height: 22px; margin-top: 4px; }
+.day08 .day08-quiz { min-width: 0; border: 0; border-radius: 0; padding: 0; margin: 0; }
+.day08 .day08-quiz legend { margin-bottom: 16px; font-weight: 700; }
+.day08 .day08-quiz .radio-option { margin-bottom: 16px; }
+.day08 .day08-parts { padding: 0; background: transparent; }
+.day08 .day08-parts ul { margin: 16px 0; padding-left: 24px; }
+.day08 textarea, .day08 select { max-width: 100%; min-height: 52px; font: inherit; }
+.day08 textarea { min-height: 88px; }
+.day08 .record-field { gap: 8px; }
+.day08 .day08-choice { display: grid; gap: 16px; }
+.day08 [hidden] { display: none !important; }
