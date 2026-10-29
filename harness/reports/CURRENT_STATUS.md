@@ -1,4 +1,12 @@
-# 현재 상태 — 2026-10-29 실제 운영 백업·TEST 복구 연습
+# 현재 상태 — 2026-10-29 운영 비밀값·데이터 무결성 점검
+
+## 2026-10-29 최신 근거
+
+운영 Apps Script 프로젝트 설정에서 Script ID·Sheet 연결과 실제 Property 1개를 확인했다. 값은 승인된 비공개 폴더의 Windows DPAPI CurrentUser 파일로 암호화하고 별도 프로세스에서 복호화·키/내용 일치를 검증했다. 운영 Sheet 기존 백업 해시를 재확인하고 같은 날 새 XLSX를 읽기 전용 내보내기하여 10개 탭의 모든 비어 있지 않은 셀을 비교한 결과 차이 **0건**이었다. 기본키·학생/작품/DayRecord/QuizResult/Asset 관계와 JSON 212개 검사에서 논리 오류 **0건**이었다.
+
+운영 Drive 원본 PNG 9개와 영상 WebM 17개를 메타데이터·권한·본문 사본으로 비공개 보존하고 각 파일 크기·형식·SHA-256을 확인했다. 다만 Sheet의 Day02 영상 Asset 참조 1개는 Drive 조회 404로 파일 존재/권한을 구분하지 못했다. Cloudflare Production 배포 25건, Git 연동, 현재·직전 배포 HEAD 200과 정적 설정 파일을 확인했다. 일반 환경변수·빌드 설정은 미확인이다. 현재 Web App v15에는 새 이미지 서비스가 없고 신규 정책 Property 및 Sheet 탭도 없다.
+
+**백업 완결성: PASS_WITH_LIMITATIONS. 운영 배포 준비: NOT_READY.** DPAPI 단일 계정 의존, Drive 미확인 파일 1개, Cloudflare 설정 일부 미확인 및 운영 정책 미반영이 남았다. 기존 TEST 복구 연습의 제한사항은 그대로 유지한다. 상세는 `../../DAY_MEDIA_PRODUCTION_SECRETS_BACKUP_REPORT.md`, `../../DAY_MEDIA_PRODUCTION_DATA_INTEGRITY_REPORT.md`, `../../DAY_MEDIA_PRODUCTION_BACKUP_REPORT.md`. 운영 Script Properties·Sheet·Drive·Apps Script 배포·Cloudflare Production에는 쓰지 않았다. 아래 항목은 과거 이력이다.
 
 ## 2026-10-29 새 실행 근거
 

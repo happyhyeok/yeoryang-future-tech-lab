@@ -1,5 +1,11 @@
 # Day06·Day07 이미지 정책 운영 배포 계획 — 2026-10-28
 
+## 2026-10-29 백업·무결성 점검 후 상태
+
+기존 2026-10-28의 백업 위치 미확보·TEST 복구 미실행 문장은 당시 계획의 이력이다. 승인된 로컬 백업 폴더에 운영 Sheet 두 시점 XLSX, 활성 Apps Script v15 소스·배포 목록, 기존 Script Property 1개 DPAPI 암호화 사본, 원본 PNG 9개·영상 WebM 17개 본문과 메타데이터, Cloudflare Production 배포 목록 및 현재/직전 정적 설정 사본을 보존했다. Sheet 10개 탭 셀 차이·논리 참조 오류는 0건이다. TEST 복구 B01–B08과 Drive·Apps Script·Cloudflare 복귀는 앞선 연습 결과를 재사용한다.
+
+**계획 상태는 계속 NOT_READY.** Day02 영상 Asset 1개의 Drive 파일 조회 404, DPAPI의 단일 Windows 계정 의존, Cloudflare 일반 환경변수/빌드 설정 미확인, 운영 `10_미디어정책` 탭과 신규 이미지 정책 Property 부재, 활성 Web App v15의 이미지 서비스 부재가 남았다. 운영 데이터는 자동 수정하지 않는다. 실제 운영 변경 창이나 배포는 이번 작업에서 실행하지 않았다. 신규 증거는 `DAY_MEDIA_PRODUCTION_SECRETS_BACKUP_REPORT.md`, `DAY_MEDIA_PRODUCTION_DATA_INTEGRITY_REPORT.md`를 따른다.
+
 **계획 상태: NOT_READY. 이 문서는 실행 승인이 아니다.** 기능 브랜치 `feature/day06-day07-image-evidence`의 PR #1을 유지하고 `main`, 운영 Apps Script, 운영 Cloudflare Pages, 학생 데이터는 변경하지 않는다.
 
 ## 반영 범위와 빌드

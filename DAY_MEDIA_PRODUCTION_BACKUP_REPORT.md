@@ -1,5 +1,13 @@
 # 이미지·영상 운영 백업 기록 — 2026-10-29
 
+## 2026-10-29 추가 실행 — 최신 판정
+
+**백업 완결성: PASS_WITH_LIMITATIONS. 운영 배포 준비: NOT_READY.** 앞선 부분 백업을 보존한 채 실제 누락 항목을 보강했다. 운영 Script Property 1개를 사용자 DPAPI 파일로 암호화해 별도 프로세스에서 복호화·일치 확인했다. 운영 Sheet를 새로 내보내 기존 사본과 10개 탭의 모든 비어 있지 않은 셀을 비교했으며 차이 0건, 기본키/참조/JSON 오류 0건이었다. 운영 원본 이미지 9장과 영상 17장의 메타데이터 및 본문 26개를 비공개 폴더에 보존하고 크기·형식·SHA-256을 확인했다. Cloudflare Production 배포 목록·Git 연동·현재/직전 배포 접근 및 정적 설정 파일을 확인했다. 상세는 `DAY_MEDIA_PRODUCTION_SECRETS_BACKUP_REPORT.md`와 `DAY_MEDIA_PRODUCTION_DATA_INTEGRITY_REPORT.md`.
+
+제한: Asset이 참조하는 별도 Day02 영상 1개는 Drive 조회 404로 본문을 확보하지 못했다. DPAPI 사본은 현재 Windows 사용자 계정에서만 직접 복호화된다. Drive 휴지통 상태·제공 체크섬과 Cloudflare 일반 환경변수/빌드 설정은 조회되지 않았다. 따라서 독립 장치의 완전 복구와 운영 변경 창 개시는 아직 검증되지 않았다. 운영 원본과 Production 배포에는 쓰지 않았다.
+
+## 이전 백업 실행 — 2026-10-29
+
 ## 2026-10-29 실제 백업 실행
 
 **판정: PARTIAL_BACKUP.** 사용자가 승인한 `C:\Users\USER\Desktop\yeoryang-private-backup\`에 운영 원본을 수정하지 않고 사본을 생성했다. 폴더는 로컬 NTFS 고정 디스크 C:에 새로 만들었고 재분석 지점이 아니며 읽기·쓰기·삭제 시험을 통과했다. Desktop 레지스트리 경로가 이 위치를 가리키고 OneDrive 경로와 다르다. Google Drive/OneDrive 동기화 프로세스는 실행 중이지 않았다. 상속 ACL을 제거해 현재 사용자, SYSTEM, Administrators에만 전체 권한을 부여했다. 제3자 백업 프로그램까지 조사한 결과는 아니다.
