@@ -1,5 +1,11 @@
 # Day06·Day07 이미지 정책 운영 배포 계획 — 2026-10-28
 
+## 2026-10-29 최종 준비 게이트
+
+**운영 배포 준비: NOT_READY, Production 변경 미실행.** C01 Day02 영상 참조 원인과 C06 독립 매체 백업이 미해결이다. 이는 활성 v15에 이미지 코드가 없다는 사실만으로 내린 판정이 아니다. 최신 C01~C14 판단은 `DAY_MEDIA_PRODUCTION_READINESS_REPORT.md`, Drive 증거는 `DAY02_VIDEO_REFERENCE_AUDIT.md`, 암호화 사본은 `DAY_MEDIA_DISASTER_RECOVERY_BACKUP_REPORT.md`, Cloudflare 실제 설정은 `DAY_MEDIA_CLOUDFLARE_CONFIGURATION_AUDIT.md`를 따른다. 아래 과거 계획의 백업 위치·Cloudflare 설정 미확인 문장은 당시 기록이다.
+
+실제 Cloudflare Production 설정은 Git 연결, `main` 자동 배포, 빌드 명령 `node scripts/build-student-dist.cjs`, 출력 `dist`, 저장소 루트, 변수·비밀값·바인딩 0개다. 현재/직전 정적 후보가 모두 응답한다. 운영 필수 Property 값·관리자 승인 계정·새 비공개 이미지 부모 폴더는 아직 확정되지 않았다. `IMAGE_STORAGE_FOLDER_ID`는 **원본 9장 폴더가 아니라** 신규 부모 폴더의 ID를 가리키며 코드가 그 아래 `학생이미지_업로드/학생/Day`를 만든다. `10_미디어정책` 탭은 배포 후 첫 조회가 자동 생성할 수 있으므로, 별도 승인 변경 창에서 기존 탭 부재·백업을 확인한 뒤 정확한 헤더로 먼저 생성·검증한다.
+
 ## 2026-10-29 백업·무결성 점검 후 상태
 
 기존 2026-10-28의 백업 위치 미확보·TEST 복구 미실행 문장은 당시 계획의 이력이다. 승인된 로컬 백업 폴더에 운영 Sheet 두 시점 XLSX, 활성 Apps Script v15 소스·배포 목록, 기존 Script Property 1개 DPAPI 암호화 사본, 원본 PNG 9개·영상 WebM 17개 본문과 메타데이터, Cloudflare Production 배포 목록 및 현재/직전 정적 설정 사본을 보존했다. Sheet 10개 탭 셀 차이·논리 참조 오류는 0건이다. TEST 복구 B01–B08과 Drive·Apps Script·Cloudflare 복귀는 앞선 연습 결과를 재사용한다.

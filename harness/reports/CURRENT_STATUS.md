@@ -1,4 +1,12 @@
-# 현재 상태 — 2026-10-29 운영 비밀값·데이터 무결성 점검
+# 현재 상태 — 2026-10-29 운영 Day02·재해 복구·Cloudflare 최종 준비 점검
+
+## 2026-10-29 최신 판정
+
+**운영 배포 준비: NOT_READY.** Day02 운영 영상 Asset과 DayRecord/API가 Drive 조회 404인 같은 파일 ID를 참조한다. 해당 학생/Day 폴더에는 같은 이름의 다른 WebM 1개가 있지만 최종 제출본 여부와 404 원인(삭제·권한·잘못된 ID·교체 이력)은 미확정이다. 기존 운영 데이터 문제로 분류하되 학생 영상 재생 위험을 해소하기 전 자동 교정하지 않는다.
+
+기존 DPAPI 사본을 유지하고 사용자 보안 입력 암호의 PBKDF2-SHA256/AES-256-GCM 사본을 만들었다. 생성 직후와 별도 프로세스에서 복호화가 성공하고 DPAPI 원문과 일치했다. 사용자는 별도 저장 경로가 없다고 답해 다른 장치 복호화·독립 매체 보관은 미실행이다. Cloudflare Production 설정 화면에서 Git 연결, `main` 자동 배포, 빌드 `node scripts/build-student-dist.cjs`→`dist`, 변수·비밀·바인딩 0개를 확인했다. 현재/직전 Production 정적 후보와 참조 자산은 응답했고 롤백은 미실행이다.
+
+운영 v15와 브랜치/TEST v7의 변경 범위를 대조해 `Asset`, `DayRecord`, `Video`, `WebApi` 변경, `Image`, `MediaPolicy` 신규, 공통 서비스 동일을 확인했다. 운영 정책 탭·Property·비공개 이미지 부모 폴더·관리자 승인 계정의 적용 순서는 문서화했지만 운영에는 만들거나 입력하지 않았다. C01~C14는 `../../DAY_MEDIA_PRODUCTION_READINESS_REPORT.md`, 원인·복구안은 `../../DAY02_VIDEO_REFERENCE_AUDIT.md`, 암호화/Cloudflare 증거는 신규 보고서 2개에 있다. 아래 내용은 이전 시점의 이력이다.
 
 ## 2026-10-29 최신 근거
 
