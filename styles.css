@@ -3276,3 +3276,17 @@ select:focus-visible,
 .day07-quiz { min-width: 0; border: 1px solid #ccd9d9; border-radius: .5rem; }
 .day07-quiz .radio-option { min-height: 44px; }
 .day07 input, .day07 textarea, .day07 select { max-width: 100%; }
+
+/* Day08 only: preserve the shared shell and all previous lesson styles. */
+.day08 { min-width: 0; overflow-wrap: anywhere; }
+.day08 .day08-practices { display: grid; gap: 24px; }
+.day08 .day08-practices article { min-width: 0; border: 1px solid #dce3ea; border-radius: 12px; padding: 14px; }
+.day08 .day08-practices img { display: block; max-width: 100%; height: auto; margin: 14px auto; }
+.day08 .day08-notice { padding: 12px; border-left: 4px solid #a06a14; background: #fff6e7; color: #61400b; }
+.day08 .day08-check { display: flex; align-items: flex-start; gap: 8px; margin: 14px 0; }
+.day08 .day08-check input { flex: 0 0 auto; margin-top: 5px; }
+.day08 .day08-quiz { min-width: 0; border: 1px solid #dce3ea; border-radius: 10px; padding: 14px; margin: 16px 0; }
+.day08 .day08-quiz legend { font-weight: 700; }
+.day08 .day08-parts { padding: 14px; background: #f4f7fb; border-radius: 10px; }
+.day08 textarea, .day08 select { max-width: 100%; }
+.day08 details summary { cursor: pointer; font-weight: 700; }

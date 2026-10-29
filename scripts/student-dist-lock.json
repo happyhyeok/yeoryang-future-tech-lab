@@ -1,12 +1,12 @@
 {
-  "candidateId": "day07-final-integrated-2026-10-23",
-  "baseManifestSha256": "03bcdd645e48f9a3dd5c70b0993612e6df7ebc61e580732f1abb1aceb9439dc5",
-  "fileCount": 53,
+  "candidateId": "day08-final-preflight-2026-10-29",
+  "baseManifestSha256": "f13e2f999cfadb506e1b780f07a977c193223866b984f03540c8288fca610717",
+  "fileCount": 60,
   "files": [
     {
       "path": "app.js",
-      "bytes": 612250,
-      "sha256": "c24bf611d0a3e5522bea2685e8ef399ca099009c34786e50851bfab4c6dfb737"
+      "bytes": 619712,
+      "sha256": "0f8c287d02d8580b0f5d3abdf7fc432bc92e4cf8531c741af966b165b3ef8c6f"
     },
     {
       "path": "assets/day01/coding-send-test-fix.png",
@@ -244,19 +244,54 @@
       "sha256": "c23110ce87294c10883e71a75bc62636e4384a4e05751de41943709692a6a090"
     },
     {
+      "path": "assets/day08/01_led_edge1.png",
+      "bytes": 197997,
+      "sha256": "ed68c085c110c7642c4169afba4044c285f857baafdfade4c6ff09c22e149060"
+    },
+    {
+      "path": "assets/day08/02_servo_edge2.png",
+      "bytes": 291671,
+      "sha256": "04f8e05128e76e31dc6573b17c33557500d0c76c824778ed7ee0f70dc767a81a"
+    },
+    {
+      "path": "assets/day08/03_ring_edge1.png",
+      "bytes": 343080,
+      "sha256": "e76d284757278a705cbe40c7ff27d40989b42684eb355bec66589d613ed8532a"
+    },
+    {
+      "path": "assets/day08/04_led_code.png",
+      "bytes": 163080,
+      "sha256": "ab6ebc2f1b6d7083328e69e3ca9546f64980d4aaddb15e85ab207d2a5a97b819"
+    },
+    {
+      "path": "assets/day08/05_servo_code.png",
+      "bytes": 17734,
+      "sha256": "f4c4c70aa6d1899c3132a697798d579ef84beed202a95a68c5cbd0d51bedb7d9"
+    },
+    {
+      "path": "assets/day08/06_ring_code_user_original.png",
+      "bytes": 39357,
+      "sha256": "b0bf7da6bb7d241932c1718f8a4e8253c50a041c08d74b90718b222622f8bbc9"
+    },
+    {
       "path": "day07.js",
       "bytes": 24500,
       "sha256": "acde8df485f198b7a198bba7820aba5236fab49835a7d10ddbcec9f935d8fba1"
     },
     {
+      "path": "day08.js",
+      "bytes": 12351,
+      "sha256": "525e38dba97f96b88dfc87a7dab3c6e31c6a58cfc5b3488b759c9746b6f4da9f"
+    },
+    {
       "path": "index.html",
-      "bytes": 2019,
-      "sha256": "6428a22f08ab0e08096bd7fb2f10d6bdb0f38e8ee5ddc6b068c1f32745040297"
+      "bytes": 2115,
+      "sha256": "c49b264477d906b5667a02577e3e9b09f6be4dd4b9ca53c1c164dea826d22cb7"
     },
     {
       "path": "research-days.js",
-      "bytes": 109913,
-      "sha256": "f4d7be9197021478f510d0f693639e6bd73ce4b2557ec1d3c765a3ae9b269684"
+      "bytes": 112244,
+      "sha256": "630f94d034337eee7aefede10e8599d4cb529ae5a5de9580fb0179f3dc83a3af"
     },
     {
       "path": "runtime-config.js",
@@ -265,8 +300,8 @@
     },
     {
       "path": "styles.css",
-      "bytes": 65669,
-      "sha256": "11b786c4951174162c0adbc3feefeed44d9f1e4d65828f3d1c632a31bf2b8508"
+      "bytes": 66696,
+      "sha256": "e35bbdac12a3738e79effb9446055f2f16e1eb4cf47f7d1017ad6cf6db28beac"
     }
   ]
 }

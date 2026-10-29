@@ -1,5 +1,5 @@
 // Cloudflare Pages build command: node scripts/build-student-dist.cjs
-// The lock records the already reviewed Production v2 bytes. This build
+// The lock records the reviewed Day08 candidate bytes. This build
 // intentionally fails if any lesson file changes without a new review.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -28,8 +28,8 @@ const safe = name => typeof name === 'string' && !name.startsWith('.') &&
   !name.startsWith('/') && !name.includes('\\') &&
   name.split('/').every(part => part && part !== '.' && part !== '..');
 
-if (lock.fileCount !== 53 || files.length !== 53 ||
-    new Set(files.map(file => file.path)).size !== 53 || !files.every(file => safe(file.path))) {
+if (lock.fileCount !== 60 || files.length !== 60 ||
+    new Set(files.map(file => file.path)).size !== 60 || !files.every(file => safe(file.path))) {
   throw new Error('Unexpected public file allowlist');
 }
 if (fs.existsSync(output)) throw new Error('dist already exists; preserve it and build from a clean checkout');

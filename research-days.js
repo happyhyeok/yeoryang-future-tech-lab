@@ -2185,6 +2185,105 @@
     ] },
   };
 
+  DAY_LESSONS.day08 = {
+  "dayId": "day08",
+  "dayType": "standard",
+  "flowStartId": "day08-plan",
+  "quiz": {
+    "title": "오늘의 퀴즈",
+    "questions": [
+      {
+        "id": "day08-q1",
+        "prompt": "Sensor:Edge의 역할은 무엇인가요?",
+        "choices": [
+          {
+            "text": "화면 확대",
+            "correct": false
+          },
+          {
+            "text": "외부 장치 연결",
+            "correct": true
+          },
+          {
+            "text": "인터넷 속도 증가",
+            "correct": false
+          },
+          {
+            "text": "코드 자동 생성",
+            "correct": false
+          }
+        ]
+      },
+      {
+        "id": "day08-q2",
+        "prompt": "서보모터는 무엇을 하나요?",
+        "choices": [
+          {
+            "text": "밝기 측정",
+            "correct": false
+          },
+          {
+            "text": "거리 측정",
+            "correct": false
+          },
+          {
+            "text": "정해진 각도로 움직임",
+            "correct": true
+          },
+          {
+            "text": "소리 녹음",
+            "correct": false
+          }
+        ]
+      },
+      {
+        "id": "day08-q3",
+        "prompt": "레인보우 LED 링의 특징은?",
+        "choices": [
+          {
+            "text": "여러 색 표현",
+            "correct": true
+          },
+          {
+            "text": "무게 측정",
+            "correct": false
+          },
+          {
+            "text": "물체 이동",
+            "correct": false
+          },
+          {
+            "text": "온도 측정",
+            "correct": false
+          }
+        ]
+      },
+      {
+        "id": "day08-q4",
+        "prompt": "시제품 제작 뒤 해야 할 일은?",
+        "choices": [
+          {
+            "text": "시험하지 않음",
+            "correct": false
+          },
+          {
+            "text": "여러 조건에서 시험",
+            "correct": true
+          },
+          {
+            "text": "부품 무조건 추가",
+            "correct": false
+          },
+          {
+            "text": "계획 삭제",
+            "correct": false
+          }
+        ]
+      }
+    ]
+  }
+};
+
   window.RESEARCH_DAYS = RESEARCH_DAYS;
   window.LESSON_BLOCKS = LESSON_BLOCKS;
   window.DAY_LESSONS = DAY_LESSONS;
