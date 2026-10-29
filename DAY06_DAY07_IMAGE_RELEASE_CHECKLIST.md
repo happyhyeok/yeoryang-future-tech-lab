@@ -1,5 +1,15 @@
 # Day06·Day07 이미지 운영 반영 전 확인
 
+## 2026-10-29 최종 학생 기능 후보
+
+- [x] TEST Day06 등록·교체·같은 브라우저 복원, Day07 등록·복원, A/B 분리, 로컬 삭제, 실패 후 기존 그림 유지
+- [x] TEST Asset·DayRecord 참조와 Drive 소유자 전용 확인; 390×844·650×900·1440×900 가로 넘침 0
+- [x] 새 격리 54파일 빌드·해시 일치; 기존 `dist/` 보존; 운영 v15 13파일·Drive 26파일 백업 해시 확인
+- [ ] 운영 전용 이미지 폴더·정책 탭·필수 Property 적용 및 Web App/Cloudflare Production 배포 (별도 승인 창)
+- [ ] 공개 `runtime-config.js`의 학생 실명 5개와 공유 PC 이름 선택 방식에 대한 학교 개인정보 판단
+
+**학생 기능 PASS_WITH_LIMITATIONS · 운영 기술 준비 NOT_READY · Production NOT_DEPLOYED.** 최신 인수 절차는 `DAY06_DAY07_IMAGE_PRODUCTION_HANDOFF.md`. 관리자 공개 승인 계정·동의는 미확정이며 이번 학생 로컬 복원에 사용하지 않는다. 아래 항목은 이전 단계의 검사 이력이다.
+
 ## 2026-10-29 최신 배포 직전 게이트
 
 **NO_GO.** G01–G16 상세는 `DAY_MEDIA_PREDEPLOY_GO_NOGO.md`. 운영 이미지 폴더 미생성, 승인 관리자·공개 동의 미확정, 운영 관리자 호출 도구 미검증, 기존 공개 설정의 실학생 명단 정책 미확정이 차단 조건이다. 운영 Sheet 정책 탭은 아직 없고 운영 Property·배포도 미변경이다. 격리 학생 빌드 54개는 해시가 일치하나 실제 Production 배포 승인을 뜻하지 않는다. Day07 교육 원고·완료 기준은 이번 정책 검수에서 변경하지 않았다.

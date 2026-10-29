@@ -1,7 +1,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const root = path.resolve(__dirname, '../image-test-preview');
+const root = path.resolve(process.env.IMAGE_PREVIEW_ROOT || path.resolve(__dirname, '../image-test-preview'));
 const port = Number(process.env.IMAGE_PREVIEW_PORT || 8766);
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml' };

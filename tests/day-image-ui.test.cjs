@@ -81,10 +81,45 @@ test('post-upload record verification uses a fresh GET URL', async () => {
     await page.locator('[data-day-image-button]').getByText('등록').waitFor();
     await page.locator('[data-day-image-file]').setInputFiles({ name: 'test.png',
       mimeType: 'image/png', buffer: png });
-    await page.locator('[data-day-image-status]').getByText('승인 대기').waitFor();
+    await page.locator('[data-day-image-status]').getByText('서버에 저장됐어요.').waitFor();
+    assert.equal(await page.locator('[data-day-image-preview]').isVisible(), true);
+    assert.match(await page.locator('[data-day-image-preview]').getAttribute('src'), /^data:image\/png;base64,/);
+    assert.equal(await page.locator('[data-day-image-button]').innerText(), '변경하기');
     const gets = await page.evaluate(() => window.gets);
     assert.equal(gets.length, 2);
     assert.notEqual(gets[0], gets[1]);
+  } finally { await browser.close(); }
+});
+
+test('failed replacement restores the previously approved image', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const png = fs.readFileSync(path.resolve(__dirname, '../assets/day07/light_sensor.png'));
+    await page.route('https://drive.google.com/thumbnail?**', route =>
+      route.fulfill({ status: 200, contentType: 'image/png', body: png }));
+    await page.setContent('<main id="day"></main>');
+    await page.addScriptTag({ path: path.resolve(__dirname, '../day-image-evidence.js') });
+    await page.evaluate(() => window.DayImageEvidence.install({
+      root: document.querySelector('#day'),
+      getContext: () => ({ studentId: 'test_student_a', workId: 'test_work_a', dayId: 'day06' }),
+      request: async action => {
+        if (action === 'uploadVideo') throw Error('upload failed');
+        return { imageReviewStatus: 'APPROVED', assets: [{
+          assetId: 'asset_test_student_a_day06_image', assetType: 'screenshot',
+          storageFileId: 'test_file_123456789', ownerId: 'test_student_a', dayId: 'day06',
+        }] };
+      },
+    }));
+    const image = page.locator('[data-day-image-preview]');
+    await page.waitForFunction(() => document.querySelector('[data-day-image-preview]')?.naturalWidth > 0);
+    const oldSrc = await image.getAttribute('src');
+    await page.locator('[data-day-image-file]').setInputFiles({ name: 'replacement.png',
+      mimeType: 'image/png', buffer: png });
+    await page.getByText('저장하지 못했어요. 다시 시도해 주세요.').waitFor();
+    assert.equal(await image.getAttribute('src'), oldSrc);
+    assert.equal(await image.isVisible(), true);
+    assert.equal(await page.locator('[data-day-image-button]').innerText(), '변경하기');
   } finally { await browser.close(); }
 });
 

@@ -1,5 +1,17 @@
 # 현재 상태 — 2026-10-29 운영 Day02·재해 복구·Cloudflare 최종 준비 점검
 
+## 2026-10-29 학생 이미지 최종 인수 후보
+
+**학생 기능 PASS_WITH_LIMITATIONS, 운영 기술 준비 NOT_READY, Production NOT_DEPLOYED.** 최신 브랜치의 IndexedDB 등록·교체·복원 TEST 결과를 보존하고 `DAY06_DAY07_IMAGE_PRODUCTION_HANDOFF.md`에 운영 v15 적용 6개 파일, 필수 Property와 정책 탭, 단계별 중단·복귀를 정리했다. 새 격리 빌드 54개 해시 불일치 0, TEST URL·가상 학생·테스트 스크립트 검출 0, 기존 공개 실명 5개 필드는 개인정보 판단 대기다. 운영 Drive 26개·v15 소스 13개 백업 해시 불일치 0. 운영·Production은 미변경, Day02 404와 외부 매체 복구 미완료를 유지한다. 아래 내용은 과거 시점의 기록이다.
+
+## 2026-10-29 Day06·Day07 IndexedDB 로컬 복원 검수
+
+**같은 브라우저 TEST 복원 PASS, Production NOT_READY.** 미커밋 변경을 보존하고 `day-image-evidence.js`에 서버 저장 성공 후 학생·Day별 대표 1장 IndexedDB 보관을 추가했다. TEST A Day06 최초/교체/새로고침/같은 브라우저 재접속, Day07 복원, B 분리, 실패 교체 후 기존 그림 유지, 로컬 삭제 후 안내를 실제 Chromium에서 확인했다. 390×844·650×900·1440×900 가로 넘침 0, 로컬 10건 PASS, 새 격리 54파일 빌드 SHA-256 불일치 0. TEST Sheet Asset/DayRecord 참조와 TEST Drive 소유자 전용 권한을 재조회했다. 공유 PC 같은 프로필에서 이름 선택만으로 타인의 로컬 그림을 볼 수 있으며, 다른 PC에는 로컬 사본이 없다. 실제 학생 데이터·운영 권한·서버 코드·Production은 변경하지 않았다. 상세는 `../../DAY06_DAY07_IMAGE_DISPLAY_MINIMAL_REPORT.md`. 아래 기록은 이전 상태다.
+
+## 2026-10-29 학생 이미지 최소 표시 수정
+
+**TEST 업로드 직후 표시 PASS, 비공개 사본 재접속 표시 BLOCKED, Production NOT_READY.** `day-image-evidence.js`에서 로컬 파일 미리보기를 저장·교체 후 같은 탭에 유지하고 저장 실패 시 이전 화면을 복원하도록 했다. TEST A Day06 최초·교체, Day07 업로드를 실제 Chromium과 TEST 서버에서 검증했고 Sheet Asset/DayRecord/정책 및 Drive 소유자 전용 권한을 재조회했다. 학생 B 분리와 새로고침·새 페이지에서 비공개 승인 대기 사본이 숨겨지는 결과를 확인했다. 로컬 검사 12건 PASS, 격리 학생 빌드 54개 해시 불일치 0건. 승인 관리자 계정·링크 공개 동의가 없어 비공개 파일의 재접속 표시는 구현할 수 없다. 원본 9장·운영 자원은 변경하지 않았다. 상세는 `../../DAY06_DAY07_IMAGE_DISPLAY_MINIMAL_REPORT.md`와 `../../verification/day-image-private-preview-live.log`. 아래 기록은 이전 상태다.
+
 ## 2026-10-29 배포 직전 최신 상태
 
 **GO/NO_GO: NO_GO.** 운영 Drive 원본 PNG 9장·WebM 루트와 독립 TEST 이미지·영상 루트는 실제 폴더 ID·상위 경로가 분리돼 있다. 운영 이미지 전용 부모 폴더는 아직 없고, 승인 관리자 계정·게시 동의·운영 관리자 실행 도구는 미확정이다. 운영 Sheet는 읽기 전용 메타데이터상 기존 10개 탭, `10_미디어정책` 없음. 격리 빌드 54개 파일의 잠금 SHA-256 불일치 0, TEST URL·가상 학생 표식 0이지만 공개 `runtime-config.js`에는 기존 학생 실명 5명이 있어 개인정보 공개 적합성 결정이 필요하다. 운영 v15 13개 백업과 브랜치/TEST v7 소스를 대조했고 관련 로컬 경계 검사 9건 PASS였다. 실제 운영 폴더·Property·Sheet·배포·학생 데이터는 변경하지 않았다. 최신 G01–G16과 상세는 `../../DAY_MEDIA_PREDEPLOY_GO_NOGO.md` 및 신규 폴더·인증·통합 감사 문서에 있다. 아래 기록은 이전 시점의 이력이다.
