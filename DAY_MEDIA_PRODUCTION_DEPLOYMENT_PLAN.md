@@ -1,5 +1,9 @@
 # Day06·Day07 이미지 정책 운영 배포 계획 — 2026-10-28
 
+## 2026-10-29 배포 직전 최신 판정
+
+**NO_GO.** `DAY_MEDIA_PREDEPLOY_GO_NOGO.md`의 G01–G16이 최신 게이트다. 새 운영 이미지 폴더는 아직 없고, 학교 승인 관리자 계정·게시 동의 범위·운영 관리자 호출 도구가 미확정이다. 공개 `runtime-config.js`에 기존 학생 실명 5명이 포함된 문제도 판단해야 한다. 운영 Sheet는 오늘 읽기 전용 메타데이터에서 기존 10개 탭만 확인했고 정책 탭은 없다. 54개 파일의 새 격리 빌드 해시는 모두 일치했다. 아래 이전 계획의 미확인 상태보다 이번 실측 결과를 우선한다. 실제 폴더·Property·탭·배포 변경은 수행하지 않았다.
+
 ## 2026-10-29 최종 준비 게이트
 
 **운영 배포 준비: NOT_READY, Production 변경 미실행.** C01 Day02 영상 참조 원인과 C06 독립 매체 백업이 미해결이다. 이는 활성 v15에 이미지 코드가 없다는 사실만으로 내린 판정이 아니다. 최신 C01~C14 판단은 `DAY_MEDIA_PRODUCTION_READINESS_REPORT.md`, Drive 증거는 `DAY02_VIDEO_REFERENCE_AUDIT.md`, 암호화 사본은 `DAY_MEDIA_DISASTER_RECOVERY_BACKUP_REPORT.md`, Cloudflare 실제 설정은 `DAY_MEDIA_CLOUDFLARE_CONFIGURATION_AUDIT.md`를 따른다. 아래 과거 계획의 백업 위치·Cloudflare 설정 미확인 문장은 당시 기록이다.
