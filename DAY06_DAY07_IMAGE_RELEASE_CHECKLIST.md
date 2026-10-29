@@ -1,5 +1,9 @@
 # Day06·Day07 이미지 운영 반영 전 확인
 
+## 2026-10-29 운영 적용 시도 결과
+
+**BLOCKED.** 별도 운영 폴더·Sheet·Property·Apps Script·Cloudflare 배포 승인 및 운영 쓰기용 테스트 학생·작품 기록이 없다는 사용자 답변을 확인했다. 운영 Web App v15·Sheet 기존 10개 탭·새 이미지 폴더 부재와 백업 해시를 읽기 전용으로 대조했다. 운영 변경과 P01–P16 실제 Production 검수는 미실행이다. 상세는 `DAY06_DAY07_IMAGE_PRODUCTION_DEPLOYMENT_REPORT.md`. 아래 TEST PASS는 운영 PASS가 아니다.
+
 ## 2026-10-29 최종 학생 기능 후보
 
 - [x] TEST Day06 등록·교체·같은 브라우저 복원, Day07 등록·복원, A/B 분리, 로컬 삭제, 실패 후 기존 그림 유지

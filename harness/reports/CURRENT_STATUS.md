@@ -1,5 +1,9 @@
 # 현재 상태 — 2026-10-29 운영 Day02·재해 복구·Cloudflare 최종 준비 점검
 
+## 2026-10-29 운영 적용 시도 최신 상태
+
+**운영 적용 BLOCKED, Production NOT_DEPLOYED.** 사용자가 별도 운영 변경 승인과 승인된 운영 테스트 학생·작품이 없다고 확인했다. 운영 Web App v15, Sheet 10개 탭/정책 탭 없음, 이미지 폴더 미생성, PR Draft와 원격 `main` 기존 HEAD를 읽기 전용으로 확인했다. Drive 백업 26개·운영 v15 소스 13개 해시 일치, 학생용 54개 격리 후보 해시 불일치 0. 운영 폴더·Sheet·Property·Apps Script·Cloudflare Production·학생 기록 쓰기 0건, 롤백 없음. P01–P16은 `../../DAY06_DAY07_IMAGE_PRODUCTION_DEPLOYMENT_REPORT.md`에 NOT_RUN/PRODUCTION_WRITE_TEST_BLOCKED로 기록했다. 기존 학생 기능 TEST PASS는 유지하되 Production PASS로 확대하지 않는다. 아래는 이전 단계 이력이다.
+
 ## 2026-10-29 학생 이미지 최종 인수 후보
 
 **학생 기능 PASS_WITH_LIMITATIONS, 운영 기술 준비 NOT_READY, Production NOT_DEPLOYED.** 최신 브랜치의 IndexedDB 등록·교체·복원 TEST 결과를 보존하고 `DAY06_DAY07_IMAGE_PRODUCTION_HANDOFF.md`에 운영 v15 적용 6개 파일, 필수 Property와 정책 탭, 단계별 중단·복귀를 정리했다. 새 격리 빌드 54개 해시 불일치 0, TEST URL·가상 학생·테스트 스크립트 검출 0, 기존 공개 실명 5개 필드는 개인정보 판단 대기다. 운영 Drive 26개·v15 소스 13개 백업 해시 불일치 0. 운영·Production은 미변경, Day02 404와 외부 매체 복구 미완료를 유지한다. 아래 내용은 과거 시점의 기록이다.
