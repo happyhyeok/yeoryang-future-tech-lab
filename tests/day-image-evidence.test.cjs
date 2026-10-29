@@ -1,0 +1,102 @@
+// Run: node --test tests/day-image-evidence.test.cjs
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const source = fs.readFileSync(path.join(__dirname, "../apps-script/ImageService.gs"), "utf8");
+
+function harness(options = {}) {
+  let nextId = 0, asset = null, record = null, failWrite = false;
+  const policies = new Map();
+  const files = [];
+  const folder = { isTrashed() { return false; }, createFile() {
+    const file = { id: "test_file_" + (++nextId) + "_xxxx", trashed: false, sharing: "private",
+      getId() { return this.id; }, setSharing(value) { this.sharing = value; },
+      getSharingAccess() { return this.sharing; }, setTrashed() { this.trashed = true; } };
+    files.push(file);
+    return file;
+  } };
+  const mock = {
+    FUTURELAB_CONFIG: { PROJECT_ID: "futurelab2026", SHEETS: { DAY_RECORDS: "dayrecords" } },
+    getScriptProperty_: key => ({ ENVIRONMENT: "TEST", IMAGE_STORAGE_FOLDER_ID: "test_folder",
+      PRODUCTION_SPREADSHEET_ID: "production_sheet", PRODUCTION_IMAGE_STORAGE_FOLDER_ID: "production_folder",
+      ...options.properties })[key],
+    getSpreadsheetId_: () => options.spreadsheetId || "test_sheet",
+    getProjectId_: () => "futurelab-image-e2e-test",
+    getRequiredPayload_: x => x, assertId_: x => x,
+    assertApi_: (ok, code) => { if (!ok) throw Error(code); },
+    validateStudent_: id => { if (id !== "stu01") throw Error("wrong student"); },
+    validateWorkForStudent_: (id, work) => { if (work !== "work_stu01") throw Error("wrong work"); },
+    validateResearchDay_: () => ({ date: "2026-10-16" }),
+    findAssetById_: () => ({ rowObject: asset }),
+    DriveApp: { getFolderById: () => folder, getFileById: id => files.find(f => f.id === id),
+      Access: { ANYONE_WITH_LINK: "any", PRIVATE: "private" }, Permission: { VIEW: "view" } },
+    getOrCreateChildFolder_: parent => parent,
+    Utilities: { base64Decode: () => [-119, 80, 78, 71, 13, 10, 26, 10, ...Array(40).fill(0)], newBlob: () => ({}) },
+    formatServerDateTime_: () => "2026-10-25T12:00:00",
+    upsertAsset_: value => ({ asset: asset = { ...value } }),
+    getDayRecordById_: () => ({ dayRecord: record, assets: [] }),
+    writeMediaPolicy_: (id, value) => policies.set(id, { ...(policies.get(id) || {}), ...value }),
+    keepReplacedMedia_: (old, kind, at) => policies.set(old.storageFileId,
+      { ...policies.get(old.storageFileId), replacedAt: at.toISOString(), mediaKind: kind }),
+    deleteAssetIfMatches_: () => { asset = null; },
+    unlinkMediaEvidenceIfOrphan_: () => {},
+    cleanFreeText_: value => value || "", createApiError_: code => Error(code),
+    LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+    findRowByColumn_: () => ({ rowObject: record }), parseJsonCell_: x => JSON.parse(x),
+    upsertById_: (table, key, id, value) => { if (failWrite) throw Error("mock write failed"); record = { ...value }; },
+    SpreadsheetApp: { flush() {} }, makeDayRecordId_: (s, d) => "dayrec_" + s + "_" + d,
+    console: { warn() {} },
+  };
+  const fn = new Function(...Object.keys(mock), source + ";return uploadDayImage_;")(...Object.values(mock));
+  const payload = { studentId: "stu01", workId: "work_stu01", dayId: "day06",
+    assetId: "asset_stu01_day06_image", mimeType: "image/png", base64Data: "iVBORw0KGgo=" };
+  return { fn, payload, snapshot: () => ({ asset, record, files, policies }),
+    failNextWrite: () => { failWrite = true; } };
+}
+
+test("first image writes Asset and references it in DayRecord", () => {
+  const h = harness();
+  const saved = h.fn(h.payload);
+  const { asset, record, files, policies } = h.snapshot();
+  assert.equal(saved.reviewStatus, "PENDING_REVIEW");
+  assert.equal(saved.storageFileId, undefined);
+  assert.equal(files[0].sharing, "private");
+  assert.equal(policies.get(asset.storageFileId).reviewStatus, "PENDING_REVIEW");
+  assert.deepEqual(JSON.parse(record.personalEvidenceRefs), [h.payload.assetId]);
+});
+
+test("replacement updates the same asset ID to a new Drive file", () => {
+  const h = harness();
+  const a = h.fn(h.payload);
+  const b = h.fn(h.payload);
+  assert.equal(a.reviewStatus, "PENDING_REVIEW");
+  assert.equal(b.reviewStatus, "PENDING_REVIEW");
+  assert.notEqual(h.snapshot().files[0].id, h.snapshot().asset.storageFileId);
+  assert.equal(h.snapshot().files[0].trashed, false);
+  assert.equal(h.snapshot().asset.assetId, h.payload.assetId);
+  assert.deepEqual(JSON.parse(h.snapshot().record.personalEvidenceRefs), [h.payload.assetId]);
+});
+
+test("link failure keeps previous representative image", () => {
+  const h = harness();
+  const first = h.fn(h.payload);
+  h.failNextWrite();
+  assert.throws(() => h.fn(h.payload), /mock write failed/);
+  assert.equal(h.snapshot().asset.storageFileId, h.snapshot().files[0].id);
+});
+
+test("day outside Day06/Day07 and other student are rejected", () => {
+  const h = harness();
+  assert.throws(() => h.fn({ ...h.payload, dayId: "day05" }), /DAY_NOT_FOUND/);
+  assert.throws(() => h.fn({ ...h.payload, studentId: "stu02" }), /wrong student/);
+});
+
+test("TEST upload fails closed when Sheet or folder points to production", () => {
+  const sameSheet = harness({ spreadsheetId: "production_sheet" });
+  assert.throws(() => sameSheet.fn(sameSheet.payload), /TEST_STORAGE_NOT_ISOLATED/);
+  assert.equal(sameSheet.snapshot().files.length, 0);
+  const sameFolder = harness({ properties: { IMAGE_STORAGE_FOLDER_ID: "production_folder" } });
+  assert.throws(() => sameFolder.fn(sameFolder.payload), /TEST_STORAGE_NOT_ISOLATED/);
+  assert.equal(sameFolder.snapshot().files.length, 0);
+});

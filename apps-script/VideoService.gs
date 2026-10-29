@@ -1,12 +1,17 @@
 function uploadVideo_(payload) {
+  if (payload && payload.payload && payload.payload.mediaKind === "image") return uploadDayImage_(payload);
+  if (payload && payload.mediaKind === "image") return uploadDayImage_(payload);
   const video = normalizeVideoUploadPayload_(payload);
+  const dayRow = validateResearchDay_(video.dayId);
   const bytes = decodeVideoBytes_(video.base64Data);
   ensureAssetHeaders_();
   const folder = getVideoDayFolder_(video.studentId, video.dayId);
   const previousFileId = getExistingVideoStorageFileId_(video);
+  const previousAsset = findAssetById_(video.assetId).rowObject;
   const videoLabels = getVideoDayLabels_(video.dayId);
   const now = formatServerDateTime_(new Date());
   let newFile = null;
+  let assetUpdated = false;
 
   try {
     const blob = Utilities.newBlob(bytes, video.mimeType, video.fileName);
@@ -31,11 +36,22 @@ function uploadVideo_(payload) {
       mimeType: video.mimeType,
       capturedAt: video.capturedAt || now,
     };
+    writeMediaPolicy_(storageFileId, { mediaKind: "video", assetId: video.assetId,
+      studentId: video.studentId, dayId: video.dayId, reviewStatus: "APPROVED",
+      replacedAt: "", expiresAt: "", cleanupStatus: "CURRENT" });
     const asset = upsertAsset_(assetPayload).asset;
-    let previousFileTrashed = false;
+    assetUpdated = true;
+    const readback = findAssetById_(video.assetId).rowObject;
+    assertApi_(readback && String(readback.storageFileId) === storageFileId,
+      "VIDEO_VERIFY_FAILED", "영상 저장 검증에 실패했습니다.");
+    linkMediaEvidence_(video.studentId, video.workId, video.dayId, video.assetId, dayRow);
+    const dayReadback = getDayRecordById_(video.studentId, video.dayId, true);
+    assertApi_(dayReadback.dayRecord && dayReadback.dayRecord.personalEvidenceRefs.indexOf(video.assetId) >= 0 &&
+      dayReadback.assets.some(function(item) { return item.assetId === video.assetId && item.storageFileId === storageFileId; }),
+      "VIDEO_VERIFY_FAILED", "영상 연구기록 검증에 실패했습니다.");
 
     if (previousFileId && previousFileId !== storageFileId) {
-      previousFileTrashed = trashVideoFile_(previousFileId);
+      keepReplacedMedia_(previousAsset, "video", new Date());
     }
 
     return {
@@ -48,10 +64,23 @@ function uploadVideo_(payload) {
       mimeType: video.mimeType,
       capturedAt: asset.capturedAt || assetPayload.capturedAt,
       asset: asset,
-      previousFileTrashed: previousFileTrashed,
+      previousFileTrashed: false,
     };
   } catch (error) {
-    if (newFile) {
+    let restored = !assetUpdated;
+    if (assetUpdated && previousAsset) {
+      try { upsertAsset_(previousAsset); restored = true; }
+      catch (restoreError) { console.warn("video metadata restoration failed: " + restoreError.message); }
+    }
+    if (assetUpdated && !previousAsset && newFile) {
+      try {
+        deleteAssetIfMatches_(video.assetId, newFile.getId());
+        unlinkMediaEvidenceIfOrphan_(video.studentId, video.dayId, video.assetId);
+        restored = true;
+      }
+      catch (restoreError) { console.warn("video new Asset cleanup failed: " + restoreError.message); }
+    }
+    if (restored && newFile) {
       try {
         newFile.setTrashed(true);
       } catch (trashError) {
@@ -236,11 +265,29 @@ function makeDrivePreviewUrl_(fileId) {
 
 function makeVideoFileName_(studentId, dayId, mimeType) {
   const extension = mimeType === "video/mp4" ? "mp4" : "webm";
-  return FUTURELAB_CONFIG.PROJECT_ID + "_" + studentId + "_" + dayId + "_video." + extension;
+  return getProjectId_() + "_" + studentId + "_" + dayId + "_video." + extension;
+}
+
+function getVideoRootFolderId_() {
+  const environment = getScriptProperty_("ENVIRONMENT").trim().toUpperCase();
+  const configuredId = getScriptProperty_("VIDEO_STORAGE_FOLDER_ID").trim();
+  const productionId = FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_ID;
+  if (environment === "TEST") {
+    const productionSheetId = getScriptProperty_("PRODUCTION_SPREADSHEET_ID").trim();
+    const productionFolderId = getScriptProperty_("PRODUCTION_VIDEO_STORAGE_FOLDER_ID").trim();
+    assertApi_(configuredId && productionSheetId && productionFolderId &&
+      getSpreadsheetId_() !== productionSheetId &&
+      configuredId !== productionId && configuredId !== productionFolderId,
+      "TEST_STORAGE_NOT_ISOLATED", "테스트 영상 저장소가 운영 저장소와 분리되지 않았습니다.");
+    return configuredId;
+  }
+  assertApi_(!environment || environment === "PRODUCTION",
+    "VIDEO_STORAGE_NOT_CONFIGURED", "영상 저장 환경이 올바르지 않습니다.");
+  return configuredId || productionId;
 }
 
 function getVideoRootFolder_() {
-  const folder = DriveApp.getFolderById(FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_ID);
+  const folder = DriveApp.getFolderById(getVideoRootFolderId_());
 
   assertApi_(
     folder.getName() === FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_NAME,
@@ -290,22 +337,12 @@ function getExistingVideoStorageFileId_(video) {
   return previousFileId;
 }
 
-function trashVideoFile_(fileId) {
-  try {
-    DriveApp.getFileById(fileId).setTrashed(true);
-    return true;
-  } catch (error) {
-    console.warn("previous video trash failed: " + error.message);
-    return false;
-  }
-}
-
 function verifyVideoStorage() {
   ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
 
   const report = {
     ok: false,
-    rootFolderId: FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_ID,
+    rootFolderId: getVideoRootFolderId_(),
     expectedFolderName: FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_NAME,
     actualFolderName: "",
     nameMatches: false,
@@ -321,7 +358,7 @@ function verifyVideoStorage() {
   let probe = null;
 
   try {
-    const root = DriveApp.getFolderById(FUTURELAB_CONFIG.VIDEO_STORAGE.ROOT_FOLDER_ID);
+    const root = getVideoRootFolder_();
     report.actualFolderName = root.getName();
     report.nameMatches = report.actualFolderName === report.expectedFolderName;
     assertApi_(

@@ -1,0 +1,9 @@
+preflight: PASS synthetic students only
+S01/S04/S05/S07: PASS server readback
+S02/S08: PASS replacement and readback
+S03/S09: PASS Day07 separate and readback
+S10: PASS rejected over 3 MB
+S11: PASS disguised format rejected
+S12: PASS synthetic A/B records separate
+S13: PASS image reference retained by autosave
+Live API portion complete; verify physical Sheet rows and Drive files separately.

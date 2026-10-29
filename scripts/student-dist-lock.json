@@ -1,12 +1,12 @@
 {
-  "candidateId": "day07-final-integrated-2026-10-23",
+  "candidateId": "day06-day07-image-evidence-review-2026-10-25",
   "baseManifestSha256": "03bcdd645e48f9a3dd5c70b0993612e6df7ebc61e580732f1abb1aceb9439dc5",
-  "fileCount": 53,
+  "fileCount": 54,
   "files": [
     {
       "path": "app.js",
-      "bytes": 612250,
-      "sha256": "c24bf611d0a3e5522bea2685e8ef399ca099009c34786e50851bfab4c6dfb737"
+      "bytes": 612600,
+      "sha256": "f3291110ced6c6204c28968217ac4d4257878728d529968e22221013c75ba1b2"
     },
     {
       "path": "assets/day01/coding-send-test-fix.png",
@@ -244,14 +244,19 @@
       "sha256": "c23110ce87294c10883e71a75bc62636e4384a4e05751de41943709692a6a090"
     },
     {
+      "path": "day-image-evidence.js",
+      "bytes": 15371,
+      "sha256": "ad5e7aa0c4d9dd088cd310cad877b2eb19deae12ea56cbee1223dce9b28e15da"
+    },
+    {
       "path": "day07.js",
       "bytes": 24500,
       "sha256": "acde8df485f198b7a198bba7820aba5236fab49835a7d10ddbcec9f935d8fba1"
     },
     {
       "path": "index.html",
-      "bytes": 2019,
-      "sha256": "6428a22f08ab0e08096bd7fb2f10d6bdb0f38e8ee5ddc6b068c1f32745040297"
+      "bytes": 2128,
+      "sha256": "b52dcb9d7d48fc939b5dc67a33cb512c529f42de935f831ce3ab4de83420d735"
     },
     {
       "path": "research-days.js",
@@ -265,8 +270,8 @@
     },
     {
       "path": "styles.css",
-      "bytes": 65669,
-      "sha256": "11b786c4951174162c0adbc3feefeed44d9f1e4d65828f3d1c632a31bf2b8508"
+      "bytes": 66086,
+      "sha256": "01f3d88202360358a2674c262c716df836fa2d0c6607aa535a2b0f25137c7d2c"
     }
   ]
 }

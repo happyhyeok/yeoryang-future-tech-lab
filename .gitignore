@@ -1,6 +1,7 @@
 .clasp.json
 node_modules/
 dist/
+image-test-preview/
 .env
 .env.*
 *.log

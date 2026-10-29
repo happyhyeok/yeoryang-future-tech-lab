@@ -1,0 +1,17 @@
+2026-10-27 TEST-only media policy verification (no production writes)
+TEST v6: six policy source files match local candidate; TEST Preview 54 files and three fetched SHA-256 matched.
+A01/A03/A10/A11 PASS: TEST A Day06 and Day07 uploads private/pending; public API hides file ID and rejects approval action.
+A02 PASS: Drive permission list for pending TEST A Day06 owner only; previous retained file owner only.
+A04/A05 PASS (v6): authenticated TEST editor approval of A Day06; policy APPROVED, Drive anyone:reader, Chromium preview/refresh.
+F01-F04 PASS: TEST A Day02 real WebM first save and replacement; old/new Drive files not trashed; invalid MIME leaves representative.
+F05/F07 PASS: retained image and video policy rows; expiresAt minus replacedAt exactly 30 days.
+TEST v7: six policy sources re-pulled and match local; TEST B Day07 upload private/pending, owner-only Drive permissions; video Asset rollback via public API rejected; approved A Day06 browser reload PASS.
+Day06/Day07 lesson panels and Day02 video iframe visible; Day06/Day07 server records unchanged by read-only browser navigation.
+Local Node/Playwright unit tests: 13/13 PASS including dry-run boundaries and post-Asset video failure restoration.
+A08/A09/F13 administrator TEST editor outcomes pending. Production Apps Script, Sheet, Drive, Pages not changed.
+A08/A09 PASS: authenticated TEST editor rejection A Day07 and revocation A Day06; policy rows REJECTED/REVOKED, Drive owner-only, Chromium refresh no preview. Anonymous thumbnail fetch returned HTML rather than image.
+A06/A07 PASS: TEST A Day06 replaced after revocation; new file PENDING_REVIEW/owner-only, old revoked file RETAINED/not trashed, 30-day expiry, no approval inheritance.
+F13: user reports TEST editor mediaPolicyTestDryRun execution completed; actual summary output requested. After execution, TEST policy sheet has 10 synthetic rows (4 CURRENT, 6 RETAINED, 0 expired). Five sampled Drive files remain not trashed with prior permissions.
+F13 PASS: authenticated TEST editor standard mediaPolicyTestDryRun completed. Screenshot log: mode=DRY_RUN total=10 current=4 expired=0 candidates=0. Post-run Sheet had 10 synthetic rows (4 CURRENT, 6 RETAINED), and sampled Drive images/videos remained untrashed with unchanged permissions. Screenshot was provided in chat and is not copied into public Git because its address bar contains the TEST project ID.
+F09 before 31-day TEST run: local boundary test PASS; actual expired-candidate simulation pending at that checkpoint.
+F09/F13 PASS: authenticated TEST editor mediaPolicyTestExpiredDryRun user-reported log: mode=DRY_RUN expiredCandidateFound=true total=10 candidates=1. Connected TEST Sheet readback: all 10 policy rows and temporary dates restored; current=4 retained=6. Connected Drive readback: retained target and current representative metadata/owner-only permissions unchanged, trashed=false. No delete or trash action.

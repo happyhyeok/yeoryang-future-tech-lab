@@ -1,0 +1,3 @@
+S13: PASS concurrent image upload and DayRecord save retained both fields
+Repeated same-image upload: PASS one representative Asset/reference, record field retained
+Two simultaneous image clients: PASS one representative, record field retained

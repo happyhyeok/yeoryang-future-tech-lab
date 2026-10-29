@@ -1,0 +1,17 @@
+✔ first image writes Asset and references it in DayRecord (3.2755ms)
+✔ replacement updates the same asset ID to a new Drive file (1.3042ms)
+✔ link failure keeps previous representative image (1.6014ms)
+✔ day outside Day06/Day07 and other student are rejected (0.318ms)
+✔ TEST upload fails closed when Sheet or folder points to production (0.4449ms)
+✔ failed initial lookup shows retry and cannot open upload picker (1284.0806ms)
+✔ failed thumbnail hides broken image and reports display error (601.576ms)
+✔ post-upload record verification uses a fresh GET URL (625.644ms)
+✔ lost upload response re-reads server state and shows saved image (646.4754ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3661.3882

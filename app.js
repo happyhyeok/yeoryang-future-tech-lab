@@ -14841,6 +14841,16 @@
   }
 
   function initializePageListeners() {
+    window.DayImageEvidence?.install({
+      root: elements.standardDay,
+      getContext: () => {
+        const student = getCurrentStudent();
+        return student && activeDay ? {
+          studentId: student.studentId, workId: student.workId, dayId: activeDay.dayId
+        } : null;
+      },
+      request: callAppsScriptApi,
+    });
     elements.identityGate.addEventListener("click", handleIdentityGateClick);
     elements.changeStudent.addEventListener("click", handleChangeStudent);
     elements.saveStates.forEach((saveState) => {

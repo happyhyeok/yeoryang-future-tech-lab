@@ -1,0 +1,19 @@
+2026-10-29 TEST-only Day06/Day07 student image display check
+Environment: isolated local student preview + independent TEST Apps Script, TEST Sheet and TEST Drive; synthetic PNG and test_student_a/b only.
+Chromium 390x844: TEST A Day06 first upload PASS; local image visible; button changed to 변경하기.
+Chromium 390x844: TEST A Day06 replacement PASS; local image changed; previous view not reused.
+Chromium 390x844: TEST A Day07 upload PASS; local image visible.
+Chromium 390x844: refresh and fresh page hide PENDING_REVIEW private images, as required by current privacy policy.
+Chromium 390x844: TEST B screen did not show TEST A local image.
+TEST Sheet readback: A Day06/Day07 Asset current file IDs and DayRecord personalEvidenceRefs match; both policy rows PENDING_REVIEW.
+TEST Drive metadata: both current PNG files owner-only, shared=false.
+Local Node/Playwright tests: 12 PASS, 0 FAIL.
+Isolated public build: 54 files, SHA-256 mismatch 0, existing dist preserved.
+Production changes: NONE. Manager approval/public sharing: NOT_RUN.
+2026-10-29 IndexedDB follow-up (TEST only): Chromium Day06 first/replace/reload/revisit PASS, Day07/reload PASS.
+Same-origin IndexedDB keys before delete: test_student_a:day06 and test_student_a:day07; after Day06 delete: test_student_a:day07 only.
+Failed TEST upload kept prior Day06 image in UI and after refresh. A/B local image separation PASS.
+390x844, 650x900, 1440x900 horizontal overflow 0.
+Final TEST Sheet: A Day06/Day07 Asset current files and DayRecord refs match; B Asset and personalEvidenceRefs unchanged.
+Final TEST Drive: both current PNG copies owner-only, no anyone sharing.
+Local Node/Playwright 10 PASS; isolated 54-file build hash mismatch 0. Production writes NONE.

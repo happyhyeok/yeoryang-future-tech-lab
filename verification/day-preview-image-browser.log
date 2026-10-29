@@ -1,0 +1,3 @@
+390x844: PASS upload, refresh, A/B and Day separation, image load, overflow
+650x900: PASS upload, refresh, A/B and Day separation, image load, overflow
+1440x900: PASS upload, refresh, A/B and Day separation, image load, overflow

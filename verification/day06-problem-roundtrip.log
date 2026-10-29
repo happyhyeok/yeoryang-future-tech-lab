@@ -1,0 +1,9 @@
+R00: PASS TEST A/B Day05/06 backup saved outside Git
+R01: PASS original TEST Day05 problem displayed in Day06
+R02: PASS edit link opens existing TEST Day05 problem
+R03-R05: PASS Day05 edit saved; Day06 round trip and refresh restored
+R06: PASS cancel retains last saved Day05 problem
+R07-R10: PASS replacement, refresh, archived Day06 idea and image ref retained
+R11: PASS failed save kept prior server problem, retry succeeded
+R12: PASS TEST B Day06 unchanged
+R13: PASS TEST A Day05/06 original contents restored after audit
