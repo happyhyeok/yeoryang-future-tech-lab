@@ -40,6 +40,24 @@ test('saved Day08 plan wins, including an explicitly cleared field', () => {
     assert.equal(s.day08.device, day08.device || '');
   }
 });
+test('stu01 partial saved Day08 person imports remaining Day07 plan without overwriting person', () => {
+  const s = state('fixture01', {
+    serverUpdatedAt: '2026-10-30',
+    day08: { person: 'Day08 직접 수정', editedFields: { person: true, practiceRing: true }, practiceRing: false },
+  });
+  assert.equal(seed(s, record('fixture01', { person: 'Day07 대상', problem: '배드민턴 콕이 안 보임', device: '불빛 장치', input: '주변의 밝기' })), true);
+  assert.equal(s.day08.person, 'Day08 직접 수정');
+  assert.equal(s.day08.problem, '배드민턴 콕이 안 보임');
+  assert.equal(s.day08.device, '불빛 장치');
+  assert.equal(s.day08.input, '주변의 밝기');
+  assert.equal(s.day08.practiceRing, false);
+});
+test('explicitly cleared Day08 field remains empty while other missing fields import', () => {
+  const s = state('fixture01', { serverUpdatedAt: '2026-10-30', day08: { editedFields: { device: true } } });
+  assert.equal(seed(s, record('fixture01', { device: 'Day07 장치', problem: 'Day07 문제' })), true);
+  assert.equal(s.day08.device, '');
+  assert.equal(s.day08.problem, 'Day07 문제');
+});
 test('five student/work contexts stay isolated and Day07 stays immutable', () => {
   for (let n = 1; n <= 5; n++) {
     const id = 'fixture0' + n;
