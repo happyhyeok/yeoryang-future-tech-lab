@@ -31,11 +31,16 @@
   }
   function seed(state, record, preserveSaved = Boolean(state.serverUpdatedAt)) {
     const d = normalize(state);
-    if (d.sourceInitialized || preserveSaved || !record) return false;
+    // Saving a quiz/practice before the previous record arrives does not mean
+    // a Day08 plan exists. Preserve actual plans, including deliberate blanks.
+    const hasSavedPlan = planFields.some(([key]) => d[key] || d.editedFields?.[key]);
+    if (((d.sourceInitialized || preserveSaved) && hasSavedPlan) || !record) return false;
+    if (record.studentId !== state.studentId || record.workId !== state.workId || record.dayId !== "day07") return false;
     let previous;
     try { previous = typeof record.dayStateJson === "string" ? JSON.parse(record.dayStateJson) : record.dayStateJson || record.dayState; } catch { return false; }
     if (!previous || previous.studentId !== state.studentId || previous.workId !== state.workId || previous.dayId !== "day07") return false;
     const plan = previous.day07 || {};
+    if (!planFields.some(([key]) => typeof plan[key] === "string" && plan[key].trim())) return false;
     planFields.forEach(([key]) => { if (!d[key] && !d.editedFields?.[key] && typeof plan[key] === "string") d[key] = plan[key]; });
     d.sourceInitialized = true;
     d.sourceUpdatedAt = record.updatedAt || "";
