@@ -30,7 +30,7 @@
   function previous(record, status, day05) {
     if (!record) return { problem: day05?.problemDefinition || day05?.todayDecision || (status === "loading" ? "지난 연구 기록을 불러오는 중입니다." : "Day06 기록을 확인할 수 없습니다. 지난 연구의 저장 상태를 확인해 주세요."), idea: "기록을 확인할 수 없습니다.", reason: "기록을 확인할 수 없습니다." };
     let prior = {};
-    try { prior = typeof record.dayStateJson === "string" ? JSON.parse(record.dayStateJson) : record.dayState || {}; } catch (_) { /* the record fields still remain readable */ }
+    try { prior = typeof record.dayStateJson === "string" ? JSON.parse(record.dayStateJson) : record.dayStateJson || record.dayState || {}; } catch (_) { /* the record fields still remain readable */ }
     return { problem: record.problemDefinition || prior.problemDefinition || prior.day06ProblemSnapshot || day05?.problemDefinition || day05?.todayDecision || "지난 연구의 문제 기록을 확인할 수 없습니다.", idea: prior.day06SelectedIdeaText || record.todayDecision || "Day06 선택안 기록이 없습니다.", reason: prior.day06SelectionReason || record.changeReason || "Day06 선택 이유 기록이 없습니다." };
   }
   function sensorCard(sensor, esc) {
