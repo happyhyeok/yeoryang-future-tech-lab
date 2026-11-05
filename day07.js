@@ -85,7 +85,7 @@
         link.textContent = "다음 연구 준비 상태 확인하기 →";
         next.appendChild(link);
       } else {
-        next.textContent = "Day08은 오늘의 계획과 퀴즈를 마치고 최신 기록이 서버에 저장된 뒤 열립니다.";
+        next.textContent = "계획과 퀴즈를 마친 뒤 저장이 확인되면 이곳에 다음 연구 버튼이 나타나요. 연구지도에서도 Day08을 열 수 있어요.";
       }
     }
     lesson.quiz.questions.forEach(q => {

@@ -275,8 +275,8 @@
     },
     {
       "path": "day07.js",
-      "bytes": 24500,
-      "sha256": "acde8df485f198b7a198bba7820aba5236fab49835a7d10ddbcec9f935d8fba1"
+      "bytes": 24548,
+      "sha256": "d38e3bd6ff36be09ff281051b4bf2eb76dd2e431e29c1b031fe1d361b232e3f3"
     },
     {
       "path": "day08.js",
