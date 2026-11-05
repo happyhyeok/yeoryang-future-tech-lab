@@ -275,13 +275,13 @@
     },
     {
       "path": "day07.js",
-      "bytes": 24500,
-      "sha256": "acde8df485f198b7a198bba7820aba5236fab49835a7d10ddbcec9f935d8fba1"
+      "bytes": 24571,
+      "sha256": "00925eef4bcd28dfa235972fec826b02768e6f8c1a755ddb3c1c13627cb308f4"
     },
     {
       "path": "day08.js",
-      "bytes": 15445,
-      "sha256": "97cb24e1257c89a80041a8a6d4d581ab64cb2a13d7d69260ddc99bba8eee0c4e"
+      "bytes": 16130,
+      "sha256": "80bb9d505ff1d978de8c1ac74d95f237118a1329647fb43981fc06a54a82ddeb"
     },
     {
       "path": "index.html",
